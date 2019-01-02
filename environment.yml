@@ -1,0 +1,5 @@
+name: asset_growth
+channels:
+  - defaults
+prefix: /anaconda/envs/asset_growth
+
