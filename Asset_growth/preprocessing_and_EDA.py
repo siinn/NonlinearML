@@ -34,20 +34,20 @@ output_path = '/mnt/mainblob/asset_growth/data/Data_for_AssetGrowth_Context_r3.c
 debug = True
 
 # select algorithm to run    
-perform_eda             = False
+perform_eda             = True
 run_preprocessing       = True
-impute_test             = False
-impute_data             = True
-create_label            = True
 check_processed_data    = True
+save_results            = True
 
 # set imputation method. available options: month, securityId_ff, securityId_average
 impute_method           =  "month"
 
+# set available labels
+labels = ["fmTotalReturn", "fqTotalReturn"]
+
 # set winsorization alpha
 winsorize_alpha_lower = 0.05
 winsorize_alpha_upper = 0.95    
-
 
 # set plot style
 import matplotlib as mpl
@@ -139,6 +139,60 @@ def standardize_df(df, features):
         return df
     return df.groupby("eom").apply(udf)
 
+def remove_missing_targets(df, targets):
+    '''the observations are removed if target variables are missing.
+    The fraction of missing returns are printed.'''
+    # check null values
+    null_fraction = count_null(df, targets)
+    for i, key in enumerate(null_fraction):
+        print("Removing the observations with missing %s (%.4f)" % (targets[i], null_fraction[key]))
+    # remove null
+    return df.dropna(subset=targets)  
+
+def impute_data(df, method, features):
+    ''' Impute missing data using the given imputation method. 
+    Args:
+        df: dataframe
+        method: available options: month, securityId_ff, securityId_average
+        features: features to impute.
+    Return:
+        imputed dataframe
+    '''
+    if impute_method == "month":
+        df = impute_by_month(df)
+    elif impute_method == "securityId_ff":
+        df = impute_by_securityID(df, features)
+    elif impute_method == "securityId_average":
+        df = impute_by_securityID_forward(df, features)
+    else:
+        print("Impute method is not valid.")
+    return df
+
+def create_classification_label(df, label):
+    '''
+    Assign classification label created by quintile within each month.
+    Args:
+      df: spark dataframe
+      label: target label. ex. "fmTotalReturn"
+    '''  
+    # define schema with additional column 
+    schema = StructType(df.schema.fields +
+                        [StructField(label+"_quintile", IntegerType(), True),
+                         StructField(label+"_decile", IntegerType(), True)]) 
+    @pandas_udf(schema, PandasUDFType.GROUPED_MAP)
+    def udf(pdf):
+        # assign quintile label
+        pdf[label+"_quintile"] = pd.qcut(x=pdf[label], q=5,
+                                         labels=["4", "3", "2", "1", "0"])
+        # assign decile label
+        pdf[label+"_decile"] = pd.qcut(x=pdf[label], q=10,
+                               labels=["9", "8", "7", "6", "5", "4", "3", "2", "1", "0"])
+        # convert category type to string
+        pdf[label+"_quintile"] = pdf[label+"_quintile"].astype(int)
+        pdf[label+"_decile"] = pdf[label+"_decile"].astype(int)
+        return pdf
+    return df.groupby('eom').apply(udf)
+
 #----------------------------------------------
 # define imputation methods
 #----------------------------------------------
@@ -148,7 +202,7 @@ def impute_by_month(df):
     return df.fillna(0, subset=features)
 
 
-def impute_by_securityID(df):
+def impute_by_securityID(df, features):
     '''Impute missing data with the mean Z score within the same security ID'''    
     @pandas_udf(df.schema, functionType=PandasUDFType.GROUPED_MAP)
     def udf(df):
@@ -160,7 +214,7 @@ def impute_by_securityID(df):
         return df
     return df_standardized.groupby("SecurityID").apply(udf)
 
-def impute_by_securityID_forward(df):
+def impute_by_securityID_forward(df, features):
     '''Impute missing data with the previous Z score of the same security ID'''    
     @pandas_udf(df.schema, functionType=PandasUDFType.GROUPED_MAP)
     def udf(df):
@@ -322,67 +376,60 @@ def plot_correlation_matrix(df, columns, figsize=(5,5)):
     return
 
 def plot_preprocessing_result(df_list, df_labels, columns, n_rows=6, n_columns=5, n_bins=25, figsize=(12,12)):
-	'''
-	Examine the preprocessing results. This function plots the distribution of given columns at each stage of preprocessing. 
-	Args:
-		df_list: list of three dataframes representing each step of preprocessing.
-		df_label: label for each step.
-		columns: columns of interest, typically features.
-		others: plotting options.
-	Return: None
-	'''
-    
+    '''
+    Examine the preprocessing results. This function plots the distribution of given columns at each stage of preprocessing. 
+    Args:
+        df_list: list of three dataframes representing each step of preprocessing.
+        df_label: label for each step.
+        columns: columns of interest, typically features.
+        others: plotting options.
+    Return: None
+    '''
     # create figure and axes
     fig, ax = plt.subplots(n_rows, n_columns, figsize=figsize)
-
-	# cache dataframes
-	for df in df_list:
-		df.cache()
-		df.count()
-    
+    # cache dataframes
+    for df in df_list:
+        df.cache()
+        df.count()
     # loop over each columns
     for i, feature in enumerate(columns):
-    
         # get row and column index given integer
         row = get_matrix_index(i, n_columns)[0] * 3
         column = get_matrix_index(i, n_columns)[1]
-    
         # get values of each column
         values_raw = np.array(df_list[0].select(feature).collect())
         values_winsorized = np.array(df_list[1].select(feature).collect())
         values_standardized = np.array(df_list[2].select(feature).collect())
-    
         # set x range
         x_range_raw = (values_winsorized.min(), values_winsorized.max())
         x_range_winsorized = x_range_raw
         x_range_standardized = (values_standardized.min(), float(values_standardized.max()))
-    
         # draw histograms
         ax[row][column].hist(values_raw, bins=n_bins, range=x_range_raw, color= 'r', edgecolor='black')
         ax[row+1][column].hist(values_winsorized, bins=n_bins, range=x_range_winsorized, alpha = 0.7, color= 'b', edgecolor='black')
         ax[row+2][column].hist(values_standardized, bins=n_bins, range=x_range_standardized, alpha = 0.7, color= 'g', edgecolor='black')
-    
         # customize axes
         ax[row][column].set_ylabel(df_labels[0])
         ax[row+1][column].set_ylabel(df_labels[1])
         ax[row+2][column].set_ylabel(df_labels[2])
-    
         ax[row][column].set_xlabel(feature)
         ax[row+1][column].set_xlabel(feature)
         ax[row+2][column].set_xlabel(feature)
-    
         ax[row][column].set_xticks(ax[row][column].get_xticks()[::2])
         ax[row+1][column].set_xticks(ax[row+1][column].get_xticks()[::2])    
         ax[row+2][column].set_xticks(ax[row+2][column].get_xticks()[::2])    
-    
     # customize plot
+    ax = ax.flatten()
+    for a in ax:
+        a.grid(False)
     plt.tight_layout()
     plt.savefig('plots/proprocess_result.png')
+    return
 
 if __name__ == "__main__":
 
     #----------------------------------------------
-    # load input data
+    # Load input data
     #----------------------------------------------
     
     # define features to be used
@@ -390,14 +437,12 @@ if __name__ == "__main__":
     
     # create spark session
     spark = SparkSession.builder.appName("spark").getOrCreate()
-    
     # import raw csv into spark dataframe
     df = spark.read.csv(input_path, header=True, inferSchema=True)
 
     # convert eom from int to timestamp
     df = df.withColumn("eom", udf(lambda x: str(x))("eom"))
     df = df.withColumn("eom", to_timestamp(df.eom, 'yyyyMM'))
-
     # create pdf for plotting
     pdf = df.toPandas()
 
@@ -412,7 +457,7 @@ if __name__ == "__main__":
     '''
 
     if perform_eda:
-		print("Creating EDA plots")
+        print("Creating EDA plots")
         # plot distribution of all columns
         plot_dist_features(df, df.columns, n_rows=5, n_columns=3, n_bins=50, figsize=(10,10), log=False)
         plot_dist_features(df, df.columns, n_rows=5, n_columns=3, n_bins=50, figsize=(10,10), log=True)
@@ -430,41 +475,43 @@ if __name__ == "__main__":
     # Run preprocessing
     #----------------------------------------------
     if run_preprocessing:
-		print("Running preprocessing: winsorization and standardization")
+        print("Running preprocessing..")
+        print("-> winsorizing data")
         # apply winsorization. Not applied for AG
         df_winsorized = winsorize_df(df=df, features=[x for x in features if x != "GS"])
+
         # standardize features
+        print("-> applying standardization data")
         df_standardized = standardize_df(df=df_winsorized, features=[x for x in features if x != "GS"])
+
+        # remove the observations that are missing target variables
+        print("-> removing the observations with missing target data")
+        df_preprocessed = remove_missing_targets(df_standardized, targets=["fmTotalReturn", "fqTotalReturn"])
+
+        # fill empty GICSSubIndustryNumber with 99999999, then keep only first 2 digits of GICSSubIndustryNumber
+        print("-> truncating GICS number")
+        df_preprocessed = df_preprocessed.fillna({"GICSSubIndustryNumber":99999999})
+        df_preprocessed = df_preprocessed.withColumn("GICSSubIndustryNumber", udf(lambda x:str(x)[:2])(df_preprocessed.GICSSubIndustryNumber))
+    
+        # impute missing values
+        print("Imputing missing data using the method: %s" %impute_method)
+        df_preprocessed = impute_data(df_preprocessed, impute_method, features)
+
+        # create class labels
+        for label in labels:
+            df_preprocessed = create_classification_label(df_preprocessed, label)
 
     else:
         # skip preprocessing
-        df_standardized = df
+        df_preprocessed = df
 
-    # cache processed data
-    df_standardized.cache()
-    df_standardized.count()
-    
-    #----------------------------------------------
-    # Imputing missing data
-    #----------------------------------------------
-    # impute missing data
-    if impute_data:
-    	print("Imputing missing data using the method: %s" %impute_method)
-        if impute_method == "month":
-            df_preprocessed = impute_by_month(df_standardized)
-        else if impute_method == "securityId_ff":
-            df_preprocessed = impute_by_securityID(df_standardized)
-        else if impute_method == "securityId_average":
-            df_preprocessed = impute_by_securityID_forward(df_standardized)
-        else:
-            print("Impute method is not valid.")
 
     #----------------------------------------------
     # Examining preprocessing results
     #----------------------------------------------
     
     if check_processed_data:
-		print("Examining preprocessing results")
+        print("Examining preprocessing results")
 
         # sample subset of data for a specific month
         month = df.select('eom').collect()[0][0]        
@@ -485,231 +532,17 @@ if __name__ == "__main__":
                                            df_standardized_dropna_month],
                                   df_labels=["Raw", "Winsorized", "Standardized"],
                                   columns=features, n_rows=6, n_columns=5, n_bins=25, figsize=(20,20))
-   
-#    
-#      # display plot
-#      display(fig)
-#    
-#    # COMMAND ----------
-#    
-#    # MAGIC %md ## Delete all the observations where fmTotalReturn or fqTotalReturn are missing
-#    
-#    # COMMAND ----------
-#    
-#    # MAGIC %md Before saving the preprocessed data, the observations are removed if fmTotalReturn or fqTotalReturn is missing. The fraction of missing returns are less than 0.5%.
-#    
-#    # COMMAND ----------
-#    
-#    if run_preprocessing:
-#      
-#      # define target variables
-#      targets = ["fmTotalReturn", "fqTotalReturn"]
-#      
-#      # count total number of rows and null values for each feature
-#      n_total = np.array([df_preprocessed.count() for target in targets])
-#      n_null_raw = np.array([df_preprocessed.where(col(target).isNull()).count() for target in targets])
-#    
-#      # calculate fraction of null values for each feaure
-#      fraction_null_raw = n_null_raw / n_total
-#    
-#      # display fraction
-#      print(pd.DataFrame([fraction_null_raw], columns=targets))
-#    
-#    # COMMAND ----------
-#    
-#    if run_preprocessing:
-#      # drop missing values
-#      df_preprocessed = df_preprocessed.dropna(subset=["fmTotalReturn", "fqTotalReturn"])  
-#    
-#    # COMMAND ----------
-#    
-#    # MAGIC %md ## Keep only first 2 digits of GICSSubIndustryNumber
-#    
-#    # COMMAND ----------
-#    
-#    if run_preprocessing:
-#      
-#      # fill empty GICSSubIndustryNumber with 99999999
-#      df_preprocessed = df_preprocessed.fillna({"GICSSubIndustryNumber":99999999})
-#    
-#      # keep only first two digits
-#      df_preprocessed = df_preprocessed.withColumn("GICSSubIndustryNumber", udf(lambda x:str(x)[:2])(df_preprocessed.GICSSubIndustryNumber))
-#    
-#    # COMMAND ----------
-#    
-#    # MAGIC %md ## Create classification label
-#    
-#    # COMMAND ----------
-#    
-#    # def create_classification_label(df, label):
-#    #   '''
-#    #   Create classification label given continuous label
-#    #     class_binary: 1 if label is greater than 0. zero otherwise.
-#    #     class_quintile: Assign label by quintile (5 classes).
-#    #     class_tertiles: Assign label by tertiles (3 classes).
-#        
-#    #   Args:
-#    #     df: spark dataframe containing label
-#    #   Return:
-#    #     df: spark dataframe with new classification labels
-#    #   '''
-#      
-#    #   # create binary class label
-#    #   df = df.withColumn(label+"_binary", udf(lambda x: 1 if x > 0 else 0, IntegerType())(col(label)))
-#    
-#    #   # create quintile label
-#    #   qd_quintile = QuantileDiscretizer(numBuckets=5, inputCol=label, outputCol=label+"_quintile")
-#    #   df = qd_quintile.fit(df).transform(df)
-#      
-#    #   # create tertiles label
-#    #   qd_tertile = QuantileDiscretizer(numBuckets=3, inputCol=label, outputCol=label+"_tertile")
-#    #   df = qd_tertile.fit(df).transform(df)
-#      
-#    #   return df
-#    
-#    # COMMAND ----------
-#    
-#    def create_classification_label(df, label):
-#      '''
-#      Assign classification label created within each month
-#      Args:
-#        df: spark dataframe
-#        label: target label. ex. "fmTotalReturn"
-#      '''  
-#      # define schema with additional column 
-#      schema = StructType([StructField(label+"_quintile", IntegerType(), True),
-#                           StructField(label+"_decile", IntegerType(), True)]
-#                          + df.schema.fields) 
-#         
-#      @pandas_udf(schema, PandasUDFType.GROUPED_MAP)
-#      def assign_label(pdf):
-#        # assign quintile label
-#        pdf[label+"_quintile"] = pd.qcut(x=pdf[label], q=5,
-#                                         labels=["4", "3", "2", "1", "0"])
-#        # assign decile label
-#        pdf[label+"_decile"] = pd.qcut(x=pdf[label], q=10,
-#                               labels=["9", "8", "7", "6", "5", "4", "3", "2", "1", "0"])
-#        
-#        # convert category type to string
-#        pdf[label+"_quintile"] = pdf[label+"_quintile"].astype(int)
-#        pdf[label+"_decile"] = pdf[label+"_decile"].astype(int)
-#        
-#        return pdf
-#    
-#      return df.groupby('eom').apply(assign_label)
-#    
-#    # COMMAND ----------
-#    
-#    if create_label:
-#      labels = ["fmTotalReturn", "fqTotalReturn"]
-#    
-#      # create class labels
-#      for label in labels:
-#        df_preprocessed = create_classification_label(df_preprocessed, label)
-#    
-#    # COMMAND ----------
-#    
-#    # MAGIC %md ## Feature engineering
-#    
-#    # COMMAND ----------
-#    
-#    def add_second_order_terms(df, variables):
-#      ''' add second order terms to dataframe given numerical features
-#      Args:
-#        df: A dataframe containing numerical features
-#        variables: Names of features
-#      Returns:
-#        df: A dataframe with additioanl features, x2 = x*x 
-#        second_order_term: list of second order terms
-#      '''
-#      # add second order terms
-#      second_order_terms = [var+"2" for var in variables]
-#      for var in variables:
-#        df = df.withColumn(var+"2", col(var) * col(var))    
-#      return df, second_order_terms
-#    
-#    # COMMAND ----------
-#    
-#    def add_interaction_terms(df, variables):
-#      ''' add interaction terms to dataframe given numerical features
-#      Args:
-#        df: A dataframe containing numerical features
-#        variables: Names of features
-#      Returns:
-#        A dataframe with additioanl features, xy = x*y
-#        interaction_terms: list of interaction terms
-#      '''
-#      # add interaction terms
-#      interaction_terms = [(x, y) for i, x in enumerate(variables) 
-#                                  for j, y in enumerate(variables) if j < i]
-#      for interaction in interaction_terms:
-#        var1 = interaction[0]
-#        var2 = interaction[1]
-#        df = df.withColumn(var1+"-"+var2, col(var1) * col(var2))
-#      return df, interaction_terms
-#    
-#    # COMMAND ----------
-#    
-#    def add_quotient_terms(df, variables):
-#    # add quotient terms
-#      def calculate_quotient(cols):
-#        if cols[1] != 0.0:
-#          col = cols[0] / cols[1]
-#        else:
-#          col = None
-#        return col
-#    
-#      # add quotien terms
-#      quotient_terms = [(x, y) for i, x in enumerate(variables) 
-#                                  for j, y in enumerate(variables) if x != y]
-#      
-#      for quotient in quotient_terms:
-#        var1 = quotient[0]
-#        var2 = quotient[1]
-#        quot = var1+"/"+var2
-#        df = df.withColumn(quot, udf(calculate_quotient, DoubleType())(array(var1, var2)))
-#        
-#        # replace Null quotient with max value of the same column
-#        max_quot = df.select(col_max(col(quot)).alias("max")).collect()[0][0]
-#        df = df.withColumn(quot, udf(lambda x: max_quot if x is None else x, DoubleType())(col(quot)))
-#      return df, quotient_terms
-#    
-#    # COMMAND ----------
-#    
-#    if feature_engineering:
-#      # add additional features
-#      df_preprocessed, second_order_terms = add_second_order_terms(df_preprocessed, features)
-#      df_preprocessed, interaction_terms = add_interaction_terms(df_preprocessed, features)
-#      df_preprocessed, quotient_terms = add_quotient_terms(df_preprocessed, features)
-#    
-#    # COMMAND ----------
-#    
-#    # MAGIC %md ## Save preprocessed data
-#    
-#    # COMMAND ----------
-#    
-#    if run_preprocessing:
-#    #if False:  
-#      # save as csv
-#      #df_preprocessed.write.csv('/mnt/mainblob/asset_growth/data/Data_for_AssetGrowth_Context_r2p3.2digit_GICSSubIndustryNumber.csv', header=True, mode="overwrite")
-#      #df_preprocessed.write.csv('/mnt/mainblob/asset_growth/data/Data_for_AssetGrowth_Context_r2p4.ImputeBySecurityID.csv', header=True, mode="overwrite")
-#      df_preprocessed.write.csv('/mnt/mainblob/asset_growth/data/AG_r2p6.classLabelByMonth.csv', header=True, mode="overwrite")
-#    
-#    # COMMAND ----------
-#    
-#    df_preprocessed.printSchema()
-#    
-#    # COMMAND ----------
-#    
-#    display(df_preprocessed)
-#    
-#    # COMMAND ----------
-#    
-#    # check if there is any missing value
-#    n_null={}
-#    for column in df_preprocessed.columns:
-#      n_null[column] = df_preprocessed.filter(col(column).isNull()).count()
-#    
-#    # COMMAND ----------
-#    
-#    n_null
+
+    #----------------------------------------------
+    # save results
+    #----------------------------------------------
+    if save_results:
+      df_preprocessed.write.csv(output_path, header=True, mode="overwrite")
+
+
+    print("Successfully completed all tasks!")
+
+
+
+
+
