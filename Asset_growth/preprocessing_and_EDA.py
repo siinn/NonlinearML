@@ -29,15 +29,15 @@ from pyspark.sql.types import StructField, StructType, IntegerType, DoubleType, 
 
 # set input and output path
 input_path = '/mnt/mainblob/asset_growth/data/Data_for_AssetGrowth_Context.r2.csv'
-output_path = '/mnt/mainblob/asset_growth/data/Data_for_AssetGrowth_Context_r3.csv'
+output_path = '/mnt/mainblob/asset_growth/data/Data_for_AssetGrowth_Context.r3.csv'
 # set True for development
 debug = True
 
 # select algorithm to run    
 perform_eda             = True
-run_preprocessing       = True
-check_processed_data    = True
-save_results            = True
+run_preprocessing       = False
+check_processed_data    = False
+save_results            = False
 
 # set imputation method. available options: month, securityId_ff, securityId_average
 impute_method           =  "month"
@@ -289,7 +289,7 @@ def plot_null(df, columns, figsize=(15,5)):
     p_null = count_null(df, df.columns)
     pdf = pd.DataFrame.from_dict(p_null, orient='index')
     # make bar plot
-    pdf.plot.bar(y=0, ax=ax, legend=False)
+    pdf.plot.bar(y=0, ax=ax, legend=False, color="black", alpha=0.5)
     # annotate numbers
     y_offset = 0.01
     for p in ax.patches:
@@ -435,9 +435,8 @@ if __name__ == "__main__":
     # define features to be used
     features = ['CAP', 'AG', 'ROA', 'EG', 'LTG', 'SG', 'CVROIC', 'GS', 'SEV', 'FCFA']
     
-    # create spark session
+    # create spark session and read data
     spark = SparkSession.builder.appName("spark").getOrCreate()
-    # import raw csv into spark dataframe
     df = spark.read.csv(input_path, header=True, inferSchema=True)
 
     # convert eom from int to timestamp
@@ -459,11 +458,11 @@ if __name__ == "__main__":
     if perform_eda:
         print("Creating EDA plots")
         # plot distribution of all columns
-        plot_dist_features(df, df.columns, n_rows=5, n_columns=3, n_bins=50, figsize=(10,10), log=False)
-        plot_dist_features(df, df.columns, n_rows=5, n_columns=3, n_bins=50, figsize=(10,10), log=True)
+        plot_dist_features(df, df.columns, n_rows=5, n_columns=3, n_bins=50, figsize=(20,20), log=False)
+        plot_dist_features(df, df.columns, n_rows=5, n_columns=3, n_bins=50, figsize=(20,20), log=True)
 
         # plot fraction of null values
-        plot_null(df, df.columns, figsize=(15,5))
+        plot_null(df, df.columns, figsize=(15,10))
 
         # plot fraction of null values as a function of time
         plot_null_vs_time(pdf, time="eom", columns=df.columns, n_rows=4, n_columns=4, figsize=(20,20))
