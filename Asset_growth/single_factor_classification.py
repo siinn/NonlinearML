@@ -29,8 +29,10 @@ var_interest = 'AG'
 features = ['CAP', 'AG', 'ROA', 'EG', 'LTG', 'SG', 'GS', 'SEV', 'CVROIC', 'FCFA']
 categories = ['GICSSubIndustryNumber']    
 total_return = "fqTotalReturn"
+#total_return = "fmTotalReturn"
 label = "fqTotalReturn_quintile"
-label_map = {0:'Q1', 1:'Q2', 2:'Q3', 3:'Q4', 4:'Q5'}
+label_map = {0.0:'Q1', 1.0:'Q2', 2.0:'Q3', 3.0:'Q4', 4.0:'Q5'}
+var_interest_q=var_interest+"_quintile"
 
 
 
@@ -144,42 +146,43 @@ def sort_by_var(df, var_interest, month):
             "label": map between quintile integer and string name. ex. 0 -> AG1, 1 -> AG2, etc.
     '''
     var_interest_q = var_interest+"_quintile"
-    var_label = {x:var_interest+str(x+1) for x in range(0,5)}
+    var_label = {float(x):var_interest+str(x+1) for x in range(0,5)}
     df[var_interest_q] = df.groupby([month])[var_interest]\
                            .transform(lambda x: pd.qcut(x, 5, labels=[4,3,2,1,0]))
     return df, {"quintile":var_interest_q, "label":var_label}
 
-def calculate_cumulative_return(df, single_factor_q, total_return, time="eom"):
-    ''' Calculate cumulative return for each quintile (ex. AG1-AG5)
+def calculate_cumulative_return(df, var_interest_q, total_return, time="eom"):
+    ''' Calculate cumulative return of each quintile (ex. AG1-AG5)
     Args:
         df: Pandas dataframe
-        single_factor_q: quintile with respect to the variable of interest (ex. AG1, AG2, etc..)
+        var_interest_q: quintile with respect to the variable of interest (ex. AG1, AG2, etc..)
         total_return: return column
         time: time column
     Return:
         df_avg: Pandas dataframe representing cumulative return for each unit time
     '''
     # calculate average return of each quintile of the variable of interest (ex.AG)
-    df_avg = df.groupby([time,single_factor_q])[total_return].mean().reset_index()
+    df_avg = df.groupby([time,var_interest_q])[total_return].mean().reset_index()
     # find the starting month of cumulative return
     first_month = sorted(df_avg[time].unique())[0]
     cumulative_begin_month = np.datetime64(first_month, 'M') - 1
     # add zero return as the beginnig of cumulative return
     for i in range(0,5):
-        df_avg = df_avg.append({time:cumulative_begin_month, single_factor_q:float(i), total_return:0.0}, ignore_index=True)
+        df_avg = df_avg.append({time:cumulative_begin_month, var_interest_q:float(i), total_return:0.0}, ignore_index=True)
     # create cumulative return column
     df_avg["cumulative_return"] = 0.0
     # loop over each date
     for date in sorted(df_avg[time].unique())[1:]:
         # data from current and previous month
         prev_month = np.datetime64(date, 'M') - 1
-        df_prev = df_avg.loc[df_avg[time]==prev_month].sort_values(single_factor_q)
-        df_curr = df_avg.loc[df_avg[time]==date].sort_values(single_factor_q)
+        df_prev = df_avg.loc[df_avg[time]==prev_month].sort_values(var_interest_q)
+        df_curr = df_avg.loc[df_avg[time]==date].sort_values(var_interest_q)
         # calculate cumulative return
-        prev_asset = 1 + df_prev.reset_index()["cumulative_return"]
-        curr_return = 1 + df_curr.reset_index()[total_return]
-        df_avg.loc[df_avg[time]==date, "cumulative_return"] = np.array(prev_asset * curr_return - 1).tolist()
+        cumulative_asset = 1 + df_prev.reset_index()["cumulative_return"]
+        curr_return = df_curr.reset_index()[total_return]
+        df_avg.loc[df_avg[time]==date, "cumulative_return"] = np.array((cumulative_asset * (1 + curr_return)) - 1).tolist()
     return df_avg
+
 
 
 #----------------------------------------------
@@ -208,7 +211,7 @@ def plot_learning_curve(df, xcol="h", ycols=["f1_train", "f1_test"], title="", f
     plt.savefig('plots/learning_curve_%s.png' % title)
     return
 
-def plot_groupby_dist(df, x, group_var, hue, hue_str, norm=False, n_bins=50, figsize=(8,8), filename=""):
+def plot_groupby_dist(df, x, group_var, hue, hue_str, norm=False, n_subplot_columns=1, n_bins=50, figsize=(8,8), filename=""):
     ''' plot distribution of given variable for each group. Seperate plot will be generated for each group. 
     Args:
         df: Pandas dataframe
@@ -222,7 +225,8 @@ def plot_groupby_dist(df, x, group_var, hue, hue_str, norm=False, n_bins=50, fig
     '''
     n_groups = df[group_var].nunique()
     # create figure and axes
-    fig, ax = plt.subplots(n_groups, 1, figsize=figsize)
+    n_subplot_rows = round(n_groups / n_subplot_columns)
+    fig, ax = plt.subplots(n_subplot_rows, n_subplot_colums, figsize=figsize, squeeze=False)
     ax = ax.flatten()
     for i, group_name in enumerate(sorted(df[group_var].unique())):
         # filter group
@@ -239,8 +243,34 @@ def plot_groupby_dist(df, x, group_var, hue, hue_str, norm=False, n_bins=50, fig
         ax[i].grid(False)
         ax[i].legend()
     # customize and save plot
+    ax = ax.reshape(n_subplot_rows, n_subplot_columns)
     plt.tight_layout()
     plt.savefig('plots/dist_%s.png' % filename)
+    plt.cla()
+
+def plot_groupby_line(df, x, y, groupby, group_label, x_label="", y_label="", figsize=(20,6), filename=""):
+    ''' create line plot for different group
+    Args:
+        df: Pandas dataframe
+        x: name of column used for x
+        list_y: list of column names to plot
+        groupby: column representing different groups
+        group_label: dictionary that maps gruop value to title. ex. {0:"AG1", 1:"AG2", etc.}
+        others: plotting options
+    Return:
+        None
+    '''
+    # create figure and axes
+    fig, ax = plt.subplots(1, 1, figsize=figsize, squeeze=False)
+    ax=ax.flatten()
+    for name, df_group in df.groupby(groupby):
+        df_group.set_index(x)[y].plot(kind='line', legend=True, label=group_label[name], linewidth=2.0)
+    # customize and save plot
+    ax[0].set_ylabel(y_label)
+    ax[0].set_xlabel(x_label)
+    #ax[0].grid(False)
+    plt.tight_layout()
+    plt.savefig('plots/line_%s.png' % filename)
     plt.cla()
 
 if False:
@@ -258,6 +288,8 @@ if False:
     # evaluate model
     f1_train, f1_test = evaluate_model(model, df_train, df_test, param_grid={}, n_folds=5)
 
+    # one-hot-encode categorical feature
+    #df = pd.get_dummies(df, columns=categories, drop_first=False)
 
 
 if __name__ == "__main__":
@@ -268,9 +300,9 @@ if __name__ == "__main__":
     # read input csv
     df = pd.read_csv(input_path, index_col=None, parse_dates=["eom"])
 
-    # one-hot-encode categorical feature
-    #df = pd.get_dummies(df, columns=categories, drop_first=False)
-
+    #------------------------------------------
+    # single factor portfolio by simple sort
+    #------------------------------------------
     # sort samples by the variable of interest (AG) within each month and assign quintile
     df, var_int =  sort_by_var(df, var_interest=var_interest, month='eom')
 
@@ -279,15 +311,38 @@ if __name__ == "__main__":
     for i, norm in enumerate([True, False]):
         plot_groupby_dist(df=df, x=total_return,\
                                  group_var=categories[0],\
-                                 hue=var_int["quintile"], hue_str=var_int["label"], norm=norm,\
-                                 n_bins=50, figsize=(8,40), filename="return_sort_by_AG_%s" %i)
-
+                                 hue=var_int["quintile"], hue_str=var_int["label"], norm=norm, n_subplot_columns=4,\
+                                 n_bins=50, figsize=(20,16), filename="return_sort_by_AG_%s_%s" %(total_return, i))
 
     # calculate cumulative return
-    calculate_cumulative_return(df=df, single_factor_q=var_interest+"_quintile", total_return=total_return)
+    df_cum_return = calculate_cumulative_return(df=df, var_interest_q=var_interest_q, total_return=total_return)
 
     # plot cumulative return
-    ''' Add cumulative return plot here. Work in progress '''
+    plot_groupby_line(df=df_cum_return,
+                      x="eom", y="cumulative_return",
+                      groupby=var_interest_q, group_label = var_int["label"],
+                      x_label="Time", y_label="Cumulative return", figsize=(15,6), filename = "cum_return_sort_%s" % total_return)
+
+
+    #df.groupby(var_interest_q)[total_return].mean()
+    #df.groupby(var_interest_q)[var_interest].mean()
+    #df.groupby(var_interest_q)[var_interest_q].mean()
+
+    #------------------------------------------
+    # single factor portfolio by classification
+    #------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
 
 
     print("Successfully completed all tasks")
