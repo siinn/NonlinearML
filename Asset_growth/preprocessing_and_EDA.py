@@ -34,7 +34,7 @@ output_path = '/mnt/mainblob/asset_growth/data/Data_for_AssetGrowth_Context.r3.c
 debug = True
 
 # select algorithm to run    
-perform_eda             = True
+perform_eda             = False
 run_preprocessing       = False
 check_processed_data    = False
 save_results            = False
