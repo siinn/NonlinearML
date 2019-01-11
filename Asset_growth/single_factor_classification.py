@@ -170,6 +170,7 @@ def calculate_cumulative_return(df, var_interest_q, total_return, time="eom"):
     for i in range(0,5):
         df_avg = df_avg.append({time:cumulative_begin_month, var_interest_q:float(i), total_return:0.0}, ignore_index=True)
     # create cumulative return column
+    df_avg["cumulative_asset"] = 1.0
     df_avg["cumulative_return"] = 0.0
     # loop over each date
     for date in sorted(df_avg[time].unique())[1:]:
@@ -177,9 +178,13 @@ def calculate_cumulative_return(df, var_interest_q, total_return, time="eom"):
         prev_month = np.datetime64(date, 'M') - 1
         df_prev = df_avg.loc[df_avg[time]==prev_month].sort_values(var_interest_q)
         df_curr = df_avg.loc[df_avg[time]==date].sort_values(var_interest_q)
+        # calculate current return and previous asset
+        curr_return = df_curr.reset_index()[total_return]
+        prev_asset = df_prev.reset_index()["cumulative_asset"]
+        # calculate cumulative asset
+        df_avg.loc[df_avg[time]==date, "cumulative_asset"] = np.array(curr_return * prev_asset + prev_asset).tolist()
         # calculate cumulative return
         cumulative_asset = 1 + df_prev.reset_index()["cumulative_return"]
-        curr_return = df_curr.reset_index()[total_return]
         df_avg.loc[df_avg[time]==date, "cumulative_return"] = np.array((cumulative_asset * (1 + curr_return)) - 1).tolist()
     return df_avg
 
@@ -211,7 +216,7 @@ def plot_learning_curve(df, xcol="h", ycols=["f1_train", "f1_test"], title="", f
     plt.savefig('plots/learning_curve_%s.png' % title)
     return
 
-def plot_groupby_dist(df, x, group_var, hue, hue_str, norm=False, n_subplot_columns=1, n_bins=50, figsize=(8,8), filename=""):
+def plot_groupby_hue_dist(df, x, group_var, hue, hue_str, norm=False, n_subplot_columns=1, n_bins=50, figsize=(8,8), filename=""):
     ''' plot distribution of given variable for each group. Seperate plot will be generated for each group. 
     Args:
         df: Pandas dataframe
@@ -244,6 +249,35 @@ def plot_groupby_dist(df, x, group_var, hue, hue_str, norm=False, n_subplot_colu
         ax[i].legend()
     # customize and save plot
     ax = ax.reshape(n_subplot_rows, n_subplot_columns)
+    plt.tight_layout()
+    plt.savefig('plots/dist_%s.png' % filename)
+    plt.cla()
+
+def plot_hue_dist(df, x, hue, hue_str, norm=False, n_bins=50, figsize=(8,8), filename="", alpha=0.6):
+    ''' plot distribution of given variable for each group.
+    Args:
+        df: Pandas dataframe
+        x: variable to plot
+        hue: additional category. seperate distribution will be plotted for each hue within the same group plot.
+        hue_str: dictionary to map hue value and name. i.e. 0 -> Q1, 1 -> Q2, etc.
+        norm: normalize distributions
+        others: plotting options
+    Return: None
+    '''
+    # create figure and axes
+    fig, ax = plt.subplots(1, 1, figsize=figsize)
+    # filter group
+    n_hue = df[hue].nunique()
+    # loop over hue
+    for j, hue_name in enumerate(sorted(df[hue].unique())):
+        df_hue = df.loc[df[hue] == hue_name]
+        df_hue[x].hist(bins=n_bins, alpha=alpha, ax=ax, range=(-1,1), edgecolor="black", label=hue_str[hue_name], density=norm)
+    # customize plot
+    ax.set_xlabel(x)
+    ax.set_ylabel("n")
+    ax.grid(False)
+    ax.legend()
+    # customize and save plot
     plt.tight_layout()
     plt.savefig('plots/dist_%s.png' % filename)
     plt.cla()
@@ -306,10 +340,20 @@ if __name__ == "__main__":
     # sort samples by the variable of interest (AG) within each month and assign quintile
     df, var_int =  sort_by_var(df, var_interest=var_interest, month='eom')
 
-    # make return distribution of each AG group
+    # make AG distribution
+    plot_hue_dist(df=df, x=var_interest,\
+                  hue=var_int["quintile"], hue_str=var_int["label"], norm=False,\
+                  n_bins=50, figsize=(8,5), filename="AG_%s" %(total_return))
+
+    # make return distribution for all sectors
+    plot_hue_dist(df=df, x=total_return,\
+                  hue=var_int["quintile"], hue_str=var_int["label"], norm=True,\
+                  n_bins=50, figsize=(8,5), filename="return_all_sectors_%s" %(total_return), alpha=0.4)
+
+    # make return distribution by industry sector
     ''' make two sets of distributions, normalized and raw'''
     for i, norm in enumerate([True, False]):
-        plot_groupby_dist(df=df, x=total_return,\
+        plot_groupby_hue_dist(df=df, x=total_return,\
                                  group_var=categories[0],\
                                  hue=var_int["quintile"], hue_str=var_int["label"], norm=norm, n_subplot_columns=4,\
                                  n_bins=50, figsize=(20,16), filename="return_sort_by_AG_%s_%s" %(total_return, i))
@@ -321,7 +365,7 @@ if __name__ == "__main__":
     plot_groupby_line(df=df_cum_return,
                       x="eom", y="cumulative_return",
                       groupby=var_interest_q, group_label = var_int["label"],
-                      x_label="Time", y_label="Cumulative return", figsize=(15,6), filename = "cum_return_sort_%s" % total_return)
+                      x_label="Time", y_label="Cumulative %s" %total_return, figsize=(15,6), filename = "cum_return_sort_%s" % total_return)
 
 
     #df.groupby(var_interest_q)[total_return].mean()
