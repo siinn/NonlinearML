@@ -29,13 +29,11 @@ debug = True
 
 features = ['CAP', 'AG', 'ROA', 'EG', 'LTG', 'SG', 'GS', 'SEV', 'CVROIC', 'FCFA']
 categories = ['GICSSubIndustryNumber']    
-#total_return = "fqTotalReturn"
-total_return = "fmTotalReturn"
+total_return = "fqTotalReturn"
+#total_return = "fmTotalReturn"
 label = "fqTotalReturn_quintile"
 label_map = {0.0:'Q1', 1.0:'Q2', 2.0:'Q3', 3.0:'Q4', 4.0:'Q5'}
-
 var = 'AG'
-var_quintile=var+"_quintile"
 
 # set plot style
 markers=('x', 'p', "|", '*', '^', 'v', '<', '>')
@@ -470,12 +468,12 @@ if __name__ == "__main__":
 
     # plot difference between AG1 and AG5 in cumulative return
     plot_line_multiple_cols(df=df_diff_q1q5, x="index", list_y=["q1q5"], legends=["All industry"], x_label="Time", \
-                       y_label="Difference in cumulative %s" %total_return, figsize=(20,6), filename="diff_cum_q1q5")
+                       y_label="Difference in cumulative %s" %total_return, figsize=(20,6), filename="diff_cum_q1q5_%s" % total_return)
 
     # plot difference between AG1 and AG5 in cumulative return by industry
     plot_line_multiple_cols(df=df_diff_q1q5_groupby, x="index", list_y=df_diff_q1q5_groupby.columns,\
                        legends=[x[:-5] for x in df_diff_q1q5_groupby.columns], \
-                       x_label="Time", y_label="Difference in cumulative %s" %total_return, figsize=(20,6), filename="diff_cum_q1q5_industry")
+                       x_label="Time", y_label="Difference in cumulative %s" %total_return, figsize=(20,6), filename="diff_cum_q1q5_industry_%s" % total_return)
 
 
     #------------------------------------------
