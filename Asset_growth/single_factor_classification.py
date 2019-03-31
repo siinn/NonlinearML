@@ -3,17 +3,14 @@
 from datetime import datetime
 import dateutil.relativedelta
 import itertools
-import matplotlib as mpl;mpl.use('agg') # use non-interactive backend
-import matplotlib.pyplot as plt
-import matplotlib.dates as dt
 import numpy as np
 import pandas as pd
-import seaborn as sns
 from sklearn.model_selection import GridSearchCV
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import f1_score, make_scorer
 import xgboost as xgb
 from xgboost.sklearn import XGBClassifier
+from _plots import *
 
 #----------------------------------------------
 # set user options
@@ -23,32 +20,33 @@ input_path = '/mnt/mainblob/asset_growth/data/Data_for_AssetGrowth_Context.pd.r3
 
 # set algorithms to run
 run_simple_sort = False
-run_classification = True
+run_ag_fc = True
+run_classification = False
 
 # set True for development
 debug = True
 
-# set features and label
+# set features
 features = ['CAP', 'AG', 'ROA', 'EG', 'LTG', 'SG', 'GS', 'SEV', 'CVROIC', 'FCFA']
 categories = ['GICSSubIndustryNumber']    
-total_return = "fqTotalReturn"
-#total_return = "fmTotalReturn"
-label = "fqTotalReturn_quintile"
-label_map = {0.0:'Q1', 1.0:'Q2', 2.0:'Q3', 3.0:'Q4', 4.0:'Q5'}
+# return label
+#total_return = "fqTotalReturn" # "fmTotalReturn"
+total_return = "fmTotalReturn"
+return_quintile = total_return+"_quintile"
+return_tertile = total_return+"_tertile"
+return_quintile_map = {0.0:'Q1', 1.0:'Q2', 2.0:'Q3', 3.0:'Q4', 4.0:'Q5'}
+
+# set variable of interest
 var = 'AG'
+var_quintile = var+"_quintile"
+var_tertile = var+"_tertile"
+var_label = {float(x):var+str(x+1) for x in range(0,5)} # ex. {0: AG1, 1:AG2, etc.}
 
 # map industry sector code to string
-industry_map={10:"Energy", 15:"Materials", 20:"Industrials", 25:"Consumer discretionary",
+sector_map={10:"Energy", 15:"Materials", 20:"Industrials", 25:"Consumer discretionary",
               30:"Consumer staples", 35:"Health care", 40:"Financials", 45:"Information technology",
               50:"Communication services", 55:"Utilities", 60:"Real estate", 99:"Unknown"}
 
-# set plot style
-markers=('x', 'p', "|", '*', '^', 'v', '<', '>')
-lines=("-","--","-.",":")
-mpl.rcParams.update(mpl.rcParamsDefault)
-plt.style.use('fivethirtyeight')
-plt.rcParams['axes.facecolor']='white'
-plt.rcParams['savefig.facecolor']='white'
 #----------------------------------------------
 # define functions
 #----------------------------------------------
@@ -138,84 +136,83 @@ def learning_curve(model, param_grid, df, features, label, train_length, train_e
     plot_learning_curve(df_result, xcol="h", ycols=["f1_train", "f1_test"], title=file_surfix, figsize=(8,8))
     return
 
-def sort_by_var(df, var, month="eom"):
-    ''' sort samples by variable of interest within each month. A column called var_quintile is added to the dataframe.
-        This column represents quiltile of the variable of interest.
+def discretize_variables_by_month(df, variables, month="eom"):
+    ''' discretize variables by assigning a quintile and tertile class within each month. 
     Args:
-        df: Pandas dataframe
-        var: variable of interest. ex. "AG"
+        df: Pandas dataframe containing variables
+        variables: list of variables to discretize
         month: column representing time
     Return:
-        df: Pandas dataframe with "var_quintile" column
-        dictionary: dictionary with two keys.
-            "quintile": name of new column
-            "label": map between quintile integer and string name. ex. 0 -> AG1, 1 -> AG2, etc.
+        df: Pandas dataframe with columns named x_quintile, x_tertile for all variable x.
     '''
-    var_quintile = var+"_quintile"
-    var_label = {float(x):var+str(x+1) for x in range(0,5)}
-    df[var_quintile] = df.groupby([month])[var]\
-                           .transform(lambda x: pd.qcut(x, 5, labels=[4,3,2,1,0]))
-    return df, var_quintile, var_label
+    # create classification labels
+    for var in variables:
+        df[var+"_tertile"] = df.groupby([month])[var].transform(lambda x: pd.qcut(x, 3, labels=[var+" low", var+" mid", var+" high"]))
+        df[var+"_quintile"] = df.groupby([month])[var].transform(lambda x: pd.qcut(x, 5, labels=[var+" low", var+" mid-low", var+" mid", var+" mid-high", var+" high"]))
+    return df
 
-def cumulative_return(df, var_quintile, total_return, time="eom"):
+def cumulative_return(df, var, var_quintile, total_return, time="eom"):
     ''' Calculate cumulative return of each quintile (ex. AG1-AG5)
     Args:
         df: Pandas dataframe
-        var_quintile: quintile with respect to the variable of interest (ex. AG1, AG2, etc..)
+        var: variable of interest (ex. AG)
+        var_quintile: column name representing quintile of the variable of interest (ex. AG_quintile)
         total_return: return column
         time: time column
     Return:
         df_avg: Pandas dataframe representing cumulative return for each unit time
     '''
-    def _impute_missing_average(df, var_quintile, total_return, time):
+    def _impute_missing_average(df, var, var_quintile, total_return, time):
         ''' check if average return available. If not, set average return to 0. '''
         for date in sorted(df[time].unique())[1:]:
             df_curr = df.loc[df[time]==date].sort_values(var_quintile) # retrieve current return and previous asset
-            for i in range(0,5): 
-                if i not in df_curr[var_quintile].tolist():
-                    print("Found a period in which mean return is not available: date=%s, quintile=%s" %(date, i))
+            for quintile in [var+" low", var+" mid-low", var+" mid", var+" mid-high", var+" high"]:
+                #if quintile not in df[var_quintile].unique():
+                if quintile not in df_curr[var_quintile].unique():
+                    print("Found a period in which mean return is not available: date=%s, quintile=%s" %(date, quintile))
                     df_add = df_curr.head(1).copy()
                     df_add[total_return]=0
-                    df_add[var_quintile]=i
+                    df_add[var_quintile]=quintile
                     df = pd.concat([df, df_add], axis=0, ignore_index=True).sort_values(var_quintile)
-        return df
+        return df.set_index(var_quintile)
     # calculate average return of each quintile of the variable of interest (ex.AG)
     df_avg = df.groupby([time,var_quintile])[total_return].mean().reset_index()
     # find the starting month of cumulative return
     first_month = sorted(df_avg[time].unique())[0]
     cumulative_begin_month = np.datetime64(first_month, 'M') - 1
     # add zero return as the beginnig of cumulative return
-    for i in range(0,5):
-        df_avg = df_avg.append({time:cumulative_begin_month, var_quintile:float(i), total_return:0.0}, ignore_index=True)
+    for quintile in [var+" low", var+" mid-low", var+" mid", var+" mid-high", var+" high"]:
+        df_avg = df_avg.append({time:cumulative_begin_month, var_quintile:quintile, total_return:0.0}, ignore_index=True)
     # create cumulative return column
     df_avg["cumulative_asset"] = 1.0
     df_avg["cumulative_return"] = 0.0
     # if average return is not available, set average return to 0.
-    df_avg = _impute_missing_average(df=df_avg, var_quintile=var_quintile, total_return=total_return, time=time)
+    df_avg = _impute_missing_average(df=df_avg, var=var, var_quintile=var_quintile, total_return=total_return, time=time)
     # loop over each date
     for date in sorted(df_avg[time].unique())[1:]:
-        # data from current and previous month
+        # get last month
         prev_month = np.datetime64(date, 'M') - 1
-        df_prev = df_avg.loc[df_avg[time]==prev_month].sort_values(var_quintile)
-        df_curr = df_avg.loc[df_avg[time]==date].sort_values(var_quintile) # retrieve current return and previous asset
-        curr_return = df_curr.reset_index()[total_return]
-        prev_asset = df_prev.reset_index()["cumulative_asset"]
-        # calculate cumulative asset
-        df_avg.loc[df_avg[time]==date, "cumulative_asset"] = np.array(prev_asset * (1 + curr_return)).tolist()
-        df_avg.loc[df_avg[time]==date, "cumulative_return"] = np.array(prev_asset * (1 + curr_return) - 1).tolist()
-    return df_avg
+        # retrieve current and previous month dataframe
+        df_curr = df_avg.loc[df_avg[time]==date]
+        df_prev = df_avg.loc[df_avg[time]==prev_month]
+        # calculate cumulative asset and return
+        df_avg.loc[df_avg[time]==date, "cumulative_asset"] = df_prev["cumulative_asset"] * (1 + df_curr[total_return])
+        df_avg.loc[df_avg[time]==date, "cumulative_return"] = df_prev["cumulative_asset"] * (1 + df_curr[total_return]) - 1
+    return df_avg.reset_index()
 
-def diff_cumulative_return_q5q1(df, var_quintile, time="eom"):
+def diff_cumulative_return_q5q1(df, var, var_quintile, time="eom"):
     ''' calculate difference in cumulative return between fifth and first quintile (Q5 - Q1)
     Args:
         df: Output of cumulative_return function. Pandas dataframe
+        var: variable of interest (ex. AG)
+        var_quintile: column name representing quintile of the variable of interest (ex. AG_quintile)
         time: name of column representing time
     Return:
         df_join: dataframe containing the difference in cumulative return between top and bottom quintile
     '''
     # filter by quintile
-    df_q1 = df.loc[df[var_quintile]==0.0]
-    df_q5 = df.loc[df[var_quintile]==4.0]
+    df_q1 = df.loc[df[var_quintile]==var+" high"]
+    df_q5 = df.loc[df[var_quintile]==var+" low"]
     # sort by time
     df_q1 = df_q1.sort_values(time).set_index(time).add_prefix('q1_')
     df_q5 = df_q5.sort_values(time).set_index(time).add_prefix('q5_')
@@ -225,19 +222,25 @@ def diff_cumulative_return_q5q1(df, var_quintile, time="eom"):
     return df_join
 
 
-def diff_cumulative_return_q5q1_groupby(df, var_quintile):
+def diff_cumulative_return_q5q1_groupby(df, var, var_quintile, groupby):
     '''calculate cumulative return and the difference between first and last quintile for each industry sector
-    Args: input Pandas dataframe
-    Return: dataframe containing the difference in cumulative return (q1-q5) by industry sector
+    Args:
+        df: input Pandas dataframe
+        var: variable of interest (ex. AG)
+        var_quintile: column name representing quintile of the variable of interest (ex. AG_quintile)
+        groupby: column representing industry sector
+    Return:
+        dataframe containing the difference in cumulative return (q1-q5) by industry sector
     '''
     df_cum_return_group = {}
     df_diff_q5q1_group = {}
-    for name, df_group in df.groupby(categories[0]):
+    for name, df_group in df.groupby(groupby):
         print("Processing group: %s" %name)
+        print(name)
         # calculate cumulative return
-        df_cum_return_group[name]= cumulative_return(df=df_group, var_quintile=var_quintile, total_return=total_return)
+        df_cum_return_group[name]= cumulative_return(df=df_group, var=var, var_quintile=var_quintile, total_return=total_return)
         # calculate difference between AG quintile 1 and 5
-        df_diff_q5q1_group[name] = diff_cumulative_return_q5q1(df=df_cum_return_group[name], var_quintile=var_quintile)
+        df_diff_q5q1_group[name] = diff_cumulative_return_q5q1(df=df_cum_return_group[name], var=var, var_quintile=var_quintile)
         
     for name, df_group in df_diff_q5q1_group.items():
         # add prefix
@@ -246,182 +249,7 @@ def diff_cumulative_return_q5q1_groupby(df, var_quintile):
     # concatenate "q5q1" columns from dataframes by industry group
     return pd.concat([df_group[str(name)+"_q5q1"] for name, df_group in df_diff_q5q1_group.items()], axis=1, join='outer')
 
-
-#----------------------------------------------
-# plotting functions
-#----------------------------------------------
-
-def plot_learning_curve(df, xcol="h", ycols=["f1_train", "f1_test"], title="", figsize=(8,8)):
-    ''' plot learning curve and save as png
-    Args:
-        df: dataframe containing model score and training length
-        xcol: name of column representing training length
-        ycols: list of column names representing model scores
-        others: plotting options
-    Return: None
-    '''
-    # create figure and axes
-    fig, ax = plt.subplots(1,1, figsize=figsize)
-    # make plot
-    line = itertools.cycle(lines) 
-    for i, ycol in enumerate(ycols):
-        df.plot.line(x=xcol, y=ycol, ax=ax, legend=True, linestyle=next(line))
-    # customize plot and save
-    ax.set_ylabel("Average F1 score")
-    ax.set_xlabel("Training length (months)")
-    ax.set_ylim(0,0.4)
-    plt.tight_layout()
-    plt.savefig('plots/learning_curve_%s.png' % title)
-    return
-
-def plot_dist_groupby_hue(df, x, group_var, group_title, hue, hue_str, norm=False, n_subplot_columns=1, n_bins=50, figsize=(20,16), filename=""):
-    ''' plot distribution of given variable for each group. Seperate plot will be generated for each group. 
-    Args:
-        df: Pandas dataframe
-        x: variable to plot
-        group_var: categorical variable for group
-        group_title: dictionary that maps group variable to human-recognizable title (45 -> Information technology)
-        hue: additional category. seperate distribution will be plotted for each hue within the same group plot.
-        hue_str: dictionary to map hue value and name. i.e. 0 -> Q1, 1 -> Q2, etc.
-        norm: normalize distributions
-        others: plotting options
-    Return: None
-    '''
-    n_groups = df[group_var].nunique()
-    # create figure and axes
-    n_subplot_rows = round(n_groups / n_subplot_columns)
-    fig, ax = plt.subplots(n_subplot_rows, n_subplot_columns, figsize=figsize, squeeze=False)
-    ax = ax.flatten()
-    for i, group_name in enumerate(sorted(df[group_var].unique())):
-        # filter group
-        df_group = df.loc[df[group_var] == group_name]
-        n_hue = df[hue].nunique()
-        # loop over hue
-        for j, hue_name in enumerate(sorted(df_group[hue].unique())):
-            df_hue = df_group.loc[df_group[hue] == hue_name]
-            df_hue[x].hist(bins=n_bins, alpha=0.6, ax=ax[i], range=(-1,1), edgecolor="black", label=hue_str[hue_name], density=norm)
-        # customize plot
-        ax[i].set_xlabel(x)
-        ax[i].set_ylabel("n")
-        ax[i].set_title(group_title[i])
-        ax[i].grid(False)
-        ax[i].legend()
-    # customize and save plot
-    ax = ax.reshape(n_subplot_rows, n_subplot_columns)
-    plt.tight_layout()
-    plt.savefig('plots/dist_%s.png' % filename)
-    plt.cla()
-    return
-
-def plot_dist_hue(df, x, hue, hue_str, norm=False, n_bins=50, figsize=(8,5), filename="", alpha=0.6):
-    ''' plot distribution of given variable for each group.
-    Args:
-        df: Pandas dataframe
-        x: variable to plot
-        hue: additional category. seperate distribution will be plotted for each hue within the same plot.
-        hue_str: dictionary to map hue value and name. i.e. 0 -> Q1, 1 -> Q2, etc.
-        norm: normalize distributions
-        others: plotting options
-    Return: None
-    '''
-    # create figure and axes
-    fig, ax = plt.subplots(1, 1, figsize=figsize)
-    # filter group
-    n_hue = df[hue].nunique()
-    # loop over hue
-    for j, hue_name in enumerate(sorted(df[hue].unique())):
-        df_hue = df.loc[df[hue] == hue_name]
-        #df_hue[x].hist(bins=n_bins, alpha=alpha, ax=ax, range=(-1,1), edgecolor="black", label=hue_str[hue_name], density=norm)
-        df_hue[x].hist(bins=n_bins, histtype='step', ax=ax, range=(-1,1), label=hue_str[hue_name], density=norm, linewidth=1.5)
-    # customize plot
-    ax.set_xlabel(x)
-    ax.set_ylabel("n")
-    ax.grid(False)
-    ax.legend()
-    # customize and save plot
-    plt.tight_layout()
-    plt.savefig('plots/dist_%s.png' % filename)
-    plt.cla()
-
-def plot_line_groupby(df, x, y, groupby, group_label, ylog=False, x_label="", y_label="", figsize=(20,6), filename=""):
-    ''' create line plot for different group in the same axes.
-    Args:
-        df: Pandas dataframe
-        x: name of column used for x
-        y: name of column to plot
-        groupby: column representing different groups
-        group_label: dictionary that maps gruop value to title. ex. {0:"AG1", 1:"AG2", etc.}
-        others: plotting options
-    Return:
-        None
-    '''
-    # create figure and axes
-    fig, ax = plt.subplots(1, 1, figsize=figsize, squeeze=False)
-    ax=ax.flatten()
-    line = itertools.cycle(lines) 
-    for name, df_group in df.groupby(groupby):
-        if x=="index":
-            df_group[y].plot(kind='line', legend=True, label=group_label[name], linewidth=2.0, linestyle=next(line))
-        else:
-            df_group.set_index(x)[y].plot(kind='line', legend=True, label=group_label[name], linewidth=2.0, linestyle=next(line))
-    # customize and save plot
-    if ylog:
-        ax[0].set_yscale('log')
-    ax[0].set_ylabel(y_label)
-    ax[0].set_xlabel(x_label)
-    #ax[0].grid(False)
-    plt.tight_layout()
-    plt.savefig('plots/line_%s.png' % filename)
-    plt.cla()
-
-def plot_line_multiple_cols(df, x, list_y, legends, x_label, y_label, figsize=(20,6), filename=""):
-    ''' create line plot from multiple columns in the same axes.
-    Args:
-        df: Pandas dataframe
-        x: name of column used for x
-        list_y: list of column names to plot
-        others: plotting options
-    Return:
-        None
-    '''
-    # create figure and axes
-    fig, ax = plt.subplots(1, 1, figsize=figsize, squeeze=False)
-    ax=ax.flatten()
-    line = itertools.cycle(lines) 
-    for i, y in enumerate(list_y):
-        if x=="index":
-            df[y].plot(kind='line', linewidth=2.0, label=legends[i], linestyle=next(line))
-        else:
-            df.set_index(x)[y].plot(kind='line', linewidth=2.0, label=legends[i], linestyle=next(line))
-    # customize and save plot
-    ax[0].set_ylabel(y_label)
-    ax[0].set_xlabel(x_label)
-    #ax[0].grid(False)
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig('plots/line_%s.png' % filename)
-    plt.cla()
-    return
-    
-def plot_heatmap(df, x_label, y_label, figsize=(20,6), filename=""):
-    ''' create heatmap from given dataframe
-    Args:
-        df: Pandas dataframe
-        others: plotting options
-    Return:
-        None
-    '''
-    # create figure and axes
-    fig, ax = plt.subplots(1, 1, figsize=figsize, squeeze=False)
-    # plot heatmap
-    ax = sns.heatmap(df, annot=True, cmap="RdBu_r")
-    # customize and save plot
-    ax.set_ylabel(y_label)
-    ax.set_xlabel(x_label)
-    plt.tight_layout()
-    plt.savefig('plots/heatmap_%s.png' % filename)
-    plt.cla()
-    return
+df.loc[df[categories[0]]==name]
 
 if __name__ == "__main__":
 
@@ -431,33 +259,32 @@ if __name__ == "__main__":
     # read input csv
     df = pd.read_csv(input_path, index_col=None, parse_dates=["eom"])
 
+    # assign quintile and tertile classes to AG, return, and FCFA
+    df = discretize_variables_by_month(df=df, variables=[var, total_return, 'FCFA'], month="eom")
+
     #------------------------------------------
-    # classification by simple sort
+    # classification by simple sort (AG and industry)
     #------------------------------------------
     ''' classify samples by single factor quintile (ex. AG1-AG5). Cumulative returns are calculated.
         Also, the difference in the cumulative returns between fist and last quintiles are calculated.
     '''
     if run_simple_sort:
 
-        # sort samples by the variable of interest (AG) within each month and assign quintile
-        df, var_quintile, var_label =  sort_by_var(df, var=var)
-
         # calculate average return by industry sector
-        df_return_mean = df.groupby(['AG_quintile', 'GICSSubIndustryNumber']).mean()['fmTotalReturn']\
-                           .unstack(1).transpose().rename(industry_map, axis=0)\
-                           .rename({0:"AG1", 1:"AG2", 2:"AG3", 3:"AG4", 4:"AG5"}, axis=1)
-        df_return_std = df.groupby(['AG_quintile', 'GICSSubIndustryNumber']).std()['fmTotalReturn']\
-                          .unstack(1).transpose().rename(industry_map, axis=0)\
-                          .rename({0:"AG1", 1:"AG2", 2:"AG3", 3:"AG4", 4:"AG5"}, axis=1)
+        df_return_mean = df.groupby(['AG_quintile', 'GICSSubIndustryNumber']).mean()[total_return]\
+                           .unstack(1).transpose().rename(sector_map, axis=0)
+        df_return_std = df.groupby(['AG_quintile', 'GICSSubIndustryNumber']).std()[total_return]\
+                          .unstack(1).transpose().rename(sector_map, axis=0)
 
         # calculate cumulative return
-        df_cum_return = cumulative_return(df=df, var_quintile=var_quintile, total_return=total_return)
+        df_cum_return = cumulative_return(df=df, var=var, var_quintile=var_quintile, total_return=total_return)
 
         # calculate difference between AG quintile 1 and 5
-        df_diff_q5q1 = diff_cumulative_return_q5q1(df=df_cum_return, var_quintile=var_quintile)
+        df_diff_q5q1 = diff_cumulative_return_q5q1(df=df_cum_return, var=var, var_quintile=var_quintile)
 
         # calculate difference between AG quintile 1 and 5 by industry sector
-        df_diff_q5q1_groupby = diff_cumulative_return_q5q1_groupby(df=df, var_quintile=var_quintile)
+        df_diff_q5q1_groupby = diff_cumulative_return_q5q1_groupby(df=df, var=var, var_quintile=var_quintile, groupby=categories[0])
+
 
         #------------------------------------------
         # make plots for simple sort method
@@ -466,7 +293,7 @@ if __name__ == "__main__":
         '''
         # make AG distribution of each AG quintile
         plot_dist_hue(df=df, x=var, hue=var_quintile, hue_str=var_label, norm=False, \
-                      filename="AG_%s" %(total_return))
+                      filename="AG")
 
         # make return distribution of all industry sector combined
         plot_dist_hue(df=df, x=total_return, hue=var_quintile, hue_str=var_label, norm=True, \
@@ -475,35 +302,91 @@ if __name__ == "__main__":
         # make return distribution by industry sector
         for i, norm in enumerate([True, False]):
             plot_dist_groupby_hue(df=df, x=total_return, group_var=categories[0],
-                                  group_title=[industry_map[int(x[:-5])] for x in df_diff_q5q1_groupby.columns],\
+                                  group_title=[sector_map[int(x[:-5])] for x in df_diff_q5q1_groupby.columns],\
                                   hue=var_quintile, hue_str=var_label, norm=norm, n_subplot_columns=4,\
                                   filename="return_sort_by_AG_%s_%s" %(total_return, i))
-
-        # plot heatmap of mean and standard deviation of return
-        plot_heatmap(df=df_return_mean, x_label="AG quintile", y_label="Industry", figsize=(10,7), filename="mean_%s" % total_return)
-        plot_heatmap(df=df_return_std, x_label="AG quintile", y_label="Industry", figsize=(10,7), filename="std_%s" % total_return)
-
 
         # plot cumulative return by AG quintile
         plot_line_groupby(df=df_cum_return,\
                           x="eom", y="cumulative_return",\
-                          groupby=var_quintile, group_label = var_label,\
-                          x_label="Time", y_label="Cumulative %s" %total_return, figsize=(15,6), filename = "cum_%s_sort" % total_return)
+                          groupby=var_quintile, group_label = {var:var for var in df_cum_return[var_quintile].unique()},\
+                          x_label="Time", y_label="Cumulative %s" %total_return, ylog=True, figsize=(15,6), filename = "cum_%s_sort" % total_return)
 
         # plot monthly return by AG quintile. only plot AG1 and AG5
-        plot_line_groupby(df=df_cum_return.loc[(df_cum_return[var_quintile]==0.0) | (df_cum_return[var_quintile]==4.0)],
-                          x="eom", y=total_return,
-                          groupby=var_quintile, group_label = {0.0:'AG1', 4.0:'AG5'},\
+        plot_line_groupby(df=df_cum_return.loc[(df_cum_return[var_quintile]==var+" low") | (df_cum_return[var_quintile]==var+" high")],
+                          x="eom", y=total_return, groupby=var_quintile, group_label = {var:var for var in df_cum_return[var_quintile].unique()},\
                           x_label="Time", y_label="Monthly %s" %total_return, figsize=(15,6), filename = "month_%s_sort" % total_return)
 
         # plot difference between AG1 and AG5 in cumulative return
-        plot_line_multiple_cols(df=df_diff_q5q1, x="index", list_y=["q5q1"], legends=["All industry"], x_label="Time", \
+        plot_line_multiple_cols(df=df_diff_q5q1, x="index", list_y=["q5q1"], legends=["All industry"], x_label="Time", ylog=True,\
                            y_label="Cumulative %s (Q5-Q1)" %total_return, figsize=(20,6), filename="diff_cum_q5q1_%s" % total_return)
 
         # plot difference between AG1 and AG5 in cumulative return by industry
         plot_line_multiple_cols(df=df_diff_q5q1_groupby, x="index", list_y=df_diff_q5q1_groupby.columns,\
-                           legends=[industry_map[int(x[:-5])] for x in df_diff_q5q1_groupby.columns], \
-                           x_label="Time", y_label="Cumulative %s (Q5-Q1)" %total_return, figsize=(20,6), filename="diff_cum_q5q1_industry_%s" % total_return)
+                           legends=[sector_map[int(x[:-5])] for x in df_diff_q5q1_groupby.columns], ylog=True,\
+                           x_label="Time", y_label="Cumulative %s\n(%s low - high)" % (total_return, var), figsize=(20,6), filename="diff_cum_q5q1_industry_%s" % total_return)
+
+        #------------------------------------------
+        # heatmaps
+        #------------------------------------------
+        # plot heatmap of mean and standard deviation of return
+        plot_heatmap(df=df_return_mean, x_label="AG quintile", y_label="Industry", figsize=(10,7), filename="mean_%s" % total_return)
+        plot_heatmap(df=df_return_std, x_label="AG quintile", y_label="Industry", figsize=(10,7), filename="std_%s" % total_return)
+
+        # plot heatmap of number of samples within AG and return quintile groups
+        plot_heatmap(df=df.groupby([var_quintile, return_quintile]).count().iloc[:,0].unstack(level=-1),\
+                     x_label=total_return, y_label="AG",\
+                     figsize=(10,7), filename="AG_%s_quintile" % total_return, fmt='.0f')
+
+        # plot heatmap of number of samples within AG and return tertile groups 
+        plot_heatmap(df=df.groupby([var_tertile, return_tertile]).count().iloc[:,0].unstack(level=-1),\
+                     x_label=total_return, y_label="AG",\
+                     figsize=(10,7), filename="AG_%s_tertile" % total_return, fmt='.0f')
+
+    #------------------------------------------
+    # AG, FCFA, sector
+    #------------------------------------------
+
+    if run_ag_fc == True:
+
+        # plot return by AG and FCFA
+        plot_box(df=df, x=var_tertile, y=total_return, title="", color="white", linewidth=1, showmeans=True, ylim=(-0.5,2),
+                 hue="FCFA_tertile", #ylim=(0.7, 1.3),
+                 x_label="AG", y_label=total_return, figsize=(10,6), filename="%s_by_AG_FCFA" %total_return)
+
+
+        # plot heatmap of number of samples within FCFA and return tertile groups for given AG group
+        for i_ag in df[var_tertile].unique():
+            plot_heatmap(df=df.loc[df[var_tertile]==i_ag].groupby([return_tertile, "FCFA_tertile"]).count().iloc[:,0].unstack(level=-1),\
+                         x_label="fq total return", y_label="FCFA",\
+                         figsize=(10,7), filename="%s_FCFA_AG%s" % (total_return, i_ag), fmt='.0f')
+
+        # plot average return of AG and FCFA tertile group
+        plot_heatmap(df=df.groupby([var_tertile, "FCFA_tertile"]).mean()[total_return].unstack(1),\
+                         x_label="FCFA", y_label="AG",\
+                         figsize=(10,7), filename="%s_FCFA_AG_tertile" % (total_return), fmt='.3f')
+
+        # plot standard deviation of return for AG and FCFA tertile group by sector
+        df_std_list = {}
+        for i_industry in df[categories[0]].unique():
+            df_std_list[i_industry]=df.loc[df[categories[0]]==i_industry]\
+                                          .groupby([var_tertile, "FCFA_tertile"])\
+                                          .std()[total_return].unstack(1)
+        plot_heatmap_group(df_list=df_std_list, n_subplot_columns=4,
+                           x_label="FCFA", y_label="AG", group_map=sector_map, figsize=(25,20),
+                           filename="%s_std_FCFA_AG_sector_tertile" % (total_return), fmt='.3f', cmap=sns.light_palette("gray"))
+
+        # plot average return of AG and FCFA tertile group by sector
+        df_mean_list = {}
+        for i_industry in df[categories[0]].unique():
+            df_mean_list[i_industry]=df.loc[df[categories[0]]==i_industry]\
+                                          .groupby([var_tertile, "FCFA_tertile"])\
+                                          .mean()[total_return].unstack(1)
+        plot_heatmap_group(df_list=df_mean_list, df_err_list=df_std_list, n_subplot_columns=4,
+                           x_label="FCFA", y_label="AG", group_map=sector_map, figsize=(25,20), fmt="s", cmap=sns.color_palette("RdBu_r", 7),
+                           filename="%s_mean_FCFA_AG_sector_tertile" % (total_return))
+
+
 
 
     #------------------------------------------
@@ -529,24 +412,21 @@ if __name__ == "__main__":
 
         # evaluate model
         f1_train, f1_test = evaluate_model(model, df_train, df_test,
-                                           features=['AG'] + ["GICSSubIndustryNumber_"+str(x) for x in industry_map],
-                                           label=label, param_grid={}, n_folds=5)
+                                           features=['AG'] + ["GICSSubIndustryNumber_"+str(x) for x in sector_map],
+                                           label=return_quintile, param_grid={}, n_folds=5)
 
 
         # make learning curve
         learning_curve(model, param_grid, df_ml,
-                       features=['AG'] + ["GICSSubIndustryNumber_"+str(x) for x in industry_map], label=label,
+                       features=['AG'] + ["GICSSubIndustryNumber_"+str(x) for x in sector_map], label=return_quintile,
                        train_length=[6,9,12,24,48,96],
                        train_end=to_datetime("2014-12-31"),
                        test_begin=to_datetime("2015-01-01"),
                        test_end=to_datetime("2017-10-31"), date_column="eom", file_surfix="linear")
 
-
         # make AG distribution of each return quintile (Q1-Q5)
-        plot_dist_hue(df=df, x=var, hue=label, hue_str=label_map, norm=False, \
+        plot_dist_hue(df=df, x=var, hue=return_quintile, hue_str=return_quintile_map, norm=False, \
                       filename="AG_by_%s_quintile" %(total_return))
-
-
 
 
 
