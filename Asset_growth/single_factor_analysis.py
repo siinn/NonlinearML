@@ -389,45 +389,4 @@ if __name__ == "__main__":
 
 
 
-    #------------------------------------------
-    # single factor portfolio by classification
-    #------------------------------------------
-    ''' classify samples using AG and industry as features and return quintile (Q1-Q5) as labels.
-    '''
-    if run_classification:
-
-        # one-hot-encode categorical feature
-        df_ml = pd.get_dummies(data=df, columns=[categories[0]], drop_first=False)
-
-        # create train, test dataset
-        df_train, df_test = train_test_split(df=df_ml, date_column="eom", 
-                                             train_length = 48, 
-                                             train_end = to_datetime("2014-12-31"),
-                                             test_begin = to_datetime("2015-01-01"),
-                                             test_end = to_datetime("2017-10-31"))
-
-        # initiate logistic regression model
-        model = LogisticRegression(penalty='l2', random_state=0, multi_class='multinomial', solver='newton-cg', n_jobs=-1)
-        param_grid = {'C':np.logspace(0, 1, 5)}
-
-        # evaluate model
-        f1_train, f1_test = evaluate_model(model, df_train, df_test,
-                                           features=['AG'] + ["GICSSubIndustryNumber_"+str(x) for x in sector_map],
-                                           label=return_quintile, param_grid={}, n_folds=5)
-
-
-        # make learning curve
-        learning_curve(model, param_grid, df_ml,
-                       features=['AG'] + ["GICSSubIndustryNumber_"+str(x) for x in sector_map], label=return_quintile,
-                       train_length=[6,9,12,24,48,96],
-                       train_end=to_datetime("2014-12-31"),
-                       test_begin=to_datetime("2015-01-01"),
-                       test_end=to_datetime("2017-10-31"), date_column="eom", file_surfix="linear")
-
-        # make AG distribution of each return quintile (Q1-Q5)
-        plot_dist_hue(df=df, x=var, hue=return_quintile, hue_str=return_quintile_map, norm=False, \
-                      filename="AG_by_%s_quintile" %(total_return))
-
-
-
     print("Successfully completed all tasks")
