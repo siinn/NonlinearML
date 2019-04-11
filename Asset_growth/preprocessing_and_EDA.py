@@ -28,15 +28,15 @@ from pyspark.sql.types import StructField, StructType, IntegerType, DoubleType, 
 #----------------------------------------------
 
 # set input and output path
-input_path = '/mnt/mainblob/asset_growth/data/Data_for_AssetGrowth_Context.r2.csv'
-output_path = '/mnt/mainblob/asset_growth/data/Data_for_AssetGrowth_Context.r3.csv'
+input_path = '/mnt/mainblob/asset_growth/data/Data_for_AssetGrowth_Context.r4.csv'
+output_path = '/mnt/mainblob/asset_growth/data/Data_for_AssetGrowth_Context.r5.csv'
 # set True for development
 debug = True
 
 # select algorithm to run    
-perform_eda             = False
-run_preprocessing       = False
-check_processed_data    = False
+perform_eda             = True
+run_preprocessing       = True
+check_processed_data    = True
 save_results            = False
 
 # set imputation method. available options: month, securityId_ff, securityId_average

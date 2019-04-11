@@ -4,6 +4,9 @@
 import matplotlib as mpl;mpl.use('agg') # use non-interactive backend
 import matplotlib.pyplot as plt
 import matplotlib.dates as dt
+from matplotlib.colors import ListedColormap
+import numpy as np
+import pandas as pd
 import seaborn as sns
 import itertools
 
@@ -108,7 +111,7 @@ def plot_dist_hue(df, x, hue, hue_str, norm=False, n_bins=50, figsize=(8,5), fil
     plt.savefig('plots/dist_%s.png' % filename)
     plt.cla()
 
-def plot_line_groupby(df, x, y, groupby, group_label, ylog=False, x_label="", y_label="", figsize=(20,6), filename=""):
+def plot_line_groupby(df, x, y, groupby, group_label, ylog=False, x_label="", y_label="", figsize=(20,6), filename="", xlim=None, ylim=None, legend_order=None, **kwargs):
     ''' create line plot for different group in the same axes.
     Args:
         df: Pandas dataframe
@@ -120,21 +123,33 @@ def plot_line_groupby(df, x, y, groupby, group_label, ylog=False, x_label="", y_
     Return:
         None
     '''
+    def _get_handle(name, labels, handles):
+        ''' Get handle that matches with given name.'''
+        for label, handle in zip(labels, handles):
+            if label == name:
+                return handle
     # create figure and axes
     fig, ax = plt.subplots(1, 1, figsize=figsize, squeeze=False)
     ax=ax.flatten()
     line = itertools.cycle(lines) 
     for name, df_group in df.groupby(groupby):
         if x=="index":
-            df_group[y].plot(kind='line', legend=True, label=group_label[name], linewidth=2.0, linestyle=next(line))
+            df_group[y].plot(kind='line', legend=True, label=group_label[name], linewidth=2.0, linestyle=next(line), **kwargs)
         else:
-            df_group.set_index(x)[y].plot(kind='line', legend=True, label=group_label[name], linewidth=2.0, linestyle=next(line))
+            df_group.set_index(x)[y].plot(kind='line', legend=True, label=group_label[name], linewidth=2.0, linestyle=next(line), **kwargs)
     # customize and save plot
     if ylog:
         ax[0].set_yscale('log')
     ax[0].set_ylabel(y_label)
     ax[0].set_xlabel(x_label)
-    #ax[0].grid(False)
+    if xlim:
+        ax[0].set_xlim(xlim)
+    if ylim:
+        ax[0].set_ylim(ylim)
+    # order legends
+    if legend_order:
+        handles, labels = ax[0].get_legend_handles_labels()
+        plt.legend([_get_handle(name, labels, handles) for name in legend_order], legend_order)
     plt.tight_layout()
     plt.savefig('plots/line_%s.png' % filename)
     plt.cla()
@@ -189,7 +204,7 @@ def plot_heatmap(df, x_label, y_label, figsize=(20,6), filename="", cmap="Blues"
     plt.savefig('plots/heatmap_%s.png' % filename)
 
 
-def plot_scatter(df, x, y, x_label="", y_label="", figsize=(20,6), filename=""):
+def plot_scatter(df, x, y, x_label="", y_label="", figsize=(20,6), filename="", **kwargs):
     ''' create heatmap from given dataframe
     Args:
         df: Pandas dataframe
@@ -200,10 +215,11 @@ def plot_scatter(df, x, y, x_label="", y_label="", figsize=(20,6), filename=""):
     # create figure and axes
     fig, ax = plt.subplots(1, 1, figsize=figsize, squeeze=False)
     # plot heatmap
-    ax = df.plot(x=x,y=y)
+    ax = sns.scatterplot(data=df, x=x, y=y, **kwargs)
     # customize and save plot
     ax.set_ylabel(y_label)
     ax.set_xlabel(x_label)
+    ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     plt.tight_layout()
     plt.savefig('plots/scatter_%s.png' % filename)
     plt.cla()
@@ -285,4 +301,68 @@ def plot_heatmap_group(df_list, n_subplot_columns, x_label, y_label, df_err_list
     if filename != "":
         plt.savefig('plots/heatmap_group_%s.png' % filename)
     return
+
+
+
+
+
+def plot_decision_boundary(model, df, features, h=0.01, x_label="", y_label="", xlim=False, ylim=False, vlines = [], hlines = [],
+    colors=["#BA2832", "#F3F2F2", "#2A71B2"], figsize=(8,4), ticks=[], filename=""):
+    ''' Plot decision boundary of trained model.
+    Args:
+        model: Fitted model
+        df: input dataframe
+        features: list of features
+        h: step size when creating grid
+        vlines, hlines: vertical and horizontal lines to draw given in list, ex. vlines=[-0.5, 0, 0.5]
+        others: plotting option
+    Return:
+        None
+    '''
+    print("Plotting decision boundary with filename: %s" %filename)
+    # Make prediction on grid
+    if xlim:
+        x_min, x_max = xlim
+    else:
+        x_min, x_max = df[features].iloc[:,0].min(), df[features].iloc[:,0].max()
+    if ylim:
+        y_min, y_max = ylim
+    else:
+        y_min, y_max = df[features].iloc[:,1].min(), df[features].iloc[:,1].max()
+    xx, yy = np.meshgrid(np.arange(x_min, x_max, h), np.arange(y_min, y_max, h))
+    df_mesh = pd.DataFrame(np.c_[xx.ravel(), yy.ravel()])\
+                .rename({i:features[i] for i in range(len(features))}, axis=1)
+    z = model.predict(df_mesh)
+    z = z.reshape(xx.shape)
+    # Put the result into a color plot
+    cmap = ListedColormap(sns.color_palette(colors).as_hex())
+    fig, ax = plt.subplots(1,1, figsize=figsize)
+    im = ax.pcolormesh(xx, yy, z, cmap=cmap)
+    # Customize plot
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label)
+    if xlim:
+        ax.set_xlim(xlim)
+    else:
+        ax.set_xlim(xx.min(), xx.max())
+    if ylim:
+        ax.set_ylim(ylim)
+    else:
+        ax.set_ylim(yy.min(), yy.max())
+    plt.tight_layout()
+    colorbar = fig.colorbar(im, ax=ax)
+    if ticks:
+        colorbar.set_ticks(ticks)
+    # Draw vertical and horizontal lines
+    if vlines:
+        for x in vlines:
+            plt.axvline(x, linewidth=1, linestyle='--', color='black')
+    if hlines:
+        for y in hlines:
+            plt.axhline(y, linewidth=1, linestyle='--', color='black')
+    # Save figure
+    plt.savefig('plots/decision_boundary_%s.png' %filename)
+
+
+
 
