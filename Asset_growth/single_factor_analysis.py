@@ -1,13 +1,15 @@
 #!/usr/bin/env python
-# import common python libraries
+# Import common python libraries
 from datetime import datetime
 import dateutil.relativedelta
 import itertools
 import numpy as np
 import pandas as pd
-from _plots import *
-from _backtest import *
-from _ML import *
+
+# Import custom libraries
+from Asset_growth.lib.backtest import *
+from Asset_growth.lib.plots import *
+from Asset_growth.lib.utils import *
 
 #----------------------------------------------
 # set user options
