@@ -1,6 +1,3 @@
-#----------------------------------------------
-# plotting functions
-#----------------------------------------------
 import matplotlib as mpl;mpl.use('agg') # use non-interactive backend
 import matplotlib.pyplot as plt
 import matplotlib.dates as dt
@@ -18,6 +15,8 @@ plt.style.use('fivethirtyeight')
 plt.rcParams['axes.facecolor']='white'
 plt.rcParams['savefig.facecolor']='white'
 
+#----------------------------------------------
+# plotting functions
 #----------------------------------------------
 
 def plot_learning_curve(df, xcol="h", ycols=["f1_train", "f1_test"], title="", figsize=(8,8)):
@@ -111,6 +110,7 @@ def plot_dist_hue(df, x, hue, hue_str, norm=False, n_bins=50, figsize=(8,5), fil
     plt.savefig('plots/dist_%s.png' % filename)
     plt.cla()
 
+
 def plot_line_groupby(df, x, y, groupby, group_label, ylog=False, x_label="", y_label="", figsize=(20,6), filename="", xlim=None, ylim=None, legend_order=None, **kwargs):
     ''' create line plot for different group in the same axes.
     Args:
@@ -132,7 +132,7 @@ def plot_line_groupby(df, x, y, groupby, group_label, ylog=False, x_label="", y_
     fig, ax = plt.subplots(1, 1, figsize=figsize, squeeze=False)
     ax=ax.flatten()
     line = itertools.cycle(lines) 
-    for name, df_group in df.groupby(groupby):
+    for name, df_group in df.groupby(by=groupby, sort=False):
         if x=="index":
             df_group[y].plot(kind='line', legend=True, label=group_label[name], linewidth=2.0, linestyle=next(line), **kwargs)
         else:
@@ -153,6 +153,7 @@ def plot_line_groupby(df, x, y, groupby, group_label, ylog=False, x_label="", y_
     plt.tight_layout()
     plt.savefig('plots/line_%s.png' % filename)
     plt.cla()
+
 
 def plot_line_multiple_cols(df, x, list_y, legends, x_label, y_label, ylog=False, figsize=(20,6), filename=""):
     ''' create line plot from multiple columns in the same axes.
@@ -304,15 +305,19 @@ def plot_heatmap_group(df_list, n_subplot_columns, x_label, y_label, df_err_list
 
 
 
-
+#----------------------------------------------
+# plotting functions specific to AG project
+#----------------------------------------------
+from Asset_growth.lib.backtest import *
 
 def plot_decision_boundary(model, df, features, h=0.01, x_label="", y_label="", xlim=False, ylim=False, vlines = [], hlines = [],
     colors=["#BA2832", "#F3F2F2", "#2A71B2"], figsize=(8,4), ticks=[], filename=""):
     ''' Plot decision boundary of trained model.
     Args:
-        model: Fitted model
-        df: input dataframe
-        features: list of features
+        model: Fitted model that has .predict method
+        df: input dataframe containing two features. Used to extract feature domain (mix, max values).
+            Column order decides x and y. First feature becomes x, second feature becomes y. 
+        features: list of features. ex. ["AG", "FCFA"]
         h: step size when creating grid
         vlines, hlines: vertical and horizontal lines to draw given in list, ex. vlines=[-0.5, 0, 0.5]
         others: plotting option
@@ -320,7 +325,7 @@ def plot_decision_boundary(model, df, features, h=0.01, x_label="", y_label="", 
         None
     '''
     print("Plotting decision boundary with filename: %s" %filename)
-    # Make prediction on grid
+    # Get x and y domain
     if xlim:
         x_min, x_max = xlim
     else:
@@ -329,9 +334,11 @@ def plot_decision_boundary(model, df, features, h=0.01, x_label="", y_label="", 
         y_min, y_max = ylim
     else:
         y_min, y_max = df[features].iloc[:,1].min(), df[features].iloc[:,1].max()
+    # Create grid of (x,y) pairs.
     xx, yy = np.meshgrid(np.arange(x_min, x_max, h), np.arange(y_min, y_max, h))
     df_mesh = pd.DataFrame(np.c_[xx.ravel(), yy.ravel()])\
                 .rename({i:features[i] for i in range(len(features))}, axis=1)
+    # Make prediction for each point on grid
     z = model.predict(df_mesh)
     z = z.reshape(xx.shape)
     # Put the result into a color plot
@@ -353,7 +360,7 @@ def plot_decision_boundary(model, df, features, h=0.01, x_label="", y_label="", 
     colorbar = fig.colorbar(im, ax=ax)
     if ticks:
         colorbar.set_ticks(ticks)
-    # Draw vertical and horizontal lines
+    # Draw vertical and horizontal lines.
     if vlines:
         for x in vlines:
             plt.axvline(x, linewidth=1, linestyle='--', color='black')
@@ -364,5 +371,53 @@ def plot_decision_boundary(model, df, features, h=0.01, x_label="", y_label="", 
     plt.savefig('plots/decision_boundary_%s.png' %filename)
 
 
+def plot_cumulative_return(df_cum_train, df_cum_test, label_reg, filename, figsize=(15,6), group_label={0:"Q1", 1:"Q2", 2:"Q3"}, time="eom", **kwargs):
+    ''' Wrapper of plotting functions. Create cumulative return plot for train and test dataset.
+    Args:
+        df_cum_train: cumulative return obtained from train set
+        df_cum_test: cumulative return obtained from test set
+        label_reg: name of target label
+        group_label: dictionary to map between label and recognizable string
+        time: time column
+        filename: filename
+    Return:
+        None
+    ''' 
+    print("Plotting cumulative return plots with filename: %s" %filename)
 
+    # plot train dataset
+    plot_line_groupby(df=df_cum_train,\
+                      x=time, y="cumulative_return",\
+                      groupby="pred", group_label = {key:group_label[key]+" (Train)" for key in group_label},\
+                      x_label="Time", y_label="Cumulative %s" %label_reg, ylog=False, figsize=figsize, filename = "%s_train" %filename, **kwargs)
+
+    # plot test dataset
+    plot_line_groupby(df=df_cum_test,\
+                      x=time, y="cumulative_return",\
+                      groupby="pred", group_label = {key:group_label[key]+" (Test)" for key in group_label},\
+                      x_label="Time", y_label="Cumulative %s" %label_reg, ylog=False, figsize=figsize, filename = "%s_test" %filename, **kwargs)
+    return
+
+def plot_cumulative_return_diff(list_cum_returns, list_labels, label_reg, figsize=(15,6), filename="", **kwargs):
+    ''' Wrapper for plotting function. This function plots difference in cumulative return for given models where
+        difference in return is defined as Q1+Q2 - Q3.
+    Args:
+        list_cum_return: list of dataframe representing cumulative returns (output of "predict_and_calculate_cum_return")
+        list_label: list of labels for the models 
+        label_reg: regression label. ex. 'fqTotalReturn'
+    '''
+    # Calculate difference in return and concatenate
+    df_diff_q1q2_q3 = pd.concat([calculate_diff_return(cum_return, output_col=label)[0] for cum_return, label in zip(list_cum_returns, list_labels)])
+    df_diff_q1_q3 = pd.concat([calculate_diff_return(cum_return, output_col=label)[1] for cum_return, label in zip(list_cum_returns, list_labels)])
+
+    # plot test dataset
+    plot_line_groupby(df=df_diff_q1q2_q3,\
+                      x="index", y="cumulative_return",\
+                      groupby="pred", group_label = {key:key for key in df_diff_q1q2_q3["pred"].unique()},\
+                      x_label="Time", y_label="Cumulative %s\n(Q1+Q2) - Q3" %label_reg, ylog=False, figsize=figsize, filename = "%s_q1q2_q3" %filename, **kwargs)
+    plot_line_groupby(df=df_diff_q1_q3,\
+                      x="index", y="cumulative_return",\
+                      groupby="pred", group_label = {key:key for key in df_diff_q1q2_q3["pred"].unique()},\
+                      x_label="Time", y_label="Cumulative %s\nQ1 - Q3" %label_reg, ylog=False, figsize=figsize, filename = "%s_q1_q3" %filename, **kwargs)
+    return        
 

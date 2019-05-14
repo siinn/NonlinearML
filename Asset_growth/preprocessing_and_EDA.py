@@ -28,7 +28,7 @@ from pyspark.sql.types import StructField, StructType, IntegerType, DoubleType, 
 #----------------------------------------------
 
 # set input and output path
-input_path = '/mnt/mainblob/asset_growth/data/Data_for_AssetGrowth_Context.r4.csv'
+input_path = '/mnt/mainblob/asset_growth/data/Data_for_AssetGrowth_Context.pd.r4.csv'
 output_path = '/mnt/mainblob/asset_growth/data/Data_for_AssetGrowth_Context.r5.csv'
 # set True for development
 debug = True

@@ -8,7 +8,7 @@ import pandas as pd
 from sklearn.metrics import f1_score, make_scorer
 from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import train_test_split as sklearn_train_test_split
-from _backtest import *
+from Asset_growth.lib.backtest import *
 
 def to_datetime(date):
     ''' convert given string to datetime"
@@ -71,8 +71,7 @@ def concat_pred_label(df, prediction, columns=[], pred_name='pred'):
                            pd.DataFrame(prediction, columns=['pred'])], axis=1)
     return df_result
 
-
-def discretize_variables_by_month(df, variables, month="eom", labels_tertile=None, labels_quintile=None):
+def discretize_variables_by_month(df, variables, month="eom", labels_tertile={}, labels_quintile={}):
     ''' discretize variables by assigning a quintile and tertile class within each month. 
     Args:
         df: Pandas dataframe containing variables
@@ -84,38 +83,19 @@ def discretize_variables_by_month(df, variables, month="eom", labels_tertile=Non
     # create classification labels
     for var in variables:
         # set labels
-        if labels_tertile == None:
-            labels_tertile=[var+" low", var+" mid", var+" high"]
-        if labels_quintile == None:
-            labels_quintile=[var+" low", var+" mid-low", var+" mid", var+" mid-high", var+" high"]
+        if var in labels_tertile:
+            lt=labels_tertile[var]
+        else:
+            lt=[var+" low", var+" mid", var+" high"]
+        if var in labels_quintile:
+            lq=labels_quintile[var]
+        else:
+            lq=[var+" low", var+" mid-low", var+" mid", var+" mid-high", var+" high"]
         # assign classes
-        df[var+"_tertile"] = df.groupby([month])[var].transform(lambda x: pd.qcut(x, 3, labels_tertile))
-        df[var+"_quintile"] = df.groupby([month])[var].transform(lambda x: pd.qcut(x, 5, labels_quintile))
+        df[var+"_tertile"] = df.groupby([month])[var].transform(lambda x: pd.qcut(x, 3, lt))
+        df[var+"_quintile"] = df.groupby([month])[var].transform(lambda x: pd.qcut(x, 5, lq))
     return df
 
-
-
-def get_tertile_boundary(df, variables):
-    ''' get boundaries of tertile groups by calculating the average of the boundaries of two adjacent tertile groups.
-    Only works for tertile.
-    Args:
-        df: Pandas dataframe containing variables
-        variables: list of variables of interests
-    Return:
-        results: dictionary containing boundaries of each variable
-    '''
-    results = {}
-    for var in variables:
-        lower_boundary = df.groupby("%s_tertile" %var).min()\
-                           .sort_values(var, ascending=False)\
-                           .head(2).sort_values(var)\
-                           [var].values
-        upper_boundary = df.groupby("%s_tertile" %var).max()\
-                           .sort_values(var)\
-                           .head(2)\
-                           [var].values
-        results[var] = list((lower_boundary + upper_boundary) / 2)
-    return results
 
 
 
@@ -246,7 +226,6 @@ def grid_search(model, param_grid, df_train, df_val, features, label_cla, label_
     df_return = pd.DataFrame(summary)
     #df_return["metric"] = df_return["val_diff"] / abs(df_return["train_diff"] - df_return["val_diff"])
     df_return["metric"] = df_return["val_diff"] - abs(df_return["train_diff"] - df_return["val_diff"])
-    print(df_return)
     # Return best parameter
     best_params = df_return.iloc[df_return["metric"].idxmax()]["params"]
     print("Best parameters:")

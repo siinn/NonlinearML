@@ -1,22 +1,24 @@
 #!/usr/bin/env python
-# import common python libraries
+# Import common python libraries
 from datetime import datetime
 import dateutil.relativedelta
-import itertools
 import matplotlib as mpl;mpl.use('agg') # use non-interactive backend
 import matplotlib.pyplot as plt
 import matplotlib.dates as dt
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import classification_report
 from sklearn.model_selection import GridSearchCV
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.neural_network import MLPClassifier
 from xgboost.sklearn import XGBClassifier
-from _backtest import *
-from _plots import *
-from _ML import *
-from _HeuristicModel import *
+
+# Import custom libraries
+from Asset_growth.lib.backtest import *
+from Asset_growth.lib.plots import *
+from Asset_growth.lib.utils import *
+from Asset_growth.lib.heuristicModel import *
 
 #----------------------------------------------
 # Set user options
@@ -24,16 +26,29 @@ from _HeuristicModel import *
 # Set input and output path
 input_path = '/mnt/mainblob/asset_growth/data/Data_for_AssetGrowth_Context.pd.r4.csv'
 
-# Set features and label
-#features = ['CAP', 'AG', 'ROA', 'EG', 'LTG', 'SG', 'GS', 'SEV', 'CVROIC', 'FCFA']
+# Set features
+''' Set features of interest. This algorithm takes a pair of features. The order of pair matters.
+    ex. ['FCFA', 'AG'] will generate decision boundary with x=FCFA, y=AG.
+    Full list of available features:
+        ['CAP', 'AG', 'ROA', 'EG', 'LTG', 'SG', 'GS', 'SEV', 'CVROIC', 'FCFA']
+'''
 features = ['FCFA', 'AG']
 categories = ['GICSSubIndustryNumber']    
-#label_cla = "fqTotalReturn_quintile" # or "fmTotalReturn_quintile"
-label_cla = "fqTotalReturn_tertile"
-label_reg = "fqTotalReturn" # or "fmTotalReturn"
-label_fm = "fmTotalReturn"
+
+# Set labels
+label_cla = "fqTotalReturn_tertile"     # or "fmTotalReturn_quintile"
+label_reg = "fqTotalReturn"             # or "fmTotalReturn"
+label_fm = "fmTotalReturn"              # Used to calculate cumulative return
 time = "eom"
 
+# Set train and test period
+train_length = 120
+train_end = "2006-12-31"
+test_begin = "2007-01-01"
+test_end = "2017-11-01"
+
+# Train/validation split ratio
+train_validation_split = 0.7
 
 # Set algorithms to run
 run_lr              = True
@@ -43,66 +58,21 @@ run_nn              = True
 run_sort_ag         = True
 run_ag_fcfa         = True
 run_grid_search     = False
-run_summary         = False
-
+run_summary         = True
 
 # Color scheme for plot
-#colors = ["#296FAF", "#F3F2F2", "#CC4125"]
-colors = ["#2A71B2", "#F3F2F2", "#BA2832"]
-
-#----------------------------------------------
-# Functions
-#----------------------------------------------
-def plot_cumulative_return(df_cum_train, df_cum_test, label_reg, filename, figsize=(15,6), group_label={0:"Q1", 1:"Q2", 2:"Q3"}, time="eom", **kwargs):
-    ''' Wrapper of plotting functions. Create cumulative return plot for train and test dataset.
-    Args:
-        df_cum_train: cumulative return obtained from train set
-        df_cum_test: cumulative return obtained from test set
-        label_reg: name of target label
-        group_label: dictionary to map between label and recognizable string
-        time: time column
-        filename: filename
-    Return:
-        None
-    ''' 
-    print("Plotting cumulative return plots with filename: %s" %filename)
-
-    # plot train dataset
-    plot_line_groupby(df=df_cum_train,\
-                      x=time, y="cumulative_return",\
-                      groupby="pred", group_label = {key:group_label[key]+" (Train)" for key in group_label},\
-                      x_label="Time", y_label="Cumulative %s" %label_reg, ylog=False, figsize=figsize, filename = "%s_train" %filename, **kwargs)
-
-    # plot test dataset
-    plot_line_groupby(df=df_cum_test,\
-                      x=time, y="cumulative_return",\
-                      groupby="pred", group_label = {key:group_label[key]+" (Test)" for key in group_label},\
-                      x_label="Time", y_label="Cumulative %s" %label_reg, ylog=False, figsize=figsize, filename = "%s_test" %filename, **kwargs)
-    return
-
-def plot_cumulative_return_diff(list_cum_returns, list_labels, figsize=(15,6), filename="", **kwargs):
-    ''' Wrapper for plotting function. This function plots difference in cumulative return for given models where
-        difference in return is defined as Q1+Q2 - Q3.
-    Args:
-        list_cum_return: list of dataframe representing cumulative returns (output of "predict_and_calculate_cum_return")
-        list_label: list of labels for the models 
-    '''
-    # Calculate difference in return and concatenate
-    df_diff_q1q2_q3 = pd.concat([calculate_diff_return(cum_return, output_col=label)[0] for cum_return, label in zip(list_cum_returns, list_labels)])
-    df_diff_q1_q3 = pd.concat([calculate_diff_return(cum_return, output_col=label)[1] for cum_return, label in zip(list_cum_returns, list_labels)])
-
-    # plot test dataset
-    plot_line_groupby(df=df_diff_q1q2_q3.sort_index(),\
-                      x="index", y="cumulative_return",\
-                      groupby="pred", group_label = {key:key for key in df_diff_q1q2_q3["pred"].unique()},\
-                      x_label="Time", y_label="Cumulative %s\n(Q1+Q2) - Q3" %label_reg, ylog=False, figsize=figsize, filename = "%s_q1q2_q3" %filename, **kwargs)
-    plot_line_groupby(df=df_diff_q1_q3.sort_index(),\
-                      x="index", y="cumulative_return",\
-                      groupby="pred", group_label = {key:key for key in df_diff_q1q2_q3["pred"].unique()},\
-                      x_label="Time", y_label="Cumulative %s\nQ1 - Q3" %label_reg, ylog=False, figsize=figsize, filename = "%s_q1_q3" %filename, **kwargs)
-    return        
+# green, gray, red
+colors = ["#3DC66D", "#F3F2F2", "#DF4A3A"]
 
 
+
+
+
+
+
+#------------------------------------------
+# Main 
+#------------------------------------------
 if __name__ == "__main__":
 
     #------------------------------------------
@@ -112,17 +82,24 @@ if __name__ == "__main__":
     df = pd.read_csv(input_path, index_col=None, parse_dates=[time])
 
     # Assign AG and FCFA tertiles
-    df = discretize_variables_by_month(df=df, variables=['AG'], month="eom", labels_tertile=[0,1,2], labels_quintile=[4,3,2,1,0])
-    df = discretize_variables_by_month(df=df, variables=['FCFA'], month="eom", labels_tertile=[2,1,0], labels_quintile=[4,3,2,1,0])
+    df = discretize_variables_by_month(df=df, variables=['AG', 'FCFA'], month="eom",
+                                       labels_tertile={'AG':[0,1,2], 'FCFA':[2,1,0]},
+                                       labels_quintile={'AG':[4,3,2,1,0], 'FCFA':[4,3,2,1,0]})
     tertile_boundary =  get_tertile_boundary(df, ["AG", "FCFA"])
 
+    #------------------------------------------
     # Create train, validation, test dataset
-    df_train_all, df_test = train_test_split(df=df, date_column=time, train_length = 140, 
-                                             train_end = to_datetime("2006-12-31"),
-                                             test_begin = to_datetime("2007-01-01"),
-                                             test_end = to_datetime("2017-11-01"))
+    #------------------------------------------
+    # Split train and test by dates
+    df_train_all, df_test = train_test_split(df=df, date_column=time, train_length = train_length, 
+                                             train_end = to_datetime(train_end),
+                                             test_begin = to_datetime(test_begin),
+                                             test_end = to_datetime(test_end))
 
-    df_train, df_val = train_val_split_by_col(df_train_all, col="SecurityID", train_size=0.7)
+    # Split train into train and validation datasets by SecurityID (cross-sectional)
+    df_train, df_val = train_val_split_by_col(df_train_all, col="SecurityID", train_size=train_validation_split)
+
+
 
     #------------------------------------------
     # Print job summary
@@ -133,8 +110,9 @@ if __name__ == "__main__":
     print(" > run_knn         = %s" % run_knn)
     print(" > run_nn          = %s" % run_nn)
     print(" > run_sort_ag     = %s" % run_sort_ag)
+    print(" > run_ag_fcfa     = %s" % run_ag_fcfa)
     print(" > run_grid_search = %s" % run_grid_search)
-
+    print(" > run_summary = %s" % run_summary)
 
     #------------------------------------------
     # Logistic regression
@@ -161,8 +139,8 @@ if __name__ == "__main__":
                                                                  df_train=df_train_all, df_test=df_test,
                                                                  features=features, label_cla=label_cla, label_fm=label_fm)
         # Make cumulative return plot
-        plot_cumulative_return(df_cum_train_lr, df_cum_test_lr, label_reg, figsize=(8,6), filename="cum_lr", ylim=(-0.6, 3.0))
-        plot_cumulative_return_diff(list_cum_returns=[df_cum_test_lr], list_labels=["OLS (ridge)"], figsize=(8,6), ylim=(-0.6,5), filename="cum_lr_diff")
+        plot_cumulative_return(df_cum_train_lr, df_cum_test_lr, label_reg, figsize=(8,6), filename="cum_lr", ylim=(-0.25,2))
+        plot_cumulative_return_diff(list_cum_returns=[df_cum_test_lr], list_labels=["OLS (ridge)"], label_reg=label_reg, figsize=(8,6), ylim=(-0.25,2), filename="cum_lr_diff")
 
         # Plot decision boundary of trained model
         plot_decision_boundary(model=model_lr, df=df_test, features=features, h=0.01, x_label="FCFA", y_label="AG",
@@ -198,9 +176,6 @@ if __name__ == "__main__":
             # Also good
             best_params_xgb = {'max_depth': 3, 'learning_rate': 0.0007498942093324559, 'n_estimators': 100, 'objective': 'multi:softmax',
                                'min_child_weight': 10.0, 'gamma': 1.0, 'lambda': 1.0, 'subsample': 0.6, 'n_jobs': -1, 'num_class': 3}
-            # Overfitting
-            #best_params_xgb = {'max_depth': 10, 'learning_rate': 0.0007498942093324559, 'n_estimators': 50, 'objective': 'multi:softmax',
-            #                   'min_child_weight': 10.0, 'gamma': 1.0, 'lambda': 1.0, 'subsample': 1, 'n_jobs': -1, 'num_class': 3}
 
         # Calculate cumulative return using best parameters
         df_cum_train_xgb, df_cum_test_xgb, model_xgb = predict_and_calculate_cum_return(model=XGBClassifier(**best_params_xgb),
@@ -208,8 +183,8 @@ if __name__ == "__main__":
                                                                              features=features, label_cla=label_cla, label_fm=label_fm)
 
         # Make cumulative return plot
-        plot_cumulative_return(df_cum_train_xgb, df_cum_test_xgb, label_reg, figsize=(8,6), filename="cum_xgb", ylim=(-0.6, 3.0))
-        plot_cumulative_return_diff(list_cum_returns=[df_cum_test_xgb], list_labels=["XGBoost"], figsize=(8,6), ylim=(-0.6,5), filename="cum_xgb_diff")
+        plot_cumulative_return(df_cum_train_xgb, df_cum_test_xgb, label_reg, figsize=(8,6), filename="cum_xgb", ylim=(-0.25,2))
+        plot_cumulative_return_diff(list_cum_returns=[df_cum_test_xgb], list_labels=["XGBoost"], label_reg=label_reg, figsize=(8,6), ylim=(-0.25,2), filename="cum_xgb_diff")
 
 
         # Plot decision boundary of trained model
@@ -218,24 +193,26 @@ if __name__ == "__main__":
                                xlim=False, ylim=False, figsize=(8,6), ticks=[0,1,2], filename="xgb")
 
 
+
+
+
     #------------------------------------------
     # kNN
     #------------------------------------------
     if run_knn:
         print("Running kNN")
         # Set parameters to search
-        param_grid = {'n_neighbors': [int(x) for x in np.logspace(1,3,30)]} 
+        param_grid = {'n_neighbors': [int(x) for x in np.logspace(1,3,10)]} 
         
         # Perform grid search using validation set
+        # Entire training set is used for grid search as sample size is crucial in kNN.
         if run_grid_search:
             best_params_knn, df_params_knn = grid_search(model=KNeighborsClassifier(),
                                                          param_grid=param_grid,
-                                                         df_train=df_train, df_val=df_val,
+                                                         df_train=df_train_all, df_val=df_train_all,
                                                          features=features, label_cla=label_cla, label_fm=label_fm)
         else:
             best_params_knn = {'n_neighbors': 500} 
-            # Overfitting
-            #best_params_knn = {'n_neighbors': 10} 
         
         # Calculate cumulative return using best parameters
         df_cum_train_knn, df_cum_test_knn, model_knn = predict_and_calculate_cum_return(model=KNeighborsClassifier(**best_params_knn),
@@ -243,8 +220,8 @@ if __name__ == "__main__":
                                                                              features=features, label_cla=label_cla, label_fm=label_fm)
         
         # Make cumulative return plot
-        plot_cumulative_return(df_cum_train_knn, df_cum_test_knn, label_reg, figsize=(8,6), filename="cum_knn", ylim=(-0.6, 3.0))
-        plot_cumulative_return_diff(list_cum_returns=[df_cum_test_knn], list_labels=["kNN"], figsize=(8,6), ylim=(-0.6,5), filename="cum_knn_diff")
+        plot_cumulative_return(df_cum_train_knn, df_cum_test_knn, label_reg, figsize=(8,6), filename="cum_knn", ylim=(-0.25,2))
+        plot_cumulative_return_diff(list_cum_returns=[df_cum_test_knn], list_labels=["kNN"], label_reg=label_reg, figsize=(8,6), ylim=(-0.25,2), filename="cum_knn_diff")
 
         # Plot decision boundary of trained model
         plot_decision_boundary(model=model_knn, df=df_test, features=features, h=0.01, x_label="FCFA", y_label="AG",
@@ -276,8 +253,7 @@ if __name__ == "__main__":
         else:
             #best_params_nn = {'activation': 'relu', 'hidden_layer_sizes': (100, 100, 100), 'alpha': 0.046415888336127725, 'early_stopping': True, 'learning_rate': 'adaptive'}
             #best_params_nn = {'activation': 'relu', 'hidden_layer_sizes': (500, 400, 300, 200, 100), 'alpha': 4.641588833612782e-06, 'early_stopping': True, 'learning_rate': 'adaptive'}
-
-            #best_params_nn = {'activation': 'relu', 'hidden_layer_sizes': (1000, 500, 400, 300, 200, 100, 50, 10), 'alpha': 0.0004832930238571752, 'early_stopping': False, 'max_iter': 500, 'learning_rate': 'adaptive'}
+            # Best performing
             best_params_nn = {'activation': 'relu', 'hidden_layer_sizes': (1000, 500, 400, 300, 200, 100, 50, 10), 'alpha': 7.847599703514606e-05, 'early_stopping': True, 'max_iter': 500, 'learning_rate': 'adaptive'}
 
         # Calculate cumulative return using best parameters
@@ -286,8 +262,8 @@ if __name__ == "__main__":
                                                                              features=features, label_cla=label_cla, label_fm=label_fm)
         
         # Make cumulative return plot
-        plot_cumulative_return(df_cum_train_nn, df_cum_test_nn, label_reg, figsize=(8,6), filename="cum_nn", ylim=(-0.6, 3.0))
-        plot_cumulative_return_diff(list_cum_returns=[df_cum_test_nn], list_labels=["Neural Net"], figsize=(8,6), ylim=(-0.6,5), filename="cum_nn_diff")
+        plot_cumulative_return(df_cum_train_nn, df_cum_test_nn, label_reg, figsize=(8,6), filename="cum_nn", ylim=(-0.25,2))
+        plot_cumulative_return_diff(list_cum_returns=[df_cum_test_nn], list_labels=["Neural Net"], label_reg=label_reg, figsize=(8,6), ylim=(-0.25,2), filename="cum_nn_diff")
 
         # Plot decision boundary of trained model
         plot_decision_boundary(model=model_nn, df=df_test, features=features, h=0.01, x_label="FCFA", y_label="AG",
@@ -310,14 +286,28 @@ if __name__ == "__main__":
         df_cum_test_simple = df_cum_test_simple.rename({"AG_tertile":"pred"}, axis=1)
         
         # Make cumulative return plot
-        plot_cumulative_return(df_cum_train_simple, df_cum_test_simple, label_reg, figsize=(8,6), group_label={2: 'AG low', 1: 'AG mid', 0: 'AG high'}, filename="cum_simple")
-        plot_cumulative_return_diff(list_cum_returns=[df_cum_test_simple], list_labels=["Sort AG"], figsize=(8,6), ylim=(-0.6,5), filename="cum_simple_diff")
+        plot_cumulative_return(df_cum_train_simple, df_cum_test_simple, label_reg, figsize=(8,6), group_label={2: 'AG low', 1: 'AG mid', 0: 'AG high'}, ylim=(-0.25,2), filename="cum_simple")
+        plot_cumulative_return_diff(list_cum_returns=[df_cum_test_simple], list_labels=["Sort AG"], label_reg=label_reg, figsize=(8,6), ylim=(-0.25,2), filename="cum_simple_diff")
 
         # Plot decision boundary of trained model
         plot_decision_boundary(model=HeuristicModel_SortAG(df=df, feature="AG"),
                                df=df_train_all, features=features, h=0.01, x_label="FCFA", y_label="AG",
                                vlines=tertile_boundary["FCFA"], hlines=tertile_boundary["AG"], colors=colors,
                                xlim=False, ylim=False, figsize=(8,6), ticks=[0,1,2], filename="sort_ag")
+
+        print("Running sort by FCFA")
+        # Calculate cumulative return
+        df_cum_train_simple_FCFA = cumulative_return(df=df_train_all, var_classes='FCFA_tertile', total_return=label_fm)
+        df_cum_test_simple_FCFA = cumulative_return(df=df_test, var_classes='FCFA_tertile', total_return=label_fm)
+    
+        # Rename column before concat
+        df_cum_train_simple_FCFA = df_cum_train_simple_FCFA.rename({"FCFA_tertile":"pred"}, axis=1)
+        df_cum_test_simple_FCFA = df_cum_test_simple_FCFA.rename({"FCFA_tertile":"pred"}, axis=1)
+        
+        # Make cumulative return plot
+        plot_cumulative_return(df_cum_train_simple_FCFA, df_cum_test_simple_FCFA, label_reg, figsize=(8,6), group_label={2: 'FCFA low', 1: 'FCFA mid', 0: 'FCFA high'}, ylim=(-0.25,2), filename="cum_simple_FCFA")
+        plot_cumulative_return_diff(list_cum_returns=[df_cum_test_simple_FCFA], list_labels=["Sort FCFA"], label_reg=label_reg, figsize=(8,6), ylim=(-0.25,2), filename="cum_simple_diff_FCFA")
+
 
 
     #------------------------------------------
@@ -334,8 +324,8 @@ if __name__ == "__main__":
                                                 var_classes='pred', total_return=label_fm)
         
         # Make cumulative return plot
-        plot_cumulative_return(df_cum_train_simple_ag_fcfa, df_cum_test_simple_ag_fcfa, label_reg, figsize=(8,6), group_label={2: 'Low', 1: 'Mid', 0: 'High'}, filename="cum_simple_ag_fcfa")
-        plot_cumulative_return_diff(list_cum_returns=[df_cum_test_simple_ag_fcfa], list_labels=["Heuristic"], figsize=(8,6), ylim=(-0.6,5), filename="cum_simple_ag_fcfa_diff")
+        plot_cumulative_return(df_cum_train_simple_ag_fcfa, df_cum_test_simple_ag_fcfa, label_reg, figsize=(8,6), group_label={2: 'Low', 1: 'Mid', 0: 'High'}, ylim=(-0.25,2), filename="cum_simple_ag_fcfa")
+        plot_cumulative_return_diff(list_cum_returns=[df_cum_test_simple_ag_fcfa], list_labels=["Heuristic"], label_reg=label_reg, figsize=(8,6), ylim=(-0.25,2), filename="cum_simple_ag_fcfa_diff")
 
         # Plot decision boundary of trained model
         plot_decision_boundary(model=HeuristicModel_AG_HighFCFA(df=df, ag="AG", fcfa="FCFA"),
@@ -351,7 +341,9 @@ if __name__ == "__main__":
         plot_cumulative_return_diff(list_cum_returns=[df_cum_test_simple, df_cum_test_simple_ag_fcfa, df_cum_test_lr,
                                                       df_cum_test_knn, df_cum_test_xgb, df_cum_test_nn],
                                     list_labels=["Sort AG", "Heuristic", "Linear", "KNN", "XGB", "NN"],
-                                    legend_order=["XGB", "Linear", "NN", "KNN", "Heuristic", "Sort AG"],
+                                    legend_order=["XGB", "NN", "Linear", "KNN", "Heuristic", "Sort AG"],
+                                    ylim=(-0.25,2),
+                                    label_reg=label_reg,
                                     figsize=(8,6),
                                     filename="diff_return_test")
 
@@ -359,48 +351,50 @@ if __name__ == "__main__":
                                                       df_cum_test_knn, df_cum_test_xgb],
                                     list_labels=["Sort AG", "Heuristic", "Linear", "KNN", "XGB"],
                                     #legend_order=["XGB", "Linear", "KNN", "Heuristic", "Sort AG"],
-                                    legend_order=["XGB", "Linear", "KNN", "Sort AG", "Heuristic"],
+                                    legend_order=["XGB", "Linear", "KNN", "Heuristic", "Sort AG"],
+                                    ylim=(-1,4),
+                                    label_reg=label_reg,
                                     figsize=(8,6),
                                     filename="diff_return_test")
 
 
+    #------------------------------------------
+    # testing interpretation
+    #------------------------------------------
+    if False:
 
-        plot_cumulative_return_diff(list_cum_returns=[
-                                                      df_cum_test_simple_ag_fcfa,
-                                                      df_cum_test_simple,
-                                                     ],
-                                    list_labels=[
-                                                "Heuristic",
-                                                "Sort AG",
-                                                ],
-                                    figsize=(8,6),
-                                    ylim=(-0.6,5),
-                                    filename="diff_return_test_simple")
+        from skater.core.explanations import Interpretation
+        from skater.model import InMemoryModel
 
+        # feature importance
+        interpreter = Interpretation(df_test[features], feature_names=features)
+        model = InMemoryModel(model_xgb.predict_proba, examples=df_train_all[features])
+        plots = interpreter.feature_importance.plot_feature_importance(model, ascending = False)
 
+       # PDP
+        pyint_model = InMemoryModel(model_xgb.predict_proba, examples=df_train_all[features], target_names=[0,1,2])
+        axes_list = interpreter.partial_dependence.plot_partial_dependence(['AG'],
+                                                                           pyint_model, 
+                                                                           grid_resolution=10, 
+                                                                           with_variance=True,
+                                                                           figsize = (8, 5))
 
+        for i, fig in enumerate(axes_list[0][:int(len(axes_list[0])/2)]):
+            #fig, ax = plt.subplots(1,1, figsize=(8,4))
+            #ax = axes_list[0][4]
+            #ax.set_ylim(0,1)
+            fig.tight_layout()
+            fig.savefig("plots/pdp_ag_class%s.png" %i)
 
+        from skater.core.local_interpretation.lime.lime_tabular import LimeTabularExplainer
+        model = InMemoryModel(model_xgb.predict_proba, examples=df_train_all[features], target_names=[0,1,2])
+        pdp2d = interpreter.partial_dependence.plot_partial_dependence([('AG', 'FCFA')], model, grid_resolution=10)        
 
-    '''========================================================='''
-    '''
-
-    To-do:
-    
-        1 finish optimization on NN
-        2 create overfit plot
-        3 What's next?
-            - intuition -> ML
-            - intuition <- ML
-
-    '''
-    '''========================================================='''
-
-
-
-
-
+        for i, fig in enumerate(pdp2d[0][:int(len(pdp2d[0])/2)]):
+            fig.tight_layout()
+            fig.savefig("plots/pdp2d_class%s.png" %i)
+        
 
 
     print("Successfully completed all tasks")
-
 

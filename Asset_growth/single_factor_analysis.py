@@ -44,6 +44,12 @@ sector_map={10:"Energy", 15:"Materials", 20:"Industrials", 25:"Consumer discreti
               30:"Consumer staples", 35:"Health care", 40:"Financials", 45:"Information technology",
               50:"Communication services", 55:"Utilities", 60:"Real estate", 99:"Unknown"}
 
+# colors map
+#colors = ["#DF4A3A", "#DFA394", "#F3F2F2",  "#ACC6AC", "#3DC66D"]
+colors = ["#DF4A3A",  "#F3F2F2", "#3DC66D"]
+cmap=sns.color_palette(colors)
+
+
 #----------------------------------------------
 # define functions
 #----------------------------------------------
@@ -77,125 +83,6 @@ def train_test_split(df, date_column, train_length, train_end, test_begin, test_
     df_test = df.loc[(df[date_column] >= test_begin) & (df[date_column] <= test_end)]
     return df_train, df_test
 
-#def evaluate_model(model, df_train, df_test, features, label, param_grid={}, n_folds=5):
-#    ''' evaluate the given model using averaged f1 score after performing grid search.
-#    Args:
-#        model: sklearn model
-#        df_train: train dataset in Pandas dataframe
-#        df_test: test dataset in Pandas dataframe
-#        features: feature column names
-#        label: target column name
-#        param_grid: parameter grid to search
-#        n_fold: number of cv folds
-#    Returns:
-#        f1_train: averaged f1 score from train sample
-#        f1_test: averaged f1 score from test sample
-#    '''
-#    # custom scorer for multi-class classification
-#    scorer = make_scorer(f1_score, average='macro')
-#    # run grid search
-#    cv = GridSearchCV(model, param_grid, cv=n_folds, scoring=scorer, refit=True)
-#    cv.fit(df_train[features], df_train[label])
-#    # train using best model
-#    pred_train = cv.predict(df_train[features])
-#    pred_test = cv.predict(df_test[features])
-#    # calculate averaged f1 score
-#    f1_train = f1_score(df_train[label], pred_train, average='macro')
-#    f1_test = f1_score(df_test[label], pred_test, average='macro')
-#    return f1_train, f1_test
-#
-#def learning_curve(model, param_grid, df, features, label, train_length, train_end, test_begin, test_end, date_column="eom", file_surfix=""):
-#    ''' given model and dataset, produce learning curves (f1 score vs training length).
-#    Args:
-#        model: sklearn model
-#        param_grid: parameter grid to search
-#        df: raw input dataframe
-#        train_length: list of train lengths given in month
-#        train_end, test_begin, test_end: begin and end date of train, test dataset in datetime format
-#        date_column: name of column representing time
-#        file_surfix: file surfix used when saving result
-#    Return: None
-#    '''
-#    print("Creating learning curve for: %s" % file_surfix)
-#    # dataframe to hold result
-#    df_result = pd.DataFrame()
-#    for h in train_length:
-#        # create train, test dataset
-#        df_train, df_test = train_test_split(df=df, date_column=date_column,
-#                                             train_length = h, train_end = train_end,
-#                                             test_begin = test_begin, test_end = test_end)
-#        # evaluate model
-#        f1_train, f1_test = evaluate_model(model, df_train, df_test, features, label, param_grid={}, n_folds=5)
-#        # append to result
-#        df_result = df_result.append({'h': h, 'f1_train': f1_train, 'f1_test': f1_test}, ignore_index=True)
-#
-#    # plot learning curve
-#    plot_learning_curve(df_result, xcol="h", ycols=["f1_train", "f1_test"], title=file_surfix, figsize=(8,8))
-#    return
-
-#def discretize_variables_by_month(df, variables, month="eom"):
-#    ''' discretize variables by assigning a quintile and tertile class within each month. 
-#    Args:
-#        df: Pandas dataframe containing variables
-#        variables: list of variables to discretize
-#        month: column representing time
-#    Return:
-#        df: Pandas dataframe with columns named x_quintile, x_tertile for all variable x.
-#    '''
-#    # create classification labels
-#    for var in variables:
-#        df[var+"_tertile"] = df.groupby([month])[var].transform(lambda x: pd.qcut(x, 3, labels=[var+" low", var+" mid", var+" high"]))
-#        df[var+"_quintile"] = df.groupby([month])[var].transform(lambda x: pd.qcut(x, 5, labels=[var+" low", var+" mid-low", var+" mid", var+" mid-high", var+" high"]))
-#    return df
-
-#def cumulative_return(df, var, var_quintile, total_return, time="eom"):
-#    ''' Calculate cumulative return of each quintile (ex. AG1-AG5)
-#    Args:
-#        df: Pandas dataframe
-#        var: variable of interest (ex. AG)
-#        var_quintile: column name representing quintile of the variable of interest (ex. AG_quintile)
-#        total_return: return column
-#        time: time column
-#    Return:
-#        df_avg: Pandas dataframe representing cumulative return for each unit time
-#    '''
-#    def _impute_missing_average(df, var, var_quintile, total_return, time):
-#        ''' check if average return available. If not, set average return to 0. '''
-#        for date in sorted(df[time].unique())[1:]:
-#            df_curr = df.loc[df[time]==date].sort_values(var_quintile) # retrieve current return and previous asset
-#            for quintile in [var+" low", var+" mid-low", var+" mid", var+" mid-high", var+" high"]:
-#                #if quintile not in df[var_quintile].unique():
-#                if quintile not in df_curr[var_quintile].unique():
-#                    print("Found a period in which mean return is not available: date=%s, quintile=%s" %(date, quintile))
-#                    df_add = df_curr.head(1).copy()
-#                    df_add[total_return]=0
-#                    df_add[var_quintile]=quintile
-#                    df = pd.concat([df, df_add], axis=0, ignore_index=True).sort_values(var_quintile)
-#        return df.set_index(var_quintile)
-#    # calculate average return of each quintile of the variable of interest (ex.AG)
-#    df_avg = df.groupby([time,var_quintile])[total_return].mean().reset_index()
-#    # find the starting month of cumulative return
-#    first_month = sorted(df_avg[time].unique())[0]
-#    cumulative_begin_month = np.datetime64(first_month, 'M') - 1
-#    # add zero return as the beginnig of cumulative return
-#    for quintile in [var+" low", var+" mid-low", var+" mid", var+" mid-high", var+" high"]:
-#        df_avg = df_avg.append({time:cumulative_begin_month, var_quintile:quintile, total_return:0.0}, ignore_index=True)
-#    # create cumulative return column
-#    df_avg["cumulative_asset"] = 1.0
-#    df_avg["cumulative_return"] = 0.0
-#    # if average return is not available, set average return to 0.
-#    df_avg = _impute_missing_average(df=df_avg, var=var, var_quintile=var_quintile, total_return=total_return, time=time)
-#    # loop over each date
-#    for date in sorted(df_avg[time].unique())[1:]:
-#        # get last month
-#        prev_month = np.datetime64(date, 'M') - 1
-#        # retrieve current and previous month dataframe
-#        df_curr = df_avg.loc[df_avg[time]==date]
-#        df_prev = df_avg.loc[df_avg[time]==prev_month]
-#        # calculate cumulative asset and return
-#        df_avg.loc[df_avg[time]==date, "cumulative_asset"] = df_prev["cumulative_asset"] * (1 + df_curr[total_return])
-#        df_avg.loc[df_avg[time]==date, "cumulative_return"] = df_prev["cumulative_asset"] * (1 + df_curr[total_return]) - 1
-#    return df_avg.reset_index()
 
 def diff_cumulative_return_q5q1(df, var, var_classes, time="eom"):
     ''' calculate difference in cumulative return between fifth and first quintile (Q5 - Q1)
@@ -255,8 +142,9 @@ if __name__ == "__main__":
     # read input csv
     df = pd.read_csv(input_path, index_col=None, parse_dates=["eom"])
 
+
     # assign quintile and tertile classes to AG, return, and FCFA
-    df = discretize_variables_by_month(df=df, variables=[var, total_return, 'FCFA'], month="eom")
+    df = discretize_variables_by_month(df=df, variables=[var, total_return, 'FCFA'])
 
     #------------------------------------------
     # classification by simple sort (AG and industry)
@@ -357,8 +245,8 @@ if __name__ == "__main__":
                          figsize=(10,7), filename="%s_FCFA_AG%s" % (total_return, i_ag), fmt='.0f')
 
         # plot average return of AG and FCFA tertile group
-        plot_heatmap(df=df.groupby([var_tertile, "FCFA_tertile"]).mean()[total_return].unstack(1),\
-                         x_label="FCFA", y_label="AG",\
+        plot_heatmap(df=df.groupby([var_tertile, "FCFA_tertile"]).mean()[total_return].unstack(1).sort_index(ascending=False),\
+                         x_label="Profitability", y_label="Asset Growth",\
                          figsize=(10,7), filename="%s_FCFA_AG_tertile" % (total_return), fmt='.3f')
 
         # plot standard deviation of return for AG and FCFA tertile group by sector
