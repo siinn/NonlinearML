@@ -27,12 +27,9 @@ from Asset_growth.lib.heuristicModel import *
 input_path = '/mnt/mainblob/asset_growth/data/Data_for_AssetGrowth_Context.pd.r4.csv'
 
 # Set features
-''' Set features of interest. This algorithm takes a pair of features. The order of pair matters.
-    ex. ['FCFA', 'AG'] will generate decision boundary with x=FCFA, y=AG.
-    Full list of available features:
-        ['CAP', 'AG', 'ROA', 'EG', 'LTG', 'SG', 'GS', 'SEV', 'CVROIC', 'FCFA']
-'''
+''' Full list of available features: ['CAP', 'AG', 'ROA', 'EG', 'LTG', 'SG', 'GS', 'SEV', 'CVROIC', 'FCFA']'''
 features = ['FCFA', 'AG']
+feature_interest = 'AG'
 categories = ['GICSSubIndustryNumber']    
 
 # Set labels
@@ -51,14 +48,14 @@ test_end = "2017-11-01"
 train_validation_split = 0.7
 
 # Set algorithms to run
-run_lr              = True
-run_xgb             = True
-run_knn             = True
-run_nn              = True
-run_sort_ag         = True
-run_ag_fcfa         = True
+run_lr              = False
+run_xgb             = False
+run_knn             = False
+run_nn              = False
+run_sort_ag         = False
+run_ag_fcfa         = False
 run_grid_search     = False
-run_summary         = True
+run_summary         = False
 
 # Color scheme for plot
 # green, gray, red
@@ -82,9 +79,9 @@ if __name__ == "__main__":
     df = pd.read_csv(input_path, index_col=None, parse_dates=[time])
 
     # Assign AG and FCFA tertiles
-    df = discretize_variables_by_month(df=df, variables=['AG', 'FCFA'], month="eom",
-                                       labels_tertile={'AG':[0,1,2], 'FCFA':[2,1,0]},
-                                       labels_quintile={'AG':[4,3,2,1,0], 'FCFA':[4,3,2,1,0]})
+    df = discretize_variables_by_month(df=df, variables=features, month="eom",
+                                       labels_tertile={feature:[2,1,0] for feature in features},
+                                       labels_quintile={feature:[4,3,2,1,0] for feature in features})
     tertile_boundary =  get_tertile_boundary(df, ["AG", "FCFA"])
 
     #------------------------------------------
@@ -104,6 +101,7 @@ if __name__ == "__main__":
     #------------------------------------------
     # Print job summary
     #------------------------------------------
+    print("Multifactor classification")
     print("Algorithms to run:")
     print(" > run_lr          = %s" % run_lr)
     print(" > run_xgb         = %s" % run_xgb)
@@ -147,6 +145,44 @@ if __name__ == "__main__":
                                vlines=tertile_boundary["FCFA"], hlines=tertile_boundary["AG"], colors=colors,
                                xlim=False, ylim=False, figsize=(8,6), ticks=[0,1,2], filename="lr")
 
+        #------------------------------------------
+        # testing interpretation
+        #------------------------------------------
+        if False:
+
+            from skater.core.explanations import Interpretation
+            from skater.model import InMemoryModel
+
+            # PDP
+            pyint_model = InMemoryModel(model_lr.predict_proba, examples=df_train_all[features], target_names=['T1','T2','T3'])
+            axes_list = interpreter.partial_dependence.plot_partial_dependence(['AG'],
+                                                                               pyint_model, 
+                                                                               grid_resolution=20, 
+                                                                               with_variance=True,
+                                                                               figsize = (8, 5))
+
+            for i, ax in enumerate(axes_list[0][int(len(axes_list[0])/2):]):
+                #ax.set_ylim(0.3, 0.36)
+                ax.set_ylabel("Probability")
+                ax.ticklabel_format(style='plain')
+                fig = ax.figure
+                fig.tight_layout()
+                fig.savefig("plots/pdp_class_%s.png" %i)
+
+
+
+
+
+
+
+            from skater.core.local_interpretation.lime.lime_tabular import LimeTabularExplainer
+            model = InMemoryModel(model_lr.predict_proba, examples=df_train_all[features], target_names=[0,1,2])
+            pdp2d = interpreter.partial_dependence.plot_partial_dependence([('AG', 'FCFA')], model, grid_resolution=10)        
+
+            for i, fig in enumerate(pdp2d[0][:int(len(pdp2d[0])/2)]):
+                fig.tight_layout()
+                fig.savefig("plots/pdp2d_class%s.png" %i)
+        
 
     #------------------------------------------
     # Xgboost
@@ -349,42 +385,6 @@ if __name__ == "__main__":
 
 
 
-    #------------------------------------------
-    # testing interpretation
-    #------------------------------------------
-    if False:
-
-        from skater.core.explanations import Interpretation
-        from skater.model import InMemoryModel
-
-        # feature importance
-        interpreter = Interpretation(df_test[features], feature_names=features)
-        model = InMemoryModel(model_xgb.predict_proba, examples=df_train_all[features])
-        plots = interpreter.feature_importance.plot_feature_importance(model, ascending = False)
-
-       # PDP
-        pyint_model = InMemoryModel(model_xgb.predict_proba, examples=df_train_all[features], target_names=[0,1,2])
-        axes_list = interpreter.partial_dependence.plot_partial_dependence(['AG'],
-                                                                           pyint_model, 
-                                                                           grid_resolution=10, 
-                                                                           with_variance=True,
-                                                                           figsize = (8, 5))
-
-        for i, fig in enumerate(axes_list[0][:int(len(axes_list[0])/2)]):
-            #fig, ax = plt.subplots(1,1, figsize=(8,4))
-            #ax = axes_list[0][4]
-            #ax.set_ylim(0,1)
-            fig.tight_layout()
-            fig.savefig("plots/pdp_ag_class%s.png" %i)
-
-        from skater.core.local_interpretation.lime.lime_tabular import LimeTabularExplainer
-        model = InMemoryModel(model_xgb.predict_proba, examples=df_train_all[features], target_names=[0,1,2])
-        pdp2d = interpreter.partial_dependence.plot_partial_dependence([('AG', 'FCFA')], model, grid_resolution=10)        
-
-        for i, fig in enumerate(pdp2d[0][:int(len(pdp2d[0])/2)]):
-            fig.tight_layout()
-            fig.savefig("plots/pdp2d_class%s.png" %i)
-        
 
 
     print("Successfully completed all tasks")

@@ -104,6 +104,7 @@ if __name__ == "__main__":
     #------------------------------------------
     # Print job summary
     #------------------------------------------
+    print("Two factor classification")
     print("Algorithms to run:")
     print(" > run_lr          = %s" % run_lr)
     print(" > run_xgb         = %s" % run_xgb)
