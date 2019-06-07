@@ -10,14 +10,14 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import train_test_split as sklearn_train_test_split
 from Asset_growth.lib.backtest import *
 
-def to_datetime(date):
+def to_datetime(date, date_format='%Y-%m-%d'):
     ''' convert given string to datetime"
     Args:
         date: date given in "YYYY-MM-DD" format
     Return:
         date in datetime format
     '''
-    return datetime.strptime(date, '%Y-%m-%d')
+    return datetime.strptime(date, date_format)
 
 def train_test_split(df, date_column, train_length, train_end, test_begin, test_end):
     ''' create train and test dataset.
@@ -49,8 +49,16 @@ def train_val_split_by_col(df, col, train_size=0.8):
         df_train: train dataset
         df_val: val dataset
     '''
+    def _split(x, train_size=train_size):
+        ''' Split list into two groups by train_size'''
+        train, val = sklearn_train_test_split(x, train_size=train_size)
+        return train, val
     # Split unique values of column into train and validation
-    list_train, list_val = sklearn_train_test_split(df[col].unique(), train_size=train_size) 
+    df_securityID_by_sector = df.groupby("GICSSubIndustryNumber")["SecurityID"].unique()
+    # Apply split function and get stratified list
+    list_train = df_securityID_by_sector.apply(_split).apply(lambda x:x[0]).apply(pd.Series).stack().values
+    list_val = df_securityID_by_sector.apply(_split).apply(lambda x:x[1]).apply(pd.Series).stack().values
+    #list_train, list_val = sklearn_train_test_split(df[col].unique(), train_size=train_size) 
     # Create train and validation dataset using the sampled lists
     df_train = df.loc[df[col].isin(list_train)]
     df_val = df.loc[df[col].isin(list_val)]

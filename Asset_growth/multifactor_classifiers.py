@@ -28,8 +28,8 @@ input_path = '/mnt/mainblob/asset_growth/data/Data_for_AssetGrowth_Context.pd.r4
 
 # Set features
 ''' Full list of available features: ['CAP', 'AG', 'ROA', 'EG', 'LTG', 'SG', 'GS', 'SEV', 'CVROIC', 'FCFA']'''
-features = ['FCFA', 'AG']
 feature_interest = 'AG'
+features = [feature_interest] + ['FCFA']
 categories = ['GICSSubIndustryNumber']    
 
 # Set labels
@@ -62,11 +62,6 @@ run_summary         = False
 colors = ["#3DC66D", "#F3F2F2", "#DF4A3A"]
 
 
-
-
-
-
-
 #------------------------------------------
 # Main 
 #------------------------------------------
@@ -96,6 +91,107 @@ if __name__ == "__main__":
     # Split train into train and validation datasets by SecurityID (cross-sectional)
     df_train, df_val = train_val_split_by_col(df_train_all, col="SecurityID", train_size=train_validation_split)
 
+
+
+#------------------------------------------
+# TEST
+#------------------------------------------
+
+dfa = df.loc[df['FCFA'] < 1.50][['AG', 'fqTotalReturn_tertile', 'fqTotalReturn']]
+plot_scatter(dfa, 'AG', 'fqTotalReturn', hue='fqTotalReturn_tertile', figsize=(10,10))
+
+dfa = df.loc[(df['FCFA'] < -1.90) & (df['SecurityID'] < 21014593)][['AG', 'FCFA', 'fqTotalReturn_tertile']]
+
+
+dfa = df.loc[(df['FCFA'] > 1.0) & (df['FCFA'] < 3.0) & (df['SecurityID'] < 21014593)][['AG', 'FCFA', 'fqTotalReturn_tertile']]
+dfa['fqTotalReturn_tertile'] = dfa['fqTotalReturn_tertile'].apply(lambda x: "High return" if x!=2 else "Low return").sample(50)
+plot_scatter(dfa, 'AG', 'FCFA', figsize=(12,10), hue='fqTotalReturn_tertile')
+
+
+
+
+dfa = df.loc[(df['SecurityID'] < 21014593)][['AG', 'FCFA', 'fqTotalReturn_tertile']]
+dfa['fqTotalReturn_tertile'] = dfa['fqTotalReturn_tertile'].apply(lambda x: "High return" if x!=2 else "Low return")
+dfa= dfa.sample(30)
+plot_scatter(dfa, 'AG', 'FCFA', figsize=(9,6), hue='fqTotalReturn_tertile', x_label='AG', y_label='FCFA', s=500, palette=["#3DC66D","#DF4A3A"])
+
+
+
+dfa.join(df[['eom' 'fmTotalReturn']])
+
+
+dfb = df.loc[(df['SecurityID'] == 21014593)][['AG', 'FCFA', 'fqTotalReturn_tertile']]
+dfb['fqTotalReturn_tertile'] = dfb['fqTotalReturn_tertile'].apply(lambda x: "High return" if x!=2 else "Low return")
+dfb= dfb.sample(30)
+plot_scatter(dfb, 'AG', 'FCFA', figsize=(9,6), hue='fqTotalReturn_tertile', x_label='AG', y_label='FCFA', s=500, palette=["#3DC66D","#DF4A3A"])
+
+
+def plot_scatter(df, x, y, x_label="", y_label="", figsize=(20,6), filename="", **kwargs):
+    ''' create scatter plot from given dataframe
+    Args:
+        df: Pandas dataframe
+        others: plotting options
+    Return:
+        None
+    '''
+    # create figure and axes
+    fig, ax = plt.subplots(1, 1, figsize=figsize, squeeze=False)
+    # plot heatmap
+    ax = sns.scatterplot(data=df, x=x, y=y, **kwargs)
+    # customize and save plot
+    ax.set_ylabel(y_label)
+    ax.set_xlabel(x_label)
+    ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    #ax.legend(loc='upper left')
+    plt.tight_layout()
+    plt.savefig('plots/scatter_%s.png' % filename)
+    plt.cla()
+    return
+
+# Heatmap
+#dfa = df.loc[(df['FCFA'] < -1.90) & (df['SecurityID'] < 21014593)][['AG', 'FCFA', 'fqTotalReturn']]
+dfa = df.loc[(df['SecurityID'] < 21014593)][['AG', 'FCFA', 'fqTotalReturn_tertile']]
+dfa = dfa.groupby([pd.cut(dfa['AG'], 10), pd.cut(dfa['FCFA'], 10)])['fqTotalReturn_tertile'].mean().unstack()
+plot_heatmap(dfa, x_label='AG', y_label='FCFA', figsize=(8,6), filename="APPL", cmap="Blues")
+
+
+
+
+
+
+
+    dfb_fixed['label'] = dfb_fixed['fqTotalReturn_tertile'].apply(lambda x: 1 if x=="High return" else 2)
+
+    best_params_nn = {'activation': 'relu', 'hidden_layer_sizes': (1000, 500, 400, 300, 200, 100, 50, 10), 'alpha': 7.847599703514606e-05, 'early_stopping': False, 'max_iter': 500, 'learning_rate': 'adaptive'}
+    model_dfa=MLPClassifier(**best_params_nn)
+    model_dfa.fit(X=dfb_fixed[features], y=dfb_fixed["label"])
+    # Plot decision boundary of trained model
+    plot_decision_boundary(model=model_dfa, df=dfb_fixed, features=features, h=0.01, x_label="AG", y_label="FCFA",
+                           vlines=None, hlines=None, colors=['#3DC66D', '#DF4A3A'],
+                           xlim=False, ylim=False, figsize=(8,6), ticks=[0,1], filename="dfa")
+
+
+
+
+
+    best_params_xgb = {'max_depth': 3, 'learning_rate': 0.0007498942093324559, 'n_estimators': 100, 'objective': 'multi:softmax',
+                               'min_child_weight': 10.0, 'gamma': 1.0, 'lambda': 1.0, 'subsample': 0.6, 'n_jobs': -1, 'num_class': 2}
+
+    dfa = df.loc[(df['SecurityID'] == 21014593)][['AG', 'FCFA', 'fqTotalReturn_tertile']]
+    dfa['label'] = dfa['fqTotalReturn_tertile'].apply(lambda x: 1 if x=="High return" else 2)
+
+    best_params_xgb = {'max_depth': 5, 'learning_rate': 0.002, 'n_estimators': 1, 'objective': 'multi:softmax',
+                        'subsample': 0.5, 'n_jobs': -1, 'num_class': 2}
+    model_dfa_xgb=XGBClassifier(**best_params_xgb)
+    model_dfa_xgb.fit(X=dfa[features], y=dfa["label"])
+    # Plot decision boundary of trained model
+    plot_decision_boundary(model=model_dfa_xgb, df=dfa, features=features, h=0.01, x_label="AG", y_label="FCFA",
+                           vlines=None, hlines=None, colors=['#3DC66D', '#DF4A3A'],
+                           xlim=False, ylim=False, figsize=(8,6), ticks=[0,1], filename="dfa_xgb")
+
+#------------------------------------------
+# End of test
+#------------------------------------------
 
 
     #------------------------------------------
@@ -140,49 +236,27 @@ if __name__ == "__main__":
         plot_cumulative_return(df_cum_train_lr, df_cum_test_lr, label_reg, figsize=(8,6), filename="cum_lr", ylim=(-0.25,2))
         plot_cumulative_return_diff(list_cum_returns=[df_cum_test_lr], list_labels=["OLS (ridge)"], label_reg=label_reg, figsize=(8,6), ylim=(-0.25,2), filename="cum_lr_diff")
 
-        # Plot decision boundary of trained model
-        plot_decision_boundary(model=model_lr, df=df_test, features=features, h=0.01, x_label="FCFA", y_label="AG",
-                               vlines=tertile_boundary["FCFA"], hlines=tertile_boundary["AG"], colors=colors,
-                               xlim=False, ylim=False, figsize=(8,6), ticks=[0,1,2], filename="lr")
 
-        #------------------------------------------
-        # testing interpretation
-        #------------------------------------------
-        if False:
+        # Plot partial dependence plot
+        plot_partial_dependence_1D(model=model_lr, feature_interest=feature_interest, examples=df_train_all[features], target_names=['T1', 'T2', 'T3'], colors=["#3DC66D", "#ADADAD", "#DF4A3A"],
+                                   grid_resolution=20, figsize=(8,5), filename="plots/pdp_lr")
 
-            from skater.core.explanations import Interpretation
-            from skater.model import InMemoryModel
-
-            # PDP
-            pyint_model = InMemoryModel(model_lr.predict_proba, examples=df_train_all[features], target_names=['T1','T2','T3'])
-            axes_list = interpreter.partial_dependence.plot_partial_dependence(['AG'],
-                                                                               pyint_model, 
-                                                                               grid_resolution=20, 
-                                                                               with_variance=True,
-                                                                               figsize = (8, 5))
-
-            for i, ax in enumerate(axes_list[0][int(len(axes_list[0])/2):]):
-                #ax.set_ylim(0.3, 0.36)
-                ax.set_ylabel("Probability")
-                ax.ticklabel_format(style='plain')
-                fig = ax.figure
-                fig.tight_layout()
-                fig.savefig("plots/pdp_class_%s.png" %i)
+        # Plot partial dependence plot
+        feature_other='FCFA'
+        plot_partial_dependence_2D(model=model_lr, feature_interest=feature_interest, feature_other=feature_other,
+                                   examples=df_train_all[features], target_names=['T1', 'T2', 'T3'],
+                                   grid_resolution=20, figsize=(20,10), filename="plots/pdp_2D_lr")
 
 
+        # Plot decision boundary using pdp
+        feature_other='FCFA'
+        plot_decision_boundary_pdp(model=model_lr, examples=df_train_all[features], target_names=[0,1,2],
+                                   feature_interest=feature_interest, feature_other=feature_other,
+                                   grid_resolution=200, with_variance=True, figsize=(8,5),
+                                   x_label=feature_interest, y_label=feature_other, ticks=[0,1,2], xlim=False, ylim=False,
+                                   filename="plots/decesion_boundary_pdp_lr")
 
 
-
-
-
-            from skater.core.local_interpretation.lime.lime_tabular import LimeTabularExplainer
-            model = InMemoryModel(model_lr.predict_proba, examples=df_train_all[features], target_names=[0,1,2])
-            pdp2d = interpreter.partial_dependence.plot_partial_dependence([('AG', 'FCFA')], model, grid_resolution=10)        
-
-            for i, fig in enumerate(pdp2d[0][:int(len(pdp2d[0])/2)]):
-                fig.tight_layout()
-                fig.savefig("plots/pdp2d_class%s.png" %i)
-        
 
     #------------------------------------------
     # Xgboost
@@ -207,7 +281,7 @@ if __name__ == "__main__":
             best_params_xgb, df_params_xgb = grid_search(model=XGBClassifier(),
                                                          param_grid=param_grid,
                                                          df_train=df_train, df_val=df_val,
-                                                         features=features, label_cla=label_cla, label_fm=label_fm)
+                                                         features=feature, label_cla=label_cla, label_fm=label_fm)
         else:
             # Also good
             best_params_xgb = {'max_depth': 3, 'learning_rate': 0.0007498942093324559, 'n_estimators': 100, 'objective': 'multi:softmax',
@@ -222,12 +296,25 @@ if __name__ == "__main__":
         plot_cumulative_return(df_cum_train_xgb, df_cum_test_xgb, label_reg, figsize=(8,6), filename="cum_xgb", ylim=(-0.25,2))
         plot_cumulative_return_diff(list_cum_returns=[df_cum_test_xgb], list_labels=["XGBoost"], label_reg=label_reg, figsize=(8,6), ylim=(-0.25,2), filename="cum_xgb_diff")
 
+        # Plot partial dependence plot
+        plot_partial_dependence_1D(model=model_xgb, feature_interest=feature_interest, examples=df_train_all[features], target_names=['T1', 'T2', 'T3'], colors=["#3DC66D", "#ADADAD", "#DF4A3A"],
+                                   grid_resolution=20, figsize=(8,5), filename="plots/pdp_xgb")
 
-        # Plot decision boundary of trained model
-        plot_decision_boundary(model=model_xgb, df=df_test, features=features, h=0.01, x_label="FCFA", y_label="AG",
-                               vlines=tertile_boundary["FCFA"], hlines=tertile_boundary["AG"], colors=colors,
-                               xlim=False, ylim=False, figsize=(8,6), ticks=[0,1,2], filename="xgb")
 
+        # Plot partial dependence plot
+        feature_other='FCFA'
+        plot_partial_dependence_2D(model=model_xgb, feature_interest=feature_interest, feature_other=feature_other,
+                                   examples=df_train_all[features], target_names=['T1', 'T2', 'T3'],
+                                   grid_resolution=20, figsize=(20,10), filename="plots/pdp_2D_xgb")
+
+
+        # Plot decision boundary using pdp
+        feature_other='FCFA'
+        plot_decision_boundary_pdp(model=model_xgb, examples=df_train_all[features], target_names=[0,1,2],
+                                   feature_interest=feature_interest, feature_other=feature_other,
+                                   grid_resolution=200, with_variance=True, figsize=(8,5),
+                                   x_label=feature_interest, y_label=feature_other, ticks=[0,1,2], xlim=False, ylim=False,
+                                   filename="plots/decesion_boundary_pdp_xgb")
 
 
 
@@ -259,12 +346,25 @@ if __name__ == "__main__":
         plot_cumulative_return(df_cum_train_knn, df_cum_test_knn, label_reg, figsize=(8,6), filename="cum_knn", ylim=(-0.25,2))
         plot_cumulative_return_diff(list_cum_returns=[df_cum_test_knn], list_labels=["kNN"], label_reg=label_reg, figsize=(8,6), ylim=(-0.25,2), filename="cum_knn_diff")
 
-        # Plot decision boundary of trained model
-        plot_decision_boundary(model=model_knn, df=df_test, features=features, h=0.01, x_label="FCFA", y_label="AG",
-                               vlines=tertile_boundary["FCFA"], hlines=tertile_boundary["AG"], colors=colors,
-                               xlim=False, ylim=False, figsize=(8,6), ticks=[0,1,2], filename="knn")
+        # Plot partial dependence plot
+        plot_partial_dependence_1D(model=model_knn, feature_interest=feature_interest, examples=df_train_all[features], target_names=['T1', 'T2', 'T3'],
+                                   grid_resolution=20, figsize=(8,5), filename="plots/pdp_knn")
+
+        # Plot partial dependence plot
+        feature_other='FCFA'
+        plot_partial_dependence_2D(model=model_knn, feature_interest=feature_interest, feature_other=feature_other,
+                                   examples=df_train_all[features], target_names=['T1', 'T2', 'T3'],
+                                   grid_resolution=20, figsize=(20,10), filename="plots/pdp_2D_knn")
 
         
+        # Plot decision boundary using pdp
+        plot_decision_boundary_pdp(model=model_knn, examples=df_train_all[features], target_names=[0,1,2],
+                                   feature_interest=feature_interest, feature_other=feature_other,
+                                   grid_resolution=200, with_variance=True, figsize=(8,5),
+                                   x_label=feature_interest, y_label=feature_other, ticks=[0,1,2], xlim=False, ylim=False,
+                                   filename="plots/decesion_boundary_pdp_knn")
+
+
         
     #------------------------------------------
     # Neural network
@@ -306,7 +406,10 @@ if __name__ == "__main__":
                                vlines=tertile_boundary["FCFA"], hlines=tertile_boundary["AG"], colors=colors,
                                xlim=False, ylim=False, figsize=(8,6), ticks=[0,1,2], filename="nn")
 
-        
+
+
+
+
         
     #------------------------------------------
     # Classification by simple sort (AG)
