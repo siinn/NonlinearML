@@ -23,9 +23,9 @@ output_path = '/mnt/mainblob/asset_growth/data/Data_for_AssetGrowth_Context.r5.p
 debug = True
 
 # Select algorithm to run    
-run_eda                 = True
+run_eda                 = False
 run_preprocessing       = True
-save_results            = False
+save_results            = True
 
 # Set imputation method. available options: month, securityId_ff, securityId_average
 impute_method           =  "month"
@@ -210,15 +210,10 @@ if __name__ == "__main__":
     # Load input data
     #----------------------------------------------
     # Read input csv
-    df = pd.read_csv(input_path, parse_dates=[time])
-
-    # Drop dummy index column
-    if 'Unnamed: 0' in list(df.columns):
-        df = df.drop('Unnamed: 0', axis=1)
+    df = pd.read_csv(input_path, index_col=[0], parse_dates=[time])
 
     # Convert time into datetime format
     df[time] = df[time].apply(to_datetime, date_format='%Y%m')
-
 
     #----------------------------------------------
     # Perform EDA
@@ -262,8 +257,10 @@ if __name__ == "__main__":
 
         # Assign quintile and tertile classes to AG, return, and FCFA
         df_preprocessed = discretize_variables_by_month(df=df_preprocessed, variables=['fmTotalReturn', 'fqTotalReturn'],
-                                           labels_tertile={'fmTotalReturn':['T3', 'T2', 'T1'], 'fqTotalReturn':['T3', 'T2', 'T1']},
-                                           labels_quintile={'fmTotalReturn':['Q5', 'Q4', 'Q3', 'Q2', 'Q1'], 'fqTotalReturn':['Q5', 'Q4', 'Q3', 'Q2', 'Q1']})
+                                           #labels_tertile={'fmTotalReturn':['T3', 'T2', 'T1'], 'fqTotalReturn':['T3', 'T2', 'T1']},
+                                           #labels_quintile={'fmTotalReturn':['Q5', 'Q4', 'Q3', 'Q2', 'Q1'], 'fqTotalReturn':['Q5', 'Q4', 'Q3', 'Q2', 'Q1']})
+                                           labels_tertile={'fmTotalReturn':[2,1,0], 'fqTotalReturn':[2,1,0]}, # 0 is high
+                                           labels_quintile={'fmTotalReturn':[4,3,2,1,0], 'fqTotalReturn':[4,3,2,1,0]}) # 0 is high
         # impute missing values
         print(" > Imputing missing data")
         df_preprocessed = impute_data(df_preprocessed, impute_method, features)

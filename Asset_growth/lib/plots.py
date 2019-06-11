@@ -495,7 +495,8 @@ def plot_decision_boundary_pdp(model, examples, target_names, feature_interest, 
 
 
 
-def plot_cumulative_return(df_cum_train, df_cum_test, label_reg, filename, figsize=(15,6), group_label={0:"Q1", 1:"Q2", 2:"Q3"}, time="eom", **kwargs):
+def plot_cumulative_return(df_cum_train, df_cum_test, label_reg, filename, figsize=(15,6), group_label={0:"Q1", 1:"Q2", 2:"Q3"}, time="eom",
+                           kwargs_train={}, kwargs_test={}):
     ''' Wrapper of plotting functions. Create cumulative return plot for train and test dataset.
     Args:
         df_cum_train: cumulative return obtained from train set
@@ -504,45 +505,55 @@ def plot_cumulative_return(df_cum_train, df_cum_test, label_reg, filename, figsi
         group_label: dictionary to map between label and recognizable string
         time: time column
         filename: filename
+        others: kwargs for plotting options
     Return:
         None
     ''' 
     print("Plotting cumulative return plots with filename: %s" %filename)
-
     # plot train dataset
-    plot_line_groupby(df=df_cum_train,\
-                      x=time, y="cumulative_return",\
+    plot_line_groupby(df=df_cum_train, x=time, y="cumulative_return",\
                       groupby="pred", group_label = {key:group_label[key]+" (Train)" for key in group_label},\
-                      x_label="Time", y_label="Cumulative %s" %label_reg, ylog=False, figsize=figsize, filename = "%s_train" %filename, **kwargs)
-
+                      x_label="Time", y_label="Cumulative %s" %label_reg, ylog=False, figsize=figsize, filename = "%s_train" %filename, **kwargs_train)
+    
     # plot test dataset
-    plot_line_groupby(df=df_cum_test,\
-                      x=time, y="cumulative_return",\
+    plot_line_groupby(df=df_cum_test, x=time, y="cumulative_return",\
                       groupby="pred", group_label = {key:group_label[key]+" (Test)" for key in group_label},\
-                      x_label="Time", y_label="Cumulative %s" %label_reg, ylog=False, figsize=figsize, filename = "%s_test" %filename, **kwargs)
+                      x_label="Time", y_label="Cumulative %s" %label_reg, ylog=False, figsize=figsize, filename = "%s_test" %filename, **kwargs_test)
     return
 
-def plot_cumulative_return_diff(list_cum_returns, list_labels, label_reg, figsize=(15,6), filename="", **kwargs):
+def plot_cumulative_return_diff(list_cum_returns, list_labels, label_reg, return_label=['Q1', 'Q2', 'Q3'], figsize=(15,6), filename="",
+                                kwargs_train={}, kwargs_test={}, legend_order=None):
     ''' Wrapper for plotting function. This function plots difference in cumulative return for given models where
         difference in return is defined as Q1+Q2 - Q3.
     Args:
         list_cum_return: list of dataframe representing cumulative returns (output of "predict_and_calculate_cum_return")
-        list_label: list of labels for the models 
+        list_label: list of labels for the models
         label_reg: regression label. ex. 'fqTotalReturn'
     '''
     # Calculate difference in return and concatenate
-    df_diff_q1q2_q3 = pd.concat([calculate_diff_return(cum_return, output_col=label)[0] for cum_return, label in zip(list_cum_returns, list_labels)])
-    df_diff_q1_q3 = pd.concat([calculate_diff_return(cum_return, output_col=label)[1] for cum_return, label in zip(list_cum_returns, list_labels)])
+    df_diff_q1q2_q3 = pd.concat([calculate_diff_return(cum_return, return_label=return_label, output_col=label)[0]
+                                 for cum_return, label in zip(list_cum_returns, list_labels)])
+    df_diff_q1_q3 = pd.concat([calculate_diff_return(cum_return, return_label=return_label, output_col=label)[1]
+                               for cum_return, label in zip(list_cum_returns, list_labels)])
 
-    # plot test dataset
-    plot_line_groupby(df=df_diff_q1q2_q3,\
-                      x="index", y="cumulative_return",\
-                      groupby="pred", group_label = {key:key for key in df_diff_q1q2_q3["pred"].unique()},\
-                      x_label="Time", y_label="Cumulative %s\n(Q1+Q2) - Q3" %label_reg, ylog=False, figsize=figsize, filename = "%s_q1q2_q3" %filename, **kwargs)
-    plot_line_groupby(df=df_diff_q1_q3,\
-                      x="index", y="cumulative_return",\
-                      groupby="pred", group_label = {key:key for key in df_diff_q1q2_q3["pred"].unique()},\
-                      x_label="Time", y_label="Cumulative %s\nQ1 - Q3" %label_reg, ylog=False, figsize=figsize, filename = "%s_q1_q3" %filename, **kwargs)
+    # If legend order is given, pass it to plot_line_groupby. 
+    if legend_order:
+        # plot test dataset
+        plot_line_groupby(df=df_diff_q1q2_q3, legend_order=legend_order,\
+                          x="index", y="cumulative_return", groupby="pred", group_label = {key:key for key in df_diff_q1q2_q3["pred"].unique()},\
+                          x_label="Time", y_label="Cumulative %s\n(Q1+Q2) - Q3" %label_reg, ylog=False, figsize=figsize, filename = "%s_q1q2_q3" %filename, **kwargs_train)
+        plot_line_groupby(df=df_diff_q1_q3, legend_order=legend_order,\
+                          x="index", y="cumulative_return",\
+                          groupby="pred", group_label = {key:key for key in df_diff_q1q2_q3["pred"].unique()},\
+                          x_label="Time", y_label="Cumulative %s\nQ1 - Q3" %label_reg, ylog=False, figsize=figsize, filename = "%s_q1_q3" %filename, **kwargs_test)
+    else:
+        # plot test dataset
+        plot_line_groupby(df=df_diff_q1q2_q3,\
+                          x="index", y="cumulative_return", groupby="pred", group_label = {key:key for key in df_diff_q1q2_q3["pred"].unique()},\
+                          x_label="Time", y_label="Cumulative %s\n(Q1+Q2) - Q3" %label_reg, ylog=False, figsize=figsize, filename = "%s_q1q2_q3" %filename, **kwargs_train)
+        plot_line_groupby(df=df_diff_q1_q3,\
+                          x="index", y="cumulative_return", groupby="pred", group_label = {key:key for key in df_diff_q1q2_q3["pred"].unique()},\
+                          x_label="Time", y_label="Cumulative %s\nQ1 - Q3" %label_reg, ylog=False, figsize=figsize, filename = "%s_q1_q3" %filename, **kwargs_test)
     return        
 
 

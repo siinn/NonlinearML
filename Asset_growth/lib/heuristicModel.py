@@ -1,26 +1,5 @@
 from Asset_growth.lib.utils import *
 
-def get_tertile_boundary(df, variables):
-    ''' get boundaries of tertile groups by calculating the average of the boundaries of two adjacent tertile groups.
-    Only works for tertile.
-    Args:
-        df: Pandas dataframe containing variables
-        variables: list of variables of interests
-    Return:
-        results: dictionary containing boundaries of each variable
-    '''
-    results = {}
-    for var in variables:
-        lower_boundary = df.groupby("%s_tertile" %var).min()\
-                           .sort_values(var, ascending=False)\
-                           .head(2).sort_values(var)\
-                           [var].values
-        upper_boundary = df.groupby("%s_tertile" %var).max()\
-                           .sort_values(var)\
-                           .head(2)\
-                           [var].values
-        results[var] = list((lower_boundary + upper_boundary) / 2)
-    return results
 
 class HeuristicModel_SortAG():
     ''' Class representing a simple rule-based model for predicting return class using only single factor.

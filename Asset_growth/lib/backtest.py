@@ -155,12 +155,13 @@ def diff_cumulative_return_q5q1_groupby(df, var, var_quintile, groupby):
 
     
 
-def calculate_diff_return(df_cum_return, output_col, time="eom"):
+def calculate_diff_return(df_cum_return, return_label, output_col, time="eom"):
     ''' Calculate difference in return as follows.
         difference in return = Q1 + Q2 - Q3
         where Q1, Q2, Q3 are cumulative return of predicted return classes
     Args:
         df_cum_return: cumulative returns calculated by "predict_and_calculate_cum_return".
+        return_label: List of return labels in order of [high, medium, low].
         output_col: name of column representing the difference in return
         time: name of time column
     Return:
@@ -169,11 +170,11 @@ def calculate_diff_return(df_cum_return, output_col, time="eom"):
     # Set time as index
     df_cum_return = df_cum_return.set_index(time)
     # Calculate difference
-    df_diff_q1q2_q3 = pd.DataFrame(df_cum_return.loc[df_cum_return["pred"]==0]["cumulative_return"]\
-                               + df_cum_return.loc[df_cum_return["pred"]==1]["cumulative_return"]\
-                               - df_cum_return.loc[df_cum_return["pred"]==2]["cumulative_return"])
-    df_diff_q1_q3 = pd.DataFrame(df_cum_return.loc[df_cum_return["pred"]==0]["cumulative_return"]\
-                               - df_cum_return.loc[df_cum_return["pred"]==2]["cumulative_return"])
+    df_diff_q1q2_q3 = pd.DataFrame(df_cum_return.loc[df_cum_return["pred"]==return_label[0]]["cumulative_return"]\
+                               + df_cum_return.loc[df_cum_return["pred"]==return_label[1]]["cumulative_return"]\
+                               - df_cum_return.loc[df_cum_return["pred"]==return_label[2]]["cumulative_return"])
+    df_diff_q1_q3 = pd.DataFrame(df_cum_return.loc[df_cum_return["pred"]==return_label[0]]["cumulative_return"]\
+                               - df_cum_return.loc[df_cum_return["pred"]==return_label[2]]["cumulative_return"])
     # Assign "Q1+Q2-Q3" as pred value for plotting
     df_diff_q1q2_q3["pred"] = output_col
     df_diff_q1_q3["pred"] = output_col

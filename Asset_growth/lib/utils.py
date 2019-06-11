@@ -19,7 +19,29 @@ def to_datetime(date, date_format='%Y-%m-%d'):
     '''
     return datetime.strptime(date, date_format)
 
-def train_test_split(df, date_column, train_length, train_end, test_begin, test_end):
+def get_tertile_boundary(df, variables):
+    ''' get boundaries of tertile groups by calculating the average of the boundaries of two adjacent tertile groups.
+    Only works for tertile.
+    Args:
+        df: Pandas dataframe containing variables
+        variables: list of variables of interests
+    Return:
+        results: dictionary containing boundaries of each variable
+    '''
+    results = {}
+    for var in variables:
+        lower_boundary = df.groupby("%s_tertile" %var).min()\
+                           .sort_values(var, ascending=False)\
+                           .head(2).sort_values(var)\
+                           [var].values
+        upper_boundary = df.groupby("%s_tertile" %var).max()\
+                           .sort_values(var)\
+                           .head(2)\
+                           [var].values
+        results[var] = list((lower_boundary + upper_boundary) / 2)
+    return results
+
+def train_test_split(df, date_column, test_begin, test_end, train_length=None, train_end=None):
     ''' create train and test dataset.
     Args:
         df: pandas dataframe
@@ -32,12 +54,18 @@ def train_test_split(df, date_column, train_length, train_end, test_begin, test_
         df_train: train dataset
         df_test: test dataset
     '''
-    # find train begin date using train length
-    train_begin = train_end - dateutil.relativedelta.relativedelta(months=train_length)
-    # create train and test dataset 
-    df_train = df.loc[(df[date_column] >= train_begin) & (df[date_column] <= train_end)]
+    # Select test dataset
     df_test = df.loc[(df[date_column] >= test_begin) & (df[date_column] <= test_end)]
+
+    # If train_length is not defined, select the rest as train dataset
+    if train_length==None:
+        df_train = df.loc[(df[time_column] < validation_begin) | (df[time_column] > validation_end)]
+    else:
+    	# If train_length is defined, only select data between train_end and (train_end - train_length)
+        train_begin = train_end - dateutil.relativedelta.relativedelta(months=train_length)
+        df_train = df.loc[(df[date_column] >= train_begin) & (df[date_column] <= train_end)]
     return df_train, df_test
+
 
 def train_val_split_by_col(df, col, train_size=0.8):
     ''' Split train dataset into train and validation set using unique values of the given column.
