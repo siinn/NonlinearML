@@ -47,12 +47,12 @@ colors = ["#3DC66D", "#F3F2F2", "#DF4A3A"]
 
 # Set algorithms to run
 run_lr              = True
-run_xgb             = True
-run_knn             = True
-run_nn              = True
-run_sort            = True
+run_xgb             = False
+run_knn             = False
+run_nn              = False
+run_sort            = False
 run_grid_search     = False
-run_summary         = True
+run_summary         = False
 
 #------------------------------------------
 # Main 
@@ -278,7 +278,7 @@ if __name__ == "__main__":
         
         # Make cumulative return plot
         plot_cumulative_return(df_cum_train_sort_y, df_cum_test_sort_y, label_reg, figsize=(8,6),
-                               group_label={2: '%s low' % feature_y, 1: '%s mid' % fe % feature_y, 0: '%s high' % feature_y},
+                               group_label={2: '%s low' % feature_y, 1: '%s mid' % feature_y, 0: '%s high' % feature_y},
                                kwargs_train={'ylim':(-1,5)}, kwargs_test={'ylim':(-1,3)}, filename=plot_path+"return_sort_%s" % feature_y)
         plot_cumulative_return_diff(list_cum_returns=[df_cum_test_sort_y], list_labels=["Sort %s" % feature_y], label_reg=label_reg,
                                     kwargs_train={'ylim':(-1,5)}, kwargs_test={'ylim':(-1,3)}, return_label=[0,1,2],
@@ -307,6 +307,8 @@ if __name__ == "__main__":
 
 
 
+#
+#
 #
 #
 #
