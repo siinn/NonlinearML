@@ -19,6 +19,7 @@ from Asset_growth.lib.utils import *
 # Set input and output path
 input_path = '/mnt/mainblob/asset_growth/data/Data_for_AssetGrowth_Context.r5.csv'
 output_path = '/mnt/mainblob/asset_growth/data/Data_for_AssetGrowth_Context.r5.p1.csv'
+plot_path = 'plots/EDA/'
 # Set True for development
 debug = True
 
@@ -135,7 +136,7 @@ def impute_by_month(df, features):
 #----------------------------------------------
 # define plotting functions
 #----------------------------------------------
-def plot_null(df, columns, figsize=(15,5)):
+def plot_null(df, columns, figsize=(15,5), filename=""):
     '''
     Plot percentage of null values for each of given columns.
     Args:
@@ -161,7 +162,7 @@ def plot_null(df, columns, figsize=(15,5)):
     ax.set_ylabel("Fraction of null values")
     ax.set_ylim(0,0.3)
     plt.tight_layout()
-    plt.savefig('plots/null_fraction.png')
+    plt.savefig('%s.png' %filename)
     return
 
 def plot_null_vs_time(df, time, columns, n_rows=4, n_columns=4, figsize=(20,12), xticks_interval=20):
@@ -199,7 +200,7 @@ def plot_null_vs_time(df, time, columns, n_rows=4, n_columns=4, figsize=(20,12),
     for x in np.arange(len(columns),len(ax),1):
         fig.delaxes(ax[x])
     plt.tight_layout()
-    plt.savefig('plots/null_fraction_vs_time.png')
+    plt.savefig('%s.png' %filename)
     plt.cla()
     return
 
@@ -223,13 +224,13 @@ if __name__ == "__main__":
         # Plot feature distribution
         plot_distribution(df, columns=features, n_rows=4, n_columns=4, 
                           bins=[50]*13, ylog=[True]*13, xrange=[], ylim=[], title=[""]*13,
-                          x_label=[], y_label=["Samples"]*13, figsize=(20,20), filename="features")
+                          x_label=[], y_label=["Samples"]*13, figsize=(20,20), filename=plot_path+"dist_features")
     
         # Plot percentage of null values
-        plot_null(df, features, figsize=(15,8))
+        plot_null(df, features, figsize=(15,8), filename=plot_path+"null_fraction")
     
         # plot fraction of null values as a function of time
-        plot_null_vs_time(df, time="eom", columns=df.columns, n_rows=4, n_columns=4, figsize=(20,20))
+        plot_null_vs_time(df, time="eom", columns=df.columns, n_rows=4, n_columns=4, figsize=(20,20), filename=plot_path+"null_fraction_time")
 
     #----------------------------------------------
     # Run preprocessing
