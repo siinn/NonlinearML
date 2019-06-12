@@ -1,5 +1,8 @@
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
+import itertools
+import numpy as np
+import pandas as pd
 from sklearn.metrics import classification_report
 
 def train_test_split_by_date(df, date_column, test_begin, test_end):
@@ -30,8 +33,10 @@ def create_purged_fold(df, val_begin, val_end, date_column, purge_length, embarg
         df: Pandas dataframe
         val_begin, val_end: Begin and end date of validation period given in Datetime format.
         date_column: column representing time
-        purge_length: Overlapping window size to be removed from training samples given in months. i.e. the overlap between train and validation dataset of size (purge_length) will be removed from training samples.
-        embargo_length: Training samples within the window of size (embargo_length) which follow the overlap between validation and train set will be removed. Embargo length is given in months.
+        purge_length: Overlapping window size to be removed from training samples given in months.
+                      i.e. the overlap between train and validation dataset of size (purge_length) will be removed from training samples.
+        embargo_length: Training samples within the window of size (embargo_length) which follow the overlap between
+                        validation and train set will be removed. Embargo length is given in months.
     Return:
         df_purged_train: train and validation set for one instance of K-fold.
     '''
@@ -60,12 +65,13 @@ def create_purged_fold(df, val_begin, val_end, date_column, purge_length, embarg
     return df_purged_train, df_val
 
 
-def get_val_dates(df, k, date_column):
+def get_val_dates(df, k, date_column, verbose=False):
     ''' Find dates to be used to split data into K-folds.
     Args:
         df: Pandas dataframe.
         k: Number of partitions for K-folds.
         date_column: column representing time.
+        verbose: Print debugging information if True
     Return:
         val_dates = list of (val_begin, val_end) tuples
     '''
@@ -81,22 +87,25 @@ def get_val_dates(df, k, date_column):
     if not isinstance(fold_length, int):
         # Remove decimals
         fold_length = int(fold_length)
-        print('Warning: K-folds will not be of equal size.')
-        print('         K = %s, Fold size (month)= %s' %(k, fold_length))
-        print('         date_begin = %s, date_end = %s' %(date_begin, date_end))
-
+        if verbose:
+            print('Warning: K-folds will not be of equal size.')
+            print('         K = %s, Fold size (month)= %s' %(k, fold_length))
+            print('         date_begin = %s, date_end = %s' %(date_begin, date_end))
     # Calculate begin and end dates of validation set. Convert them back to timestamp.
-    print('\nDataset will be splitted into K-folds with the following dates:')
+    if verbose:
+        print('\nDataset will be splitted into K-folds with the following dates:')
     for i in range(k):
         # Calculate validation begin and end dates
         val_begin = date_begin + i * fold_length
         val_end = date_begin + (i+1) * fold_length
         # Last fold will include the rest of dataset. Therefore, use date_end instead of val_end
         if i+1 == k:
-            print(' > k = %s, begin = %s, end = %s, fold size (month) = %s' %(i, val_begin, date_end, date_end-val_begin))
+            if verbose:
+                print(' > k = %s, begin = %s, end = %s, fold size (month) = %s' %(i, val_begin, date_end, date_end-val_begin))
             val_dates.append((val_begin.to_timestamp(), date_end.to_timestamp()))
         else:
-            print(' > k = %s, begin = %s, end = %s, fold size (month) = %s' %(i, val_begin, val_end, val_end-val_begin))
+            if verbose:
+                print(' > k = %s, begin = %s, end = %s, fold size (month) = %s' %(i, val_begin, val_end, val_end-val_begin))
             val_dates.append((val_begin.to_timestamp(), val_end.to_timestamp()))
     return val_dates
 
@@ -107,16 +116,20 @@ def purged_k_fold_cv(df_train, model, features, label, k, purge_length, embargo_
         model: Model with .fit(X, y) and .predict(X) method.
                 features, label: List of features and target label
         k: k for k-fold CV.
-        purge_length: Overlapping window size to be removed from training samples given in months. i.e. the overlap between train and validation dataset of size (purge_length) will be removed from training samples.
-        embargo_length: Training samples within the window of size (embargo_length) which follow the overlap between validation and train set will be removed. Embargo length is given in months.
+        purge_length: Overlapping window size to be removed from training samples given in months.
+                      i.e. the overlap between train and validation dataset of size (purge_length) will be removed from training samples.
+        embargo_length: Training samples within the window of size (embargo_length) which follow the overlap between
+                        validation and train set will be removed. Embargo length is given in months.
         date_column: Datetime column
+        verbose: Print debugging information if True
     Return:
+        Dictionary containing average performance across k folds for each metric. ex. {'accuracy':0.3, 'f1-score':0.5, etc.}
     '''
     print('Performing cross-validation with purged k-fold')
     print(' > purge length = %s' % purge_length)
     print(' > embargo length = %s' % embargo_length)
     # Find dates to be used to split data into k folds.
-    val_dates = get_val_dates(df_train, k, date_column)
+    val_dates = get_val_dates(df_train, k, date_column, verbose)
     # Dictionary to hold results
     results = {'accuracy':[], 'f1-score':[], 'precision':[], 'recall':[]}
     # Loop over k folds
@@ -159,9 +172,12 @@ def grid_search_purged_cv(df_train, model, param_grid, metric, features, label, 
         metric: Evaluation metric. Available options are 'accuracy', 'f1-score', 'precision', or 'recall'. The last three matrics are macro-averaged.
         features, label: List of features and target label
         k: k for k-fold CV.
-        purge_length: Overlapping window size to be removed from training samples given in months. i.e. the overlap between train and validation dataset of size (purge_length) will be removed from training samples.
-        embargo_length: Training samples within the window of size (embargo_length) which follow the overlap between validation and train set will be removed. Embargo length is given in months.
+        purge_length: Overlapping window size to be removed from training samples given in months.
+                      i.e. the overlap between train and validation dataset of size (purge_length) will be removed from training samples.
+        embargo_length: Training samples within the window of size (embargo_length) which follow the overlap between
+                        validation and train set will be removed. Embargo length is given in months.
         date_column: Datetime column
+        verbose: Print debugging information if True
     Return:
         best_param: Parameter set that gives the best performance for the given metric.
         cv_results: Dataframe summarizing cross-validation results
