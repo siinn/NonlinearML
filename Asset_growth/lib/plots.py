@@ -96,8 +96,8 @@ def plot_distribution(df, columns, n_rows, n_columns, bins=[], ylog=[], xrange=[
         fig.delaxes(ax[x])
     plt.tight_layout()
     if filename != "":
-        print('Saving figure as "../plots/dist_%s.png"' %filename)
-        plt.savefig('plots/dist_%s.png' % filename)
+        print('Saving figure as "%s.png"' %filename)
+        plt.savefig('%s.png' % filename)
     return
 
 def plot_dist_groupby_hue(df, x, group_var, group_title, hue, hue_str, norm=False, n_subplot_columns=1, n_bins=50, figsize=(20,16), filename="", **kwargs):
@@ -135,7 +135,7 @@ def plot_dist_groupby_hue(df, x, group_var, group_title, hue, hue_str, norm=Fals
     # customize and save plot
     ax = ax.reshape(n_subplot_rows, n_subplot_columns)
     plt.tight_layout()
-    plt.savefig('plots/dist_%s.png' % filename)
+    plt.savefig('%s.png' % filename)
     plt.cla()
     return
 
@@ -165,7 +165,7 @@ def plot_dist_hue(df, x, hue, hue_str, norm=False, n_bins=50, figsize=(8,5), fil
     ax.legend()
     # customize and save plot
     plt.tight_layout()
-    plt.savefig('plots/dist_%s.png' % filename)
+    plt.savefig('%s.png' % filename)
     plt.cla()
 
 
@@ -209,7 +209,7 @@ def plot_line_groupby(df, x, y, groupby, group_label, ylog=False, x_label="", y_
         handles, labels = ax[0].get_legend_handles_labels()
         plt.legend([_get_handle(name, labels, handles) for name in legend_order], legend_order)
     plt.tight_layout()
-    plt.savefig('plots/line_%s.png' % filename)
+    plt.savefig('%s.png' % filename)
     plt.cla()
 
 
@@ -240,7 +240,7 @@ def plot_line_multiple_cols(df, x, list_y, legends, x_label, y_label, ylog=False
     #ax[0].grid(False)
     plt.legend()
     plt.tight_layout()
-    plt.savefig('plots/line_%s.png' % filename)
+    plt.savefig('%s.png' % filename)
     plt.cla()
     return
     
@@ -260,7 +260,7 @@ def plot_heatmap(df, x_label, y_label, figsize=(20,6), filename="", cmap="Blues"
     ax.set_ylabel(y_label)
     ax.set_xlabel(x_label)
     plt.tight_layout()
-    plt.savefig('plots/heatmap_%s.png' % filename)
+    plt.savefig('%s.png' % filename)
 
 
 def plot_scatter(df, x, y, x_label="", y_label="", figsize=(20,6), filename="", **kwargs):
@@ -280,7 +280,7 @@ def plot_scatter(df, x, y, x_label="", y_label="", figsize=(20,6), filename="", 
     ax.set_xlabel(x_label)
     ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     plt.tight_layout()
-    plt.savefig('plots/scatter_%s.png' % filename)
+    plt.savefig('%s.png' % filename)
     plt.cla()
     return
 
@@ -315,7 +315,7 @@ def plot_box(df, x, y, title, x_label, y_label, ylim=None, figsize=(20,6), filen
     plt.tight_layout()
     fig.suptitle('')
     if filename != "":
-        plt.savefig('plots/box_%s.png' % filename)
+        plt.savefig('%s.png' % filename)
     return
 
 
@@ -358,7 +358,7 @@ def plot_heatmap_group(df_list, n_subplot_columns, x_label, y_label, df_err_list
     # customize and save plot
     plt.tight_layout()
     if filename != "":
-        plt.savefig('plots/heatmap_group_%s.png' % filename)
+        plt.savefig('%s.png' % filename)
     return
 
 
@@ -426,7 +426,7 @@ def plot_decision_boundary(model, df, features, h=0.01, x_label="", y_label="", 
         for y in hlines:
             plt.axhline(y, linewidth=1, linestyle='--', color='black')
     # Save figure
-    plt.savefig('plots/decision_boundary_%s.png' %filename)
+    plt.savefig('%s.png' %filename)
 
 
 def plot_decision_boundary_pdp(model, examples, target_names, feature_interest, feature_other,
