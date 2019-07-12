@@ -130,15 +130,22 @@ def purged_k_fold_cv(df_train, model, features, label, k, purge_length, embargo_
     print(' > embargo length = %s' % embargo_length)
     # Find dates to be used to split data into k folds.
     val_dates = get_val_dates(df_train, k, date_column, verbose)
+    # Get list of classes
+    classes = [str(x) for x in df_train[label].unique()]
     # Dictionary to hold results
     results = {'accuracy':[], 'f1-score':[], 'precision':[], 'recall':[]}
+    for cls in classes:
+        results['%s_f1-score' %cls] = []
+        results['%s_precision' %cls] = []
+        results['%s_recall' %cls] = []
     # Loop over k folds
     for val_begin, val_end in val_dates:
+        # Print debugging info
         if verbose==True:
-            # Create purged training set and validation set as a one instance of k folds.
             print('Creating an instance of purged k-fold')
             print(' > validation begin = %s' % val_begin.to_period('M'))
             print(' > validation end = %s' % val_end.to_period('M'))
+        # Create purged training set and validation set as a one instance of k folds.
         df_k_train, df_k_val = create_purged_fold(df=df_train,
                                               purge_length=purge_length,
                                               embargo_length=embargo_length,
@@ -156,6 +163,10 @@ def purged_k_fold_cv(df_train, model, features, label, k, purge_length, embargo_
         results['f1-score'].append(report['macro avg']['f1-score'])
         results['precision'].append(report['macro avg']['precision'])
         results['recall'].append(report['macro avg']['recall'])
+        for cls in classes:
+            results['%s_f1-score' %cls].append(report[cls]['f1-score'])
+            results['%s_precision' %cls].append(report[cls]['precision'])
+            results['%s_recall' %cls].append(report[cls]['recall'])
     # Return results averaged over k folds
     results_avg = {metric:np.array(results[metric]).mean() for metric in results}
     print(" >> Validation performance:")
@@ -182,6 +193,13 @@ def grid_search_purged_cv(df_train, model, param_grid, metric, features, label, 
         best_param: Parameter set that gives the best performance for the given metric.
         cv_results: Dataframe summarizing cross-validation results
     '''
+    print('Running purged k-fold CV with k = %s' % k)
+    # Get list of classes
+    classes = [str(x) for x in df_train[label].unique()]
+    # List of all available metrics
+    metrics = ['accuracy', 'precision', 'recall', 'f1-score']
+    for cls in classes:
+        metrics = metrics + ['%s_precision' %cls, '%s_recall' %cls, '%s_f1-score' %cls]
     # Get all possible combination of parameters
     keys, values = zip(*param_grid.items())
     experiments = [dict(zip(keys, v)) for v in itertools.product(*values)]
@@ -200,8 +218,9 @@ def grid_search_purged_cv(df_train, model, param_grid, metric, features, label, 
                                    features=features, label=label,
                                    k=k, verbose=verbose,
                                    purge_length=purge_length, embargo_length=embargo_length)
-        # Save evaluation result
-        cv_results.loc[i, metric]=results[metric]
+        # Save evaluation result of all metrics, not just one that is used.
+        for m in metrics:
+            cv_results.loc[i, m]=results[m]
     # Retrieve the set of parameters that gives the best results
     best_param = experiments[cv_results[metric].idxmax()]
     return best_param, cv_results

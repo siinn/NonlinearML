@@ -294,3 +294,26 @@ def grid_search_cv(model, param_grid, df_train, features, label_cla, average='ma
     print(cv.best_params_)
     return cv
 
+
+def save_summary(df_train, output_path, cv_results):
+    '''Collect results from all models trained with best parameters and save them as csv
+    Args:
+        df_train: Training dataset used to obtain class names (ex. 0.0, 1.0, 2.0)
+        output_path: Path to save results
+        cv_results: Results obtained from grid search using purged cross-validation. 
+                    This is output of grid_search_purged_cv.
+    Return:
+        None
+    '''
+    # Get list of classes
+    classes = [str(x) for x in df_train[label].unique()]
+    # List of all available metrics
+    metrics = ['accuracy', 'precision', 'recall', 'f1-score']
+    for cls in classes:
+        metrics = metrics + ['%s_precision' %cls, '%s_recall' %cls, '%s_f1-score' %cls]
+    # Collect results from best parameters
+    df_summary = pd.DataFrame({model:cv_results[model].loc[cv_results[model][metric].idxmax()][metrics]
+                               for model in cv_results}).T
+    # Save the summary
+    df_summary.to_csv(output_path+'summary.csv')
+

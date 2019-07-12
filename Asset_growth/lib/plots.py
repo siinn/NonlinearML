@@ -5,8 +5,8 @@ from matplotlib.colors import ListedColormap
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from skater.core.explanations import Interpretation
-from skater.model import InMemoryModel
+#from skater.core.explanations import Interpretation
+#from skater.model import InMemoryModel
 import itertools
 
 # set plot style
