@@ -4,6 +4,7 @@ from __future__ import division
 import numpy as np
 import math
 import numpy as np
+import os
 import pandas as pd
 import seaborn as sns
 
@@ -24,9 +25,10 @@ plot_path = 'plots/EDA/'
 debug = True
 
 # Select algorithm to run    
-run_eda                 = False
+run_eda                 = True
 run_preprocessing       = True
-save_results            = True
+examine_processed_data  = True
+save_results            = False
 
 # Set imputation method. available options: month, securityId_ff, securityId_average
 impute_method           =  "month"
@@ -42,6 +44,11 @@ time = 'eom'
 winsorize_alpha_lower = 0.05
 winsorize_alpha_upper = 0.95    
 
+#----------------------------------------------
+# Create output folder
+#----------------------------------------------
+if not os.path.exists(plot_path):
+    os.makedirs(plot_path)
 
 #----------------------------------------------
 # define functions
@@ -165,7 +172,7 @@ def plot_null(df, columns, figsize=(15,5), filename=""):
     plt.savefig('%s.png' %filename)
     return
 
-def plot_null_vs_time(df, time, columns, n_rows=4, n_columns=4, figsize=(20,12), xticks_interval=20):
+def plot_null_vs_time(df, time, columns, n_rows=4, n_columns=4, figsize=(20,12), xticks_interval=20, filename=""):
     '''
     Plots fraction of null data as a function of time for each column.
     Args:
@@ -217,20 +224,26 @@ if __name__ == "__main__":
     df[time] = df[time].apply(to_datetime, date_format='%Y%m')
 
     #----------------------------------------------
-    # Perform EDA
+    # Perform EDA using raw data
     #----------------------------------------------
     if run_eda:
 
-        # Plot feature distribution
+        # Plot feature distribution (linear)
+        plot_distribution(df, columns=features, n_rows=4, n_columns=4, 
+                          bins=[50]*13, ylog=[False]*13, xrange=[], ylim=[], title=[""]*13,
+                          x_label=[], y_label=["Samples"]*13, figsize=(20,20), filename=plot_path+"dist_features_linear")
+
+        # Plot feature distribution (log)
         plot_distribution(df, columns=features, n_rows=4, n_columns=4, 
                           bins=[50]*13, ylog=[True]*13, xrange=[], ylim=[], title=[""]*13,
-                          x_label=[], y_label=["Samples"]*13, figsize=(20,20), filename=plot_path+"dist_features")
-    
+                          x_label=[], y_label=["Samples"]*13, figsize=(20,20), filename=plot_path+"dist_features_log")
+
         # Plot percentage of null values
         plot_null(df, features, figsize=(15,8), filename=plot_path+"null_fraction")
     
         # plot fraction of null values as a function of time
         plot_null_vs_time(df, time="eom", columns=df.columns, n_rows=4, n_columns=4, figsize=(20,20), filename=plot_path+"null_fraction_time")
+
 
     #----------------------------------------------
     # Run preprocessing
@@ -254,7 +267,7 @@ if __name__ == "__main__":
         # Fill empty GICSSubIndustryNumber with 99999999, then keep only first 2 digits of GICSSubIndustryNumber
         print(" > truncating GICS number")
         df_preprocessed = df_preprocessed.fillna({"GICSSubIndustryNumber":99999999})
-        df_preprocessed["GICSSubIndustryNumber"] = df_preprocessed["GICSSubIndustryNumber"].apply(lambda x: str(x)[:2])
+        df_preprocessed["GICSSubIndustryNumber"] = df_preprocessed["GICSSubIndustryNumber"].apply(lambda x: float(str(x)[:2]))
 
         # Assign quintile and tertile classes to AG, return, and FCFA
         df_preprocessed = discretize_variables_by_month(df=df_preprocessed, variables=['fmTotalReturn', 'fqTotalReturn'],
@@ -271,6 +284,22 @@ if __name__ == "__main__":
         df_preprocessed = df
 
     #----------------------------------------------
+    # Examine processed data
+    #----------------------------------------------
+    if examine_processed_data:
+
+        # Plot feature distribution (linear)
+        plot_distribution(df_preprocessed, columns=features, n_rows=4, n_columns=4, color='red',
+                          bins=[50]*13, ylog=[False]*13, xrange=[], ylim=[], title=[""]*13,
+                          x_label=[], y_label=["Samples"]*13, figsize=(20,20), filename=plot_path+"dist_features_proc_linear")
+
+        # Plot feature distribution (log)
+        plot_distribution(df_preprocessed, columns=features, n_rows=4, n_columns=4, color='red',
+                          bins=[50]*13, ylog=[True]*13, xrange=[], ylim=[], title=[""]*13,
+                          x_label=[], y_label=["Samples"]*13, figsize=(20,20), filename=plot_path+"dist_features_proc_log")
+    
+
+    #----------------------------------------------
     # save results
     #----------------------------------------------
     if save_results:
@@ -278,7 +307,4 @@ if __name__ == "__main__":
 
     
     print("Successfully completed all tasks!")
-
-
-
 
