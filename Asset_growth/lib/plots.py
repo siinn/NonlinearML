@@ -47,7 +47,7 @@ def plot_learning_curve(df, xcol="h", ycols=["f1_train", "f1_test"], title="", f
 
 def plot_distribution(df, columns, n_rows, n_columns, bins=[], ylog=[], xrange=[], ylim=[], title=[],
                       x_label=[], y_label=[], figsize=(10,10), filename="",
-                      show_sigma=False, vlines=None):
+                      show_sigma=False, vlines=None, **kwargs):
     ''' plot distributions of given columns in a grid of n_rows x n_columns subplots.
     Args:
         df: Pandas dataframe
@@ -77,7 +77,7 @@ def plot_distribution(df, columns, n_rows, n_columns, bins=[], ylog=[], xrange=[
         _ylabel = _get_default(y_label, "n", i)
         _log = _get_default(ylog, False, i)
         # make plot
-        df[col].plot(bins=_bin, ax=ax[i], kind='hist', histtype='step', linewidth=2, range=_xrange)
+        df[col].plot(bins=_bin, ax=ax[i], kind='hist', histtype='step', linewidth=2, range=_xrange, **kwargs)
         ax[i].set_xlabel(_xlabel)
         ax[i].set_ylabel(_ylabel)
         ax[i].set_title(_title)
