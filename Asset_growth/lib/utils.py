@@ -108,7 +108,7 @@ def concat_pred_label(df, prediction, columns=[], pred_name='pred'):
     return df_result
 
 def discretize_variables_by_month(df, variables, month="eom", labels_tertile={}, labels_quintile={}):
-    ''' discretize variables by assigning a quintile and tertile class within each month. 
+    ''' Discretize variables by assigning a quintile and tertile class within each month. 
     Args:
         df: Pandas dataframe containing variables
         variables: list of variables to discretize
@@ -116,13 +116,15 @@ def discretize_variables_by_month(df, variables, month="eom", labels_tertile={},
     Return:
         df: Pandas dataframe with columns named x_quintile, x_tertile for all variable x.
     '''
-    # create classification labels
+    # Loop over each variable
     for var in variables:
-        # set labels
+        # Check if user provided label. If not, use the default values
+        # Tertile
         if var in labels_tertile:
             lt=labels_tertile[var]
         else:
             lt=[var+" low", var+" mid", var+" high"]
+        # Tertile
         if var in labels_quintile:
             lq=labels_quintile[var]
         else:
