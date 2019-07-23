@@ -19,7 +19,7 @@ from Asset_growth.lib.utils import *
 
 # Set input and output path
 input_path = '/mnt/mainblob/asset_growth/data/Data_for_AssetGrowth_Context.r5.csv'
-output_path = '/mnt/mainblob/asset_growth/data/Data_for_AssetGrowth_Context.r5.p1.csv'
+output_path = '/mnt/mainblob/asset_growth/data/Data_for_AssetGrowth_Context.r5.p2.csv'
 plot_path = 'plots/EDA/'
 # Set True for development
 debug = True
@@ -28,7 +28,7 @@ debug = True
 run_eda                 = True
 run_preprocessing       = True
 examine_processed_data  = True
-save_results            = False
+save_results            = True
 
 # Set imputation method. available options: month, securityId_ff, securityId_average
 impute_method           =  "month"
@@ -41,8 +41,8 @@ labels = ["fmTotalReturn", "fqTotalReturn"]
 time = 'eom'
 
 # Set winsorization alpha
-winsorize_alpha_lower = 0.05
-winsorize_alpha_upper = 0.95    
+winsorize_alpha_lower = 0.01
+winsorize_alpha_upper = 0.99
 
 #----------------------------------------------
 # Create output folder
@@ -224,25 +224,42 @@ if __name__ == "__main__":
     df[time] = df[time].apply(to_datetime, date_format='%Y%m')
 
     #----------------------------------------------
+    # Add negative features
+    #----------------------------------------------
+    neg_features_to_add = ['AG', 'FCFA']
+    neg_features = ['-'+x for x in neg_features_to_add]
+    df[neg_features] = df[neg_features_to_add].transform(lambda x:-x)
+
+    # Add negative features to the original list
+    features = features + neg_features
+
+    # Get Number of features, columns, and rows for plotting
+    n_features = len(features)
+    n_columns = 4
+    n_rows = math.ceil(n_features/n_columns)
+
+    #----------------------------------------------
     # Perform EDA using raw data
     #----------------------------------------------
     if run_eda:
 
+
         # Plot feature distribution (linear)
-        plot_distribution(df, columns=features, n_rows=4, n_columns=4, 
-                          bins=[50]*13, ylog=[False]*13, xrange=[], ylim=[], title=[""]*13,
-                          x_label=[], y_label=["Samples"]*13, figsize=(20,20), filename=plot_path+"dist_features_linear")
+        plot_distribution(df, columns=features, n_rows=n_rows, n_columns=n_columns, 
+                          bins=[50]*len(features), ylog=[False]*len(features), xrange=[], ylim=[], title=[""]*len(features),
+                          x_label=[], y_label=["Samples"]*len(features), figsize=(20,18), filename=plot_path+"dist_features_linear")
 
         # Plot feature distribution (log)
-        plot_distribution(df, columns=features, n_rows=4, n_columns=4, 
-                          bins=[50]*13, ylog=[True]*13, xrange=[], ylim=[], title=[""]*13,
-                          x_label=[], y_label=["Samples"]*13, figsize=(20,20), filename=plot_path+"dist_features_log")
+        plot_distribution(df, columns=features, n_rows=n_rows, n_columns=n_columns, 
+                          bins=[50]*len(features), ylog=[True]*len(features), xrange=[], ylim=[], title=[""]*len(features),
+                          x_label=[], y_label=["Samples"]*len(features), figsize=(20,18), filename=plot_path+"dist_features_log")
 
         # Plot percentage of null values
         plot_null(df, features, figsize=(15,8), filename=plot_path+"null_fraction")
     
         # plot fraction of null values as a function of time
-        plot_null_vs_time(df, time="eom", columns=df.columns, n_rows=4, n_columns=4, figsize=(20,20), filename=plot_path+"null_fraction_time")
+        plot_null_vs_time(df, time="eom", columns=df.columns, n_rows=math.ceil(len(df.columns)/n_columns), n_columns=n_columns,
+                          figsize=(20,20), filename=plot_path+"null_fraction_time")
 
 
     #----------------------------------------------
@@ -253,35 +270,31 @@ if __name__ == "__main__":
         print("Running preprocessing..")
 
         # Apply winsorization. Not applied for AG 
-        print(" > winsorizing data")
-        df_winsorized = winsorize_df(df=df, features=[x for x in features if x not in ["GS", 'GICSSubIndustryNumber']])
+        print(" > winsorizing data with (%s, %s)" % (winsorize_alpha_lower, winsorize_alpha_upper))
+        df = winsorize_df(df=df, features=[x for x in features if x not in ["GS", 'GICSSubIndustryNumber']])
 
         # Standardize features
         print(" > applying standardization data")
-        df_standardized = standardize_df(df=df_winsorized, features=[x for x in features if x not in ["GS", 'GICSSubIndustryNumber']])
+        df = standardize_df(df=df, features=[x for x in features if x not in ["GS", 'GICSSubIndustryNumber']])
 
         # Remove the observations that are missing target variables
         print(" > removing the observations with missing target data")
-        df_preprocessed = remove_missing_targets(df_standardized, targets=labels)
+        df = remove_missing_targets(df, targets=labels)
 
         # Fill empty GICSSubIndustryNumber with 99999999, then keep only first 2 digits of GICSSubIndustryNumber
         print(" > truncating GICS number")
-        df_preprocessed = df_preprocessed.fillna({"GICSSubIndustryNumber":99999999})
-        df_preprocessed["GICSSubIndustryNumber"] = df_preprocessed["GICSSubIndustryNumber"].apply(lambda x: float(str(x)[:2]))
+        df = df.fillna({"GICSSubIndustryNumber":99999999})
+        df["GICSSubIndustryNumber"] = df["GICSSubIndustryNumber"].apply(lambda x: float(str(x)[:2]))
 
-        # Assign quintile and tertile classes to AG, return, and FCFA
-        df_preprocessed = discretize_variables_by_month(df=df_preprocessed, variables=['fmTotalReturn', 'fqTotalReturn'],
+        # Assign quintile and tertile classes to return
+        df = discretize_variables_by_month(df=df, variables=['fmTotalReturn', 'fqTotalReturn'],
                                            #labels_tertile={'fmTotalReturn':['T3', 'T2', 'T1'], 'fqTotalReturn':['T3', 'T2', 'T1']},
                                            #labels_quintile={'fmTotalReturn':['Q5', 'Q4', 'Q3', 'Q2', 'Q1'], 'fqTotalReturn':['Q5', 'Q4', 'Q3', 'Q2', 'Q1']})
                                            labels_tertile={'fmTotalReturn':[2,1,0], 'fqTotalReturn':[2,1,0]}, # 0 is high
                                            labels_quintile={'fmTotalReturn':[4,3,2,1,0], 'fqTotalReturn':[4,3,2,1,0]}) # 0 is high
         # impute missing values
         print(" > Imputing missing data")
-        df_preprocessed = impute_data(df_preprocessed, impute_method, features)
-
-    else:
-        # skip preprocessing
-        df_preprocessed = df
+        df = impute_data(df, impute_method, features)
 
     #----------------------------------------------
     # Examine processed data
@@ -289,21 +302,21 @@ if __name__ == "__main__":
     if examine_processed_data:
 
         # Plot feature distribution (linear)
-        plot_distribution(df_preprocessed, columns=features, n_rows=4, n_columns=4, color='red',
-                          bins=[50]*13, ylog=[False]*13, xrange=[], ylim=[], title=[""]*13,
-                          x_label=[], y_label=["Samples"]*13, figsize=(20,20), filename=plot_path+"dist_features_proc_linear")
+        plot_distribution(df, columns=features, n_rows=n_rows, n_columns=n_columns, color='red', alpha=0.5,
+                          bins=[50]*n_features, ylog=[False]*n_features, xrange=[], ylim=[], title=[""]*n_features,
+                          x_label=[], y_label=["Samples"]*n_features, figsize=(20,18), filename=plot_path+"dist_features_proc_linear")
 
         # Plot feature distribution (log)
-        plot_distribution(df_preprocessed, columns=features, n_rows=4, n_columns=4, color='red',
-                          bins=[50]*13, ylog=[True]*13, xrange=[], ylim=[], title=[""]*13,
-                          x_label=[], y_label=["Samples"]*13, figsize=(20,20), filename=plot_path+"dist_features_proc_log")
+        plot_distribution(df, columns=features, n_rows=n_rows, n_columns=n_columns, color='red', alpha=0.5,
+                          bins=[50]*n_features, ylog=[True]*n_features, xrange=[], ylim=[], title=[""]*n_features,
+                          x_label=[], y_label=["Samples"]*n_features, figsize=(20,18), filename=plot_path+"dist_features_proc_log")
     
 
     #----------------------------------------------
     # save results
     #----------------------------------------------
     if save_results:
-      df_preprocessed.to_csv(output_path, header=True)
+      df.to_csv(output_path, header=True)
 
     
     print("Successfully completed all tasks!")
