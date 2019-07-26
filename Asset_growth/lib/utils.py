@@ -175,10 +175,10 @@ def last_cum_return(df, time="eom"):
     return return_top, return_bottom, return_diff
 
 
-def predict_and_calculate_cum_return(model, df_train, df_test, features, label_cla, label_fm, time="eom"):
+def predict_and_calculate_cum_return(model, df_train, df_test, features, label_cla, label_fm, time="eom", refit=True):
     ''' Make prediction using the fitted model. Then calculate cumulative return using the prediction.
     Args:
-        model: sklearn model that supports .fit and .predict method
+        model: ML Model that supports .fit and .predict method
         df_train, df_test: train and test dataframe
         features: list of features
         label_cla: name of column in dataframe that represent classification label
@@ -189,10 +189,12 @@ def predict_and_calculate_cum_return(model, df_train, df_test, features, label_c
         df_cum_return_test: cumulative return calculated from test dataset
         model: trained model
     '''
-    # Fit model
-    print("Fitting model..")
-    print(model)
-    model.fit(df_train[features], df_train[label_cla])
+    if refit:
+        # Refit model using all training data
+        print("Refitting model..")
+        print(model)
+        model.fit(df_train[features], df_train[label_cla])
+
     # Concatenate prediction and true label
     pred_train  = concat_pred_label(df=df_train,
                                     prediction=model.predict(df_train[features]),
@@ -297,13 +299,15 @@ def grid_search_cv(model, param_grid, df_train, features, label_cla, average='ma
     return cv
 
 
-def save_summary(df_train, output_path, cv_results):
+def save_summary(df_train, label, metric, output_path, cv_results):
     '''Collect results from all models trained with best parameters and save them as csv
     Args:
         df_train: Training dataset used to obtain class names (ex. 0.0, 1.0, 2.0)
+        label: Classification label
+        metric: Metric used to sort results
         output_path: Path to save results
         cv_results: Results obtained from grid search using purged cross-validation. 
-                    This is output of grid_search_purged_cv.
+                    ex. {'XGB': cv_results_xgb} where cv_results_xgb is output of grid_search_purged_cv
     Return:
         None
     '''
