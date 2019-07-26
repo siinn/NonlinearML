@@ -5,6 +5,7 @@ import dateutil.relativedelta
 import numpy as np
 import os
 import pandas as pd
+import pickle
 from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.neural_network import MLPClassifier
@@ -20,12 +21,12 @@ from Asset_growth.lib.heuristicModel import *
 # Set user options
 #----------------------------------------------
 # Set input and output path
-input_path = '/mnt/mainblob/asset_growth/data/Data_for_AssetGrowth_Context.r5.p1.csv'
+input_path = '/mnt/mainblob/asset_growth/data/Data_for_AssetGrowth_Context.r5.p2.csv'
 
 # Set available features and labels
 ''' Available features: 'GICSSubIndustryNumber', 'CAP', 'AG', 'ROA', 'ES', 'LTG', 'SG', 'CVROIC', 'GS', 'SEV', 'FCFA', 'ROIC', 'Momentum' '''
 feature_x = 'ROIC'
-feature_y = 'AG'
+feature_y = 'FCFA'
 features = [feature_x, feature_y]
 
 # Set path to save output figures
@@ -52,15 +53,20 @@ colors = ["#3DC66D", "#F3F2F2", "#DF4A3A"]
 
 # Set algorithms to run
 run_grid_search     = True
-run_lr              = False
+run_lr              = True
 run_xgb             = True
-run_knn             = False
+run_knn             = True
 run_nn              = False
-run_sort            = False
-run_summary         = False
+run_sort            = True
+run_summary         = True
 
 
 
+#----------------------------------------------
+# Create output folder
+#----------------------------------------------
+if not os.path.exists(output_path):
+    os.makedirs(output_path)
 
 #------------------------------------------
 # Main 
@@ -131,7 +137,7 @@ if __name__ == "__main__":
         # Plot decision boundary of trained model
         plot_decision_boundary(model=model_lr, df=df_test, features=features, h=0.01, x_label=feature_x, y_label=feature_y,
                                vlines=tertile_boundary[feature_x], hlines=tertile_boundary[feature_y], colors=colors,
-                               xlim=False, ylim=False, figsize=(8,6), ticks=[0,1,2], filename=output_path+"decision_boundary_lr")
+                               xlim=(-3,3), ylim=(-3,3), figsize=(8,6), ticks=[0,1,2], filename=output_path+"decision_boundary_lr")
 
 
     #------------------------------------------
@@ -140,13 +146,13 @@ if __name__ == "__main__":
     if run_xgb:
         print("Running xgboost")
         # Set parameters to search
-        param_grid = { 'max_depth': [3],
+        param_grid = { 'max_depth': [4],
                        'learning_rate': [0.3],
                        'n_estimators': [100],
                        'objective': ['multi:softmax'],
-                       'min_child_weight': np.logspace(2,4,3),
-                       'gamma': [10], #np.logspace(-2,2,5),
-                       'lambda': [1], #np.logspace(0,2,3), #np.logspace(0,3,5),
+                       'min_child_weight': [1000],
+                       'gamma': [10.0], # np.logspace(-2,1,3), # [10]
+                       'lambda': [1], # np.logspace(0,2,3)
                        'subsample': [0.5],
                         "n_jobs":[-1],
                        'num_class': [3]}
@@ -164,8 +170,8 @@ if __name__ == "__main__":
         else:
             #best_params_xgb = {'max_depth': 3, 'learning_rate': 0.042169650342858224, 'n_estimators': 100, 'objective': 'multi:softmax',
             #                   'min_child_weight': 1.0, 'gamma': 10.0, 'lambda': 1, 'subsample': 0.5, 'n_jobs': -1, 'num_class': 3}
-            best_params_xgb = {'max_depth': 3, 'learning_rate': 0.3, 'n_estimators': 100, 'objective': 'multi:softmax',
-                               'min_child_weight': 100.0, 'gamma': 10.0, 'lambda': 1, 'subsample': 0.5, 'n_jobs': -1, 'num_class': 3}
+            best_params_xgb = {'max_depth': 4, 'learning_rate': 0.3, 'n_estimators': 50, 'objective': 'multi:softmax',
+                               'min_child_weight': 1000.0, 'gamma': 10.0, 'lambda': 1, 'subsample': 0.5, 'n_jobs': -1, 'num_class': 3}
 
         # Calculate cumulative return using best parameters
         df_cum_train_xgb, df_cum_test_xgb, model_xgb = predict_and_calculate_cum_return(model=XGBClassifier(**best_params_xgb),
@@ -181,7 +187,7 @@ if __name__ == "__main__":
         # Plot decision boundary of trained model
         plot_decision_boundary(model=model_xgb, df=df_test, features=features, h=0.01, x_label=feature_x, y_label=feature_y,
                                vlines=tertile_boundary[feature_x], hlines=tertile_boundary[feature_y], colors=colors,
-                               xlim=False, ylim=False, figsize=(8,6), ticks=[0,1,2], filename=output_path+"decision_boundary_xgb")
+                               xlim=(-3,3), ylim=(-3,3), figsize=(8,6), ticks=[0,1,2], filename=output_path+"decision_boundary_xgb")
 
 
 
@@ -205,7 +211,7 @@ if __name__ == "__main__":
             # Save cross-validation results
             cv_results_knn.to_csv(output_path+"cv_results_knn.csv")
         else:
-            best_params_knn = {'n_neighbors': 10000}
+            best_params_knn = {'n_neighbors': 1000}
 
         # Calculate cumulative return using best parameters
         df_cum_train_knn, df_cum_test_knn, model_knn = predict_and_calculate_cum_return(model=KNeighborsClassifier(**best_params_knn),
@@ -221,7 +227,7 @@ if __name__ == "__main__":
         # Plot decision boundary of trained model
         plot_decision_boundary(model=model_knn, df=df_test, features=features, h=0.01, x_label=feature_x, y_label=feature_y,
                                vlines=tertile_boundary[feature_x], hlines=tertile_boundary[feature_y], colors=colors,
-                               xlim=False, ylim=False, figsize=(8,6), ticks=[0,1,2], filename=output_path+"decision_boundary_knn")
+                               xlim=(-3,3), ylim=(-3,3), figsize=(8,6), ticks=[0,1,2], filename=output_path+"decision_boundary_knn")
         
         
     #------------------------------------------
@@ -268,7 +274,7 @@ if __name__ == "__main__":
         # Plot decision boundary of trained model
         plot_decision_boundary(model=model_nn, df=df_test, features=features, h=0.01, x_label=feature_x, y_label=feature_y,
                                vlines=tertile_boundary[feature_x], hlines=tertile_boundary[feature_y], colors=colors,
-                               xlim=False, ylim=False, figsize=(8,6), ticks=[0,1,2], filename=output_path+"decision_boundary_nn")
+                               xlim=(-3,3), ylim=(-3,3), figsize=(8,6), ticks=[0,1,2], filename=output_path+"decision_boundary_nn")
 
         
     #------------------------------------------
@@ -317,44 +323,28 @@ if __name__ == "__main__":
     # Summary plots
     #------------------------------------------
     if run_summary:
-        plot_cumulative_return_diff(list_cum_returns=[df_cum_test_lr, df_cum_test_knn, df_cum_test_xgb, df_cum_test_nn],
+        # Read Tensorflow results
+        df_cum_test_tf = pickle.load(open(output_path+'df_cum_test_tf.pickle', 'rb'))
+
+
+        plot_cumulative_return_diff(list_cum_returns=[df_cum_test_lr, df_cum_test_knn, df_cum_test_xgb, df_cum_test_tf],
                                     list_labels=["Linear", "KNN", "XGB", "NN"],
                                     label_reg=label_reg,
                                     figsize=(8,6), return_label=[0,1,2],
-                                    kwargs_train={'ylim':(-1,7)},
-                                    kwargs_test={'ylim':(-1,5)},
+                                    kwargs_train={'ylim':(-1,3)},
+                                    kwargs_test={'ylim':(-1,3)},
                                     legend_order=["NN", "XGB", "Linear", "KNN"],
                                     filename=output_path+"return_diff_summary")
 
         # Save results
-        save_summary(df_train, output_path,
+        save_summary(df_train, label, metric, output_path,
                      cv_results = {'Logistic': cv_results_lr,
                                    'XGB': cv_results_xgb,
                                    'KNN': cv_results_knn,
-                                   'NN': cv_results_nn})
-
-
-
+                                   })
 
 
 
     print("Successfully completed all tasks")
 
 
-
-
-
-
-
-
-
-
-
-
-#
-#
-#
-#
-#
-#
-#
