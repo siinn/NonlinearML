@@ -10,7 +10,7 @@ def write_log(list_features, input_path, log_path, model, grid_train_results, gr
         list_feature: list of features
         input_path: input dataframe
         log_path: path to save logs
-        model: LSTM_Model class object
+        model: Keras_Model class object
         grid_train_results: model evaluation results obtained from train dataset
         grid_test_results: model evaluation results obtained from test dataset
         train, test dates: start and end dates of train, test dataset
@@ -22,7 +22,7 @@ def write_log(list_features, input_path, log_path, model, grid_train_results, gr
         os.makedirs(log_path)
     # Open file to write log
     print("Writing results to %s" % datetime.datetime.now().strftime("%Y-%m-%d_%H-%M"))
-    with open(log_path+"lstm_%s" % datetime.datetime.now().strftime("%Y-%m-%d_%H-%M"), "a") as f:
+    with open(log_path+"tf_%s" % datetime.datetime.now().strftime("%Y-%m-%d_%H-%M"), "a") as f:
         f.write("==================================\n")
         f.write(" Keras Model\n")
         f.write("==================================\n")
