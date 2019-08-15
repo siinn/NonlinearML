@@ -3,12 +3,14 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as dt
 from matplotlib.colors import ListedColormap
 import numpy as np
+import os
 import pandas as pd
 import seaborn as sns
 #from skater.core.explanations import Interpretation
 #from skater.model import InMemoryModel
 import itertools
 
+from Asset_growth.lib.backtest import *
 
 # set plot style
 markers=('x', 'p', "|", '*', '^', 'v', '<', '>')
@@ -33,12 +35,22 @@ plt.rcParams['savefig.facecolor']='white'
 
 
 
+#-------------------------------------------------------------------------------
+# Utils
+#-------------------------------------------------------------------------------
+def create_folder(filename):
+    """ Creates folder if not exists."""
+    path = "/".join(filename.split('/')[:-1])
+    if not os.path.exists(path):
+        os.makedirs(path)
+    return
+
 
 #-------------------------------------------------------------------------------
 # plotting functions
 #-------------------------------------------------------------------------------
 def plot_learning_curve(
-    df, xcol="h", ycols=["f1_train", "f1_test"], title="", figsize=(8,8)):
+    df, xcol="h", ycols=["f1_train", "f1_test"], filename="", figsize=(8,8)):
     ''' plot learning curve and save as png
     Args:
         df: dataframe containing model score and training length
@@ -53,12 +65,14 @@ def plot_learning_curve(
     line = itertools.cycle(lines) 
     for i, ycol in enumerate(ycols):
         df.plot.line(x=xcol, y=ycol, ax=ax, legend=True, linestyle=next(line))
-    # customize plot and save
+    # customize plot
     ax.set_ylabel("Average F1 score")
     ax.set_xlabel("Training length (months)")
     ax.set_ylim(0,0.4)
+    # Create output folder and save figure
+    create_folder(filename)
     plt.tight_layout()
-    plt.savefig('plots/learning_curve_%s.png' % title)
+    plt.savefig('%s.png' % filename)
     return
 
 def plot_distribution(
@@ -120,6 +134,8 @@ def plot_distribution(
     for x in np.arange(len(columns),len(ax),1):
         fig.delaxes(ax[x])
     plt.tight_layout()
+    # Create output folder and save figure
+    create_folder(filename)
     if filename != "":
         print('Saving figure as "%s.png"' %filename)
         plt.savefig('%s.png' % filename)
@@ -168,8 +184,10 @@ def plot_dist_groupby_hue(
         ax[i].set_title(group_title[i])
         ax[i].grid(False)
         ax[i].legend()
-    # customize and save plot
+    # customize plot
     ax = ax.reshape(n_subplot_rows, n_subplot_columns)
+    # Create output folder and save figure
+    create_folder(filename)
     plt.tight_layout()
     plt.savefig('%s.png' % filename)
     plt.cla()
@@ -213,7 +231,8 @@ def plot_dist_hue(
         ax.legend()
     else:
         ax.legend(loc=legend_loc, bbox_to_anchor=legend_box)
-    # customize and save plot
+    # Create output folder and save figure
+    create_folder(filename)
     plt.tight_layout()
     plt.savefig('%s.png' % filename)
     plt.cla()
@@ -253,7 +272,7 @@ def plot_line_groupby(
             df_group.set_index(x)[y].plot(
                 kind='line', legend=True, label=group_label[name],
                 linewidth=2.0, linestyle=next(line), **kwargs)
-    # customize and save plot
+    # customize plot
     if ylog:
         ax[0].set_yscale('log')
     ax[0].set_ylabel(y_label)
@@ -268,6 +287,8 @@ def plot_line_groupby(
         plt.legend(
             [_get_handle(name, labels, handles) for name in legend_order],
             legend_order)
+    # Create output folder and save figure
+    create_folder(filename)
     plt.tight_layout()
     plt.savefig('%s.png' % filename)
     plt.cla()
@@ -298,12 +319,13 @@ def plot_line_multiple_cols(
             df.set_index(x)[y].plot(
                 kind='line', linewidth=2.0, label=legends[i],
                 linestyle=next(line), **kwargs)
-    # customize and save plot
+    # customize plot
     ax[0].set_ylabel(y_label)
     ax[0].set_xlabel(x_label)
     if ylog:
         ax[0].set_yscale('log')
-    #ax[0].grid(False)
+    # Create output folder and save figure
+    create_folder(filename)
     plt.legend()
     plt.tight_layout()
     plt.savefig('%s.png' % filename)
@@ -323,9 +345,11 @@ def plot_heatmap(
     fig, ax = plt.subplots(1, 1, figsize=figsize, squeeze=False)
     # plot heatmap
     ax = sns.heatmap(df, cmap=cmap, **kwargs)
-    # customize and save plot
+    # customize plot
     ax.set_ylabel(y_label)
     ax.set_xlabel(x_label)
+    # Create output folder and save figure
+    create_folder(filename)
     plt.tight_layout()
     plt.savefig('%s.png' % filename)
 
@@ -343,10 +367,12 @@ def plot_scatter(
     fig, ax = plt.subplots(1, 1, figsize=figsize, squeeze=False)
     # plot heatmap
     ax = sns.scatterplot(data=df, x=x, y=y, **kwargs)
-    # customize and save plot
+    # customize plot
     ax.set_ylabel(y_label)
     ax.set_xlabel(x_label)
     ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    # Create output folder and save figure
+    create_folder(filename)
     plt.tight_layout()
     plt.savefig('%s.png' % filename)
     plt.cla()
@@ -375,7 +401,7 @@ def plot_box(
                      medianprops={"color":"black"},
                      capprops ={"color":"black"},
                      **kwargs)
-    # customize and save plot
+    # customize plot
     ax.set_ylabel(y_label)
     ax.set_xlabel(x_label)
     ax.set_title(title)
@@ -385,6 +411,8 @@ def plot_box(
     plt.tight_layout()
     fig.suptitle('')
     if filename != "":
+        # Create output folder and save figure
+        create_folder(filename)
         plt.savefig('%s.png' % filename)
     return
 
@@ -417,31 +445,30 @@ def plot_heatmap_group(
         if df_err_list:
             df_annot =\
                 df_list[group_name].applymap(lambda x: '%.3f' % float(x))\
-                + df_err_list[group_name].applymap(
-                    lambda x: ' (%.3f)' % float(x))
+              + df_err_list[group_name].applymap(lambda x: ' (%.3f)' % float(x))
         else:
             df_annot = True
         sns.heatmap(df_list[group_name], ax=ax[i],
                     annot=df_annot,\
                     cmap=cmap, **kwargs)
-        # customize and save plot
+        # customize plot
         ax[i].set_ylabel(y_label)
         ax[i].set_xlabel(x_label)
         if group_map:
             ax[i].set_title(group_map[group_name])
-    # customize and save plot
+    # customize plot
     plt.tight_layout()
     if filename != "":
+        # Create output folder and save figure
+        create_folder(filename)
         plt.savefig('%s.png' % filename)
     return
 
 
 
 #-------------------------------------------------------------------------------
-# plotting functions specific to AG project
+# Decision boundary plots
 #-------------------------------------------------------------------------------
-from Asset_growth.lib.backtest import *
-
 def plot_decision_boundary(
     model, df, features, h=0.01, x_label="", y_label="", xlim=False, ylim=False,
     title=False, title_loc='center', annot=False, vlines = [], hlines = [],
@@ -513,7 +540,8 @@ def plot_decision_boundary(
     if hlines:
         for y in hlines:
             plt.axhline(y, linewidth=1, linestyle='--', color='black')
-    # Save figure
+    # Create output folder and save figure
+    create_folder(filename)
     plt.savefig('%s.png' %filename)
 
 
@@ -616,7 +644,8 @@ def plot_decision_boundary_pdp(
         df_pd[feature_interest].unique(), df_pd[feature_other].unique())
     # Make prediction by selecting class with the highest probability
     df_pd['pred'] = df_pd[target_names].idxmax(axis=1)
-    # Get z coordinate of decision boundary by searching for (x,y) from the dataframe.
+    # Get z coordinate of decision boundary by searching for (x,y)
+    # from the dataframe.
     z = np.array(
         [
             [_get_z(df_pd,x,y, feature_interest, feature_other) for x in xx[0]]
@@ -647,11 +676,15 @@ def plot_decision_boundary_pdp(
     if hlines:
         for y in hlines:
             plt.axhline(y, linewidth=1, linestyle='--', color='black')
-    # Save figure
+    # Create output folder and save figure
+    create_folder(filename)
     plt.savefig('%s.png' %filename)
 
 
 
+#-------------------------------------------------------------------------------
+# Cumulative return plots
+#-------------------------------------------------------------------------------
 def plot_cumulative_return(
     df_cum_train, df_cum_test, label_reg, filename, figsize=(15,6),
     group_label={0:"Q1", 1:"Q2", 2:"Q3"}, time="eom",
@@ -702,43 +735,71 @@ def plot_cumulative_return_diff(
         label_reg: regression label. ex. 'fqTotalReturn'
     '''
     # Calculate difference in return and concatenate
-    df_diff_q1q2_q3 = pd.concat([calculate_diff_return(cum_return, return_label=return_label, output_col=label)[0]
-                                 for cum_return, label in zip(list_cum_returns, list_labels)])
-    df_diff_q1_q3 = pd.concat([calculate_diff_return(cum_return, return_label=return_label, output_col=label)[1]
-                               for cum_return, label in zip(list_cum_returns, list_labels)])
+    df_diff_q1q2_q3 = pd.concat([
+        calculate_diff_return(
+            cum_return, return_label=return_label, output_col=label)[0]
+            for cum_return, label in zip(list_cum_returns, list_labels)])
+    df_diff_q1_q3 = pd.concat([
+        calculate_diff_return(
+            cum_return, return_label=return_label, output_col=label)[1]
+            for cum_return, label in zip(list_cum_returns, list_labels)])
 
     # If legend order is given, pass it to plot_line_groupby. 
     if legend_order:
         # plot test dataset
-        plot_line_groupby(df=df_diff_q1q2_q3, legend_order=legend_order,\
-                          x="index", y="cumulative_return", groupby="pred", group_label = {key:key for key in df_diff_q1q2_q3["pred"].unique()},\
-                          x_label="Time", y_label="Cumulative %s\n(Q1+Q2) - Q3" %label_reg, ylog=False, figsize=figsize, filename = "%s_q1q2_q3" %filename, **kwargs_train)
-        plot_line_groupby(df=df_diff_q1_q3, legend_order=legend_order,\
-                          x="index", y="cumulative_return",\
-                          groupby="pred", group_label = {key:key for key in df_diff_q1q2_q3["pred"].unique()},\
-                          x_label="Time", y_label="Cumulative %s\nQ1 - Q3" %label_reg, ylog=False, figsize=figsize, filename = "%s_q1_q3" %filename, **kwargs_test)
+        plot_line_groupby(
+            df=df_diff_q1q2_q3, legend_order=legend_order,
+            x="index", y="cumulative_return", groupby="pred",
+            group_label = {key:key for key in df_diff_q1q2_q3["pred"].unique()},
+            x_label="Time",
+            y_label="Cumulative %s\n(Q1+Q2) - Q3" %label_reg,
+            ylog=False, figsize=figsize,
+            filename = "%s_q1q2_q3" %filename, **kwargs_train)
+        plot_line_groupby(
+            df=df_diff_q1_q3, legend_order=legend_order,
+            x="index", y="cumulative_return",
+            groupby="pred",
+            group_label = {key:key for key in df_diff_q1q2_q3["pred"].unique()},
+            x_label="Time",
+            y_label="Cumulative %s\nQ1 - Q3" %label_reg,
+            ylog=False, figsize=figsize,
+            filename = "%s_q1_q3" %filename, **kwargs_test)
     else:
         # plot test dataset
-        plot_line_groupby(df=df_diff_q1q2_q3,\
-                          x="index", y="cumulative_return", groupby="pred", group_label = {key:key for key in df_diff_q1q2_q3["pred"].unique()},\
-                          x_label="Time", y_label="Cumulative %s\n(Q1+Q2) - Q3" %label_reg, ylog=False, figsize=figsize, filename = "%s_q1q2_q3" %filename, **kwargs_train)
-        plot_line_groupby(df=df_diff_q1_q3,\
-                          x="index", y="cumulative_return", groupby="pred", group_label = {key:key for key in df_diff_q1q2_q3["pred"].unique()},\
-                          x_label="Time", y_label="Cumulative %s\nQ1 - Q3" %label_reg, ylog=False, figsize=figsize, filename = "%s_q1_q3" %filename, **kwargs_test)
+        plot_line_groupby(
+            df=df_diff_q1q2_q3,
+            x="index", y="cumulative_return", groupby="pred",
+            group_label = {key:key for key in df_diff_q1q2_q3["pred"].unique()},
+            x_label="Time",
+            y_label="Cumulative %s\n(Q1+Q2) - Q3" %label_reg,
+            ylog=False, figsize=figsize,
+            filename = "%s_q1q2_q3" %filename, **kwargs_train)
+        plot_line_groupby(
+            df=df_diff_q1_q3,
+            x="index", y="cumulative_return", groupby="pred",
+            group_label = {key:key for key in df_diff_q1q2_q3["pred"].unique()},
+            x_label="Time",
+            y_label="Cumulative %s\nQ1 - Q3" %label_reg,
+            ylog=False, figsize=figsize,
+            filename = "%s_q1_q3" %filename, **kwargs_test)
     return        
 
 
-
-
-
-
-def plot_partial_dependence_1D(model, examples, target_names, feature_interest,
-                            grid_resolution=20, with_variance=True, figsize=(8,5), colors = ["#3DC66D", "#F3F2F2", "#DF4A3A"],
-                            ylim=None, xlim=None, ylabel="Probability", filename="plots/pdp", merge_plots=True):
-    ''' Create 1D partial dependence plots for each class using Skater library. Details can be found below.
+#-------------------------------------------------------------------------------
+# Partial dependence plots
+#-------------------------------------------------------------------------------
+def plot_partial_dependence_1D(
+    model, examples, target_names, feature_interest,
+    grid_resolution=20, with_variance=True, figsize=(8,5),
+    colors = ["#3DC66D", "#F3F2F2", "#DF4A3A"],
+    ylim=None, xlim=None, ylabel="Probability",
+    filename="plots/pdp", merge_plots=True):
+    ''' Create 1D partial dependence plots for each class using Skater library.
+    Details can be found below.
         https://github.com/oracle/Skater/
     Args:
-        model: pretrained sklearn model. Or any model that has .predict_prob method.
+        model: pretrained sklearn model.
+               Or any model that has .predict_prob method.
         examples: dataframe containing features.
         target_names: name of classes. ex. ['T1', 'T2', 'T3'].
         feature_interest: feature of interest.
@@ -749,13 +810,16 @@ def plot_partial_dependence_1D(model, examples, target_names, feature_interest,
     '''
     print("Plotting partial dependence plot with filename: %s" %filename)
     # Create figures for partial dependence plot using Skater
-    interpreter = Interpretation(examples, feature_names=list(examples.columns))
-    im_model = InMemoryModel(model.predict_proba, examples=examples, target_names=target_names)
-    axes_list = interpreter.partial_dependence.plot_partial_dependence(feature_ids=[feature_interest],
-                                                                       modelinstance=im_model, 
-                                                                       grid_resolution=grid_resolution, 
-                                                                       with_variance=with_variance,
-                                                                       figsize=figsize)
+    interpreter = Interpretation(
+        examples, feature_names=list(examples.columns))
+    im_model = InMemoryModel(
+        model.predict_proba, examples=examples, target_names=target_names)
+    axes_list = interpreter.partial_dependence.plot_partial_dependence(
+        feature_ids=[feature_interest],
+        modelinstance=im_model, 
+        grid_resolution=grid_resolution, 
+        with_variance=with_variance,
+        figsize=figsize)
     # Get half length of output axes list
     half_length = int(len(axes_list[0]) / 2)
 
@@ -787,6 +851,8 @@ def plot_partial_dependence_1D(model, examples, target_names, feature_interest,
         ax.set_xlabel(feature_interest)
         ax.ticklabel_format(style='plain')
         ax.legend()
+        # Create output folder and save figure
+        create_folder(filename)
         fig.tight_layout()
         fig.savefig("%s.png" % (filename))
                                                                     
@@ -797,19 +863,24 @@ def plot_partial_dependence_1D(model, examples, target_names, feature_interest,
                 ax.set_ylim(ylim)
             ax.set_ylabel(ylabel)
             ax.ticklabel_format(style='plain')
+            # Create output folder and save figure
+            create_folder(filename)
             fig = ax.figure
             fig.tight_layout()
             fig.savefig("%s_%s.png" % (filename, i))
 
 
 
-def plot_partial_dependence_2D(model, examples, target_names, feature_interest, feature_other,
-                            grid_resolution=20, with_variance=True, figsize=(8,5),
-                            zlim=None, zlabel="Probability", filename="plots/pdp_2D"):
-    ''' Create 2D partial dependence plots for each class using Skater library. Details can be found below.
+def plot_partial_dependence_2D(
+    model, examples, target_names, feature_interest, feature_other,
+    grid_resolution=20, with_variance=True, figsize=(8,5),
+    zlim=None, zlabel="Probability", filename="plots/pdp_2D"):
+    ''' Create 2D partial dependence plots for each class using Skater library.
+        Details can be found below.
         https://github.com/oracle/Skater/
     Args:
-        model: pretrained sklearn model. Or any model that has .predict_prob method.
+        model: pretrained sklearn model.
+               Or any model that has .predict_prob method.
         examples: dataframe containing features.
         target_names: name of classes. ex. ['T1', 'T2', 'T3'].
         feature_interest: feature of interest.
@@ -821,13 +892,18 @@ def plot_partial_dependence_2D(model, examples, target_names, feature_interest, 
     '''
     print("Plotting 2D partial dependence plot with filename: %s" %filename)
     # Create figures for partial dependence plot using Skater
-    interpreter = Interpretation(examples, feature_names=list(examples.columns))
-    im_model = InMemoryModel(model.predict_proba, examples=examples, target_names=target_names)
-    axes_list = interpreter.partial_dependence.plot_partial_dependence(feature_ids=[tuple([feature_interest, feature_other])], # Pass feature_ids as list of tuples. ex. [('AG', 'FCFA')]
-                                                                       modelinstance=im_model, 
-                                                                       grid_resolution=grid_resolution, 
-                                                                       with_variance=with_variance,
-                                                                       figsize=figsize)
+    interpreter = Interpretation(
+        examples, feature_names=list(examples.columns))
+    im_model = InMemoryModel(
+        model.predict_proba, examples=examples, target_names=target_names)
+    axes_list = interpreter.partial_dependence.plot_partial_dependence(
+        feature_ids=[
+            # Pass feature_ids as list of tuples. ex. [('AG', 'FCFA')]
+            tuple([feature_interest, feature_other])], 
+        modelinstance=im_model, 
+        grid_resolution=grid_resolution, 
+        with_variance=with_variance,
+        figsize=figsize)
 
     # Get half length of output axes list
     half_length = int(len(axes_list[0]) / 2)
@@ -838,7 +914,8 @@ def plot_partial_dependence_2D(model, examples, target_names, feature_interest, 
         ax_3d = ax.get_figure().axes[0]
         ax_2d = ax.get_figure().axes[1]
         label=ax.get_zlabel().strip()
-        # This axes has two sub axes. Change their ticklabel to avoid scientific notation
+        # This axes has two sub axes. Change their ticklabel to
+        # avoid scientific notation
         for sub_ax in ax.get_figure().axes:
             sub_ax.ticklabel_format(style='plain')
         # Customize 3D plot
@@ -848,12 +925,16 @@ def plot_partial_dependence_2D(model, examples, target_names, feature_interest, 
         # Customize 2D plot
         ax_2d.set_title("")
         # Save figure
+        # Create output folder and save figure
+        create_folder(filename)
         fig = ax.get_figure()
         fig.tight_layout()
         fig.savefig("%s_%s.png" % (filename, label))
 
 
-
+#-------------------------------------------------------------------------------
+# Cross-validation distribution
+#-------------------------------------------------------------------------------
 def plot_cv_dist(
     cv_results, filename, n_bins=10, figsize=(8,5), alpha=0.6, hist_type='step',
     x_range=None, legend_loc=None, legend_box=(0,-0.2), **kwargs):

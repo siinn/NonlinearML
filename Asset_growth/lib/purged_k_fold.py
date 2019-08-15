@@ -2,8 +2,12 @@ from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import itertools
 import numpy as np
+import os
 import pandas as pd
 from sklearn.metrics import classification_report
+
+
+
 
 def train_test_split_by_date(df, date_column, test_begin, test_end):
     ''' create train and test dataset by dates.
@@ -27,40 +31,63 @@ def train_test_split_by_date(df, date_column, test_begin, test_end):
     return df_train, df_test
 
 
-def create_purged_fold(df, val_begin, val_end, date_column, purge_length, embargo_length=0, subsample=1):
-    ''' Create purged training set and validation set as a one instance of K-folds.
+def create_purged_fold(
+    df, val_begin, val_end, date_column, purge_length,
+    embargo_length=0, subsample=1):
+    """ Create purged training set and validation set as a one instance
+    of K-folds.
     Args:
         df: Pandas dataframe
-        val_begin, val_end: Begin and end date of validation period given in Datetime format.
+        val_begin, val_end: Begin and end date of validation period given
+            in Datetime format.
         date_column: column representing time
-        purge_length: Overlapping window size to be removed from training samples given in months.
-                      i.e. the overlap between train and validation dataset of size (purge_length) will be removed from training samples.
-        embargo_length: Training samples within the window of size (embargo_length) which follow the overlap between
-                        validation and train set will be removed. Embargo length is given in months.
+        purge_length: Overlapping window size to be removed from
+            training samples given in months.
+            Example: The overlap between train and validation dataset of
+            size (purge_length) will be removed from training samples.
+        embargo_length: Training samples within the window of
+            size (embargo_length) which follow the overlap between
+            validation and train set will be removed. Embargo length is given
+            in months.
         subsample: fraction of training samples to use.
     Return:
         df_purged_train: train and validation set for one instance of K-fold.
-    '''
-    def _purge_train(df_train, val_begin, val_end, date_column, purge_length, embargo_length):
-        ''' Purge training set. Any overlapping samples and 'embargo' will be removed.'''
-        # Training samples before validation set to purge. Given in tuple, (begin, end) dates
-        overlap_before_val = (val_begin - relativedelta(months=purge_length), val_begin)
+    """
+    def _purge_train(
+        df_train, val_begin, val_end, date_column,
+        purge_length, embargo_length):
+        """ Purge training set. Any overlapping samples and 'embargo' will be
+        removed."""
+        # Training samples before validation set to purge.
+        # Given in tuple, (begin, end) dates
+        overlap_before_val = (
+            val_begin - relativedelta(months=purge_length), val_begin)
     
-        # Training samples after validation set to purge. Given in tuple, (begin, end) dates
-        overlap_after_val = (val_end, val_end + relativedelta(months=purge_length)\
-                                              + relativedelta(months=embargo_length))
+        # Training samples after validation set to purge.
+        # Given in tuple, (begin, end) dates
+        overlap_after_val = (
+            val_end,
+            val_end + relativedelta(months=purge_length)\
+                    + relativedelta(months=embargo_length))
         # Get list of indices to drop
-        index_before_val = df_train.loc[(df_train[date_column] >= overlap_before_val[0]) & (df_train[date_column] <= overlap_before_val[1])].index
-        index_after_val = df_train.loc[(df_train[date_column] >= overlap_after_val[0]) & (df_train[date_column] <= overlap_after_val[1])].index
+        index_before_val = df_train.loc[
+            (df_train[date_column] >= overlap_before_val[0])\
+            & (df_train[date_column] <= overlap_before_val[1])].index
+        index_after_val = df_train.loc[
+            (df_train[date_column] >= overlap_after_val[0])\
+            & (df_train[date_column] <= overlap_after_val[1])].index
     
         # Return purged training set
         return df_train.drop(index_before_val.append(index_after_val))
 
     # Split train and validation
-    df_train, df_val = train_test_split_by_date(df=df, date_column=date_column, test_begin=val_begin, test_end=val_end)
+    df_train, df_val = train_test_split_by_date(
+        df=df, date_column=date_column, test_begin=val_begin, test_end=val_end)
 
-    # Purge training set by removing overlap and embargo between training and validation sets.
-    df_purged_train = _purge_train(df_train, val_begin, val_end, date_column, purge_length, embargo_length)
+    # Purge training set by removing overlap and embargo
+    # between training and validation sets.
+    df_purged_train = _purge_train(
+        df_train, val_begin, val_end, date_column, purge_length, embargo_length)
 
     # Subsample training set
     df_purged_train = df_purged_train.sample(frac=subsample)
@@ -182,19 +209,18 @@ def purged_k_fold_cv(df_train, model, features, label, k, purge_length, embargo_
             results['f1-score'].append(report['macro avg']['f1-score'])
             results['precision'].append(report['macro avg']['precision'])
             results['recall'].append(report['macro avg']['recall'])
-            #results['Avg_%s_%s_f1-score' %(classes[0], classes[2])].append((report[classes[0]]['f1-score'] + report[classes[2]]['f1-score'])/2)
-            #results['Avg_%s_%s_precision' %(classes[0], classes[2])].append((report[classes[0]]['precision'] + report[classes[2]]['precision'])/2)
-            #results['Avg_%s_%s_recall' %(classes[0], classes[2])].append((report[classes[0]]['recall'] + report[classes[2]]['recall'])/2)
     # Return results averaged over k folds
     results_mean = {metric:np.array(results[metric]).mean() for metric in results}
     results_std = {metric:np.array(results[metric]).std() for metric in results}
     print(" >> Validation performance:")
-    print(" >> mean = %s" % results_mean)
-    print(" >> std = %s" % results_std)
+    for key in results_mean:
+        print(" >> mean %s = %s" % (key, results_mean[key]))
+    for key in results_std:
+        print(" >> std %s = %s" % (key, results_std[key]))
     return {'mean':results_mean, 'std':results_std, 'values':results}
 
 
-def grid_search_purged_cv(df_train, model, param_grid, metric, features, label, k, purge_length, n_epoch=1, embargo_length=0, date_column='eom', subsample=1, verbose=False):
+def grid_search_purged_cv(df_train, model, param_grid, metric, features, label, k, purge_length, output_path, n_epoch=1, embargo_length=0, date_column='eom', subsample=1, verbose=False):
     ''' Perform grid search using purged cross-validation method. 
     Args:
         df_train: training set given in Pandas dataframe
@@ -210,6 +236,7 @@ def grid_search_purged_cv(df_train, model, param_grid, metric, features, label, 
         date_column: Datetime column
         subsample: fraction of training samples to use.
         verbose: Print debugging information if True
+        output_path: Path to save results as csv
     Return:
         cv_results: Dataframe summarizing cross-validation results
     '''
@@ -217,13 +244,10 @@ def grid_search_purged_cv(df_train, model, param_grid, metric, features, label, 
     # Get list of classes
     classes = sorted([str(x) for x in df_train[label].unique()])
     # List of all available metrics
-    metrics = ['accuracy', 'precision', 'recall', 'f1-score',
-               #'Avg_%s_%s_f1-score' %(classes[0], classes[2]),
-               #'Avg_%s_%s_precision' %(classes[0], classes[2]),
-               #'Avg_%s_%s_recall' %(classes[0], classes[2])]
-               ]
+    metrics = ['accuracy', 'precision', 'recall', 'f1-score']
     for cls in classes:
-        metrics = metrics + ['%s_precision' %cls, '%s_recall' %cls, '%s_f1-score' %cls]
+        metrics = metrics + [
+            '%s_precision' %cls, '%s_recall' %cls, '%s_f1-score' %cls]
     # Get all possible combination of parameters
     keys, values = zip(*param_grid.items())
     experiments = [dict(zip(keys, v)) for v in itertools.product(*values)]
@@ -251,8 +275,10 @@ def grid_search_purged_cv(df_train, model, param_grid, metric, features, label, 
             cv_results.at[i, m+"_values"] = str(one_fold_result['values'][m])
         # Save parameters as one string
         cv_results.at[i, 'params'] = str([x+"="+str(params[x]) for x in params]).strip('[]').replace('\'','')
-    # Retrieve the set of parameters that gives the best results
-    #best_param = experiments[cv_results[metric].idxmax()]
+    # Save results as csv
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
+    cv_results.to_csv(output_path+"summary.csv")
     return cv_results
 
 

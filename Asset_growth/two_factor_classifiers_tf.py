@@ -32,12 +32,12 @@ input_path = '/mnt/mainblob/asset_growth/data/Data_for_AssetGrowth_Context.r5.p2
 # Set available features and labels
 ''' Available features: 'GICSSubIndustryNumber', 'CAP', 'AG', 'ROA', 'ES', 'LTG', 'SG', 'CVROIC', 'GS', 'SEV', 'FCFA', 'ROIC', 'Momentum' '''
 feature_x = 'AG'
-feature_y = '-AG'
+feature_y = 'FCFA'
 features = [feature_x, feature_y]
 
 # Set path to save output figures
 output_path = 'plots/%s_%s/' % (feature_x, feature_y)
-TFBOARD_PATH="log/2019.07.23/"
+TFBOARD_PATH="log/2019.08.05/"
 
 # Set labels
 label = "fqTotalReturn_tertile"     # or "fmTotalReturn_quintile"
@@ -240,7 +240,7 @@ if __name__ == "__main__":
     grid_test_results = pd.DataFrame()
 
     # Set evaluation metric in choosing best model
-    best_param_metric = 'accuracy'
+    best_param_metric = 'f1-score'
     best_model = {}
 
     # Loop over parameter sets
@@ -321,13 +321,14 @@ if __name__ == "__main__":
         plot_cumulative_return(df_cum_train_tf, df_cum_test_tf, label_reg, group_label={0:'T1', 1:'T2', 2:'T3'},
                                figsize=(8,6), filename=output_path+"return_tf", kwargs_train={'ylim':(-1,7)}, kwargs_test={'ylim':(-1,3)})
         plot_cumulative_return_diff(list_cum_returns=[df_cum_test_tf], return_label=[0,1,2],
-                                    list_labels=["Logistic regression"], label_reg=label_reg, figsize=(8,6),
+                                    list_labels=["Neural net"], label_reg=label_reg, figsize=(8,6),
                                     filename=output_path+"return_tf_diff", kwargs_train={'ylim':(-1,5)}, kwargs_test={'ylim':(-1,3)})
     
         # Plot decision boundary of trained model
         plot_decision_boundary(model=model_tf, df=df_test, features=features, h=0.01, x_label=feature_x, y_label=feature_y,
                                vlines=tertile_boundary[feature_x], hlines=tertile_boundary[feature_y], colors=colors,
-                               xlim=(-3,3), ylim=(-3,3), figsize=(8,6), ticks=[0,1,2], filename=output_path+"decision_boundary_tf")
+                               #xlim=(-3,3), ylim=(-3,3), figsize=(8,6), ticks=[0,1,2], filename=output_path+"decision_boundary_tf")
+                               xlim=None, ylim=None, figsize=(8,6), ticks=[0,1,2], filename=output_path+"decision_boundary_tf")
 
         # Save cumulative returns as pickle   
         pickle.dump(df_cum_test_tf, open(output_path+'df_cum_test_tf.pickle', 'wb'))
