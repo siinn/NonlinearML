@@ -28,7 +28,7 @@ debug = True
 run_eda                 = True
 run_preprocessing       = True
 examine_processed_data  = True
-save_results            = True
+save_results            = False
 
 # Set imputation method. available options: month, securityId_ff, securityId_average
 impute_method           =  "month"
