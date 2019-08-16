@@ -142,12 +142,10 @@ if __name__ == "__main__":
                 cv_results=cv_results_lr,
                 cv_metric=cv_metric,
                 param_grid=param_grid, p_thres=p_thres)
+            # Get best parameters
+            best_params_lr = anova_results_lr['best_params']
         else:
-            best_params_lr = {
-                'max_depth': 5, 'learning_rate': 0.3, 'n_estimators': 50,
-                'objective': 'multi:softmax', 'min_child_weight': 1000.0,
-                'gamma': 10.0, 'lambda': 1, 'subsample': 0.5, 'n_jobs': -1,
-                'num_class': 3}
+            best_params_lr = {}
 
 
         #-----------------------------------------------------------------------
@@ -182,7 +180,7 @@ if __name__ == "__main__":
         # Calculate cumulative return using best parameters
         df_cum_train_lr, df_cum_test_lr, model_lr = \
             predict_and_calculate_cum_return(
-                model=LogisticRegression(**anova_results_lr['best_params']),
+                model=LogisticRegression(**best_params_lr),
                 df_train=df_train, df_test=df_test,
                 features=features, label_cla=label, label_fm=label_fm)
 
@@ -209,7 +207,13 @@ if __name__ == "__main__":
             x_label=feature_x, y_label=feature_y,
             vlines=tertile_boundary[feature_x],
             hlines=tertile_boundary[feature_y], colors=colors,
-            xlim=(-3, 3), ylim=(-3, 3), figsize=(8, 6), ticks=[0, 1, 2],
+            xlim=(-3, 3), ylim=(-3, 3), figsize=(10, 8), ticks=[0, 1, 2],
+            annot={
+                'text':str(best_params_lr).strip('{}')\
+                    .replace('\'','')\
+                    .replace(',','\n')\
+                    .replace('\n ', '\n'),
+                'x':0.02, 'y':0.98},
             filename=output_path+"lr/decision_boundary/db_best_model")
 
 
@@ -246,6 +250,8 @@ if __name__ == "__main__":
                 cv_results=cv_results_xgb,
                 cv_metric=cv_metric,
                 param_grid=param_grid, p_thres=p_thres)
+            # Get best parameters
+            best_params_xgb = anova_results_xgb['best_params']
         else:
             best_params_xgb = {
                 'max_depth': 5, 'learning_rate': 0.3, 'n_estimators': 50,
@@ -286,7 +292,7 @@ if __name__ == "__main__":
         # Calculate cumulative return using best parameters
         df_cum_train_xgb, df_cum_test_xgb, model_xgb = \
             predict_and_calculate_cum_return(
-                model=XGBClassifier(**anova_results_xgb['best_params']),
+                model=XGBClassifier(**best_params_xgb),
                 df_train=df_train, df_test=df_test,
                 features=features, label_cla=label, label_fm=label_fm)
 
@@ -314,6 +320,12 @@ if __name__ == "__main__":
             vlines=tertile_boundary[feature_x],
             hlines=tertile_boundary[feature_y], colors=colors,
             xlim=(-3, 3), ylim=(-3, 3), figsize=(8, 6), ticks=[0, 1, 2],
+            annot={
+                'text':str(best_params_xgb).strip('{}')\
+                    .replace('\'','')\
+                    .replace(',','\n')\
+                    .replace('\n ', '\n'),
+                'x':0.02, 'y':0.98},
             filename=output_path+"xgb/decision_boundary/db_best_model")
 
 
@@ -325,7 +337,7 @@ if __name__ == "__main__":
         # Set parameters to search
         param_grid =  {
             'C': np.logspace(-3, 2, 5),
-            'penalty': ['l1', 'l2']
+            'penalty': ['l2']
             }
 
         # Perform hyperparameter search using purged CV
@@ -344,12 +356,10 @@ if __name__ == "__main__":
                 cv_results=cv_results_svm,
                 cv_metric=cv_metric,
                 param_grid=param_grid, p_thres=p_thres)
+            # Get best parameters
+            best_params_svm = anova_results_svm['best_params']
         else:
-            best_params_svm = {
-                'max_depth': 5, 'learning_rate': 0.3, 'n_estimators': 50,
-                'objective': 'multi:softmax', 'min_child_weight': 1000.0,
-                'gamma': 10.0, 'lambda': 1, 'subsample': 0.5, 'n_jobs': -1,
-                'num_class': 3}
+            best_params_svm = {}
 
 
         #-----------------------------------------------------------------------
@@ -384,7 +394,7 @@ if __name__ == "__main__":
         # Calculate cumulative return using best parameters
         df_cum_train_svm, df_cum_test_svm, model_svm = \
             predict_and_calculate_cum_return(
-                model=LinearSVC(**anova_results_svm['best_params']),
+                model=LinearSVC(**anova_results_svm),
                 df_train=df_train, df_test=df_test,
                 features=features, label_cla=label, label_fm=label_fm)
 
@@ -412,6 +422,12 @@ if __name__ == "__main__":
             vlines=tertile_boundary[feature_x],
             hlines=tertile_boundary[feature_y], colors=colors,
             xlim=(-3, 3), ylim=(-3, 3), figsize=(8, 6), ticks=[0, 1, 2],
+            annot={
+                'text':str(best_params_svm).strip('{}')\
+                    .replace('\'','')\
+                    .replace(',','\n')\
+                    .replace('\n ', '\n'),
+                'x':0.02, 'y':0.98},
             filename=output_path+"svm/decision_boundary/db_best_model")
 
     #---------------------------------------------------------------------------
@@ -438,12 +454,10 @@ if __name__ == "__main__":
                 cv_results=cv_results_knn,
                 cv_metric=cv_metric,
                 param_grid=param_grid, p_thres=p_thres)
+            # Get best parameters
+            best_params_knn = anova_results_knn['best_params']
         else:
-            best_params_knn = {
-                'max_depth': 5, 'learning_rate': 0.3, 'n_estimators': 50,
-                'objective': 'multi:softmax', 'min_child_weight': 1000.0,
-                'gamma': 10.0, 'lambda': 1, 'subsample': 0.5, 'n_jobs': -1,
-                'num_class': 3}
+            best_params_knn = {'n_neighbors': [10000]}
 
 
         #-----------------------------------------------------------------------
@@ -478,7 +492,7 @@ if __name__ == "__main__":
         # Calculate cumulative return using best parameters
         df_cum_train_knn, df_cum_test_knn, model_knn = \
             predict_and_calculate_cum_return(
-                model=KNeighborsClassifier(**anova_results_knn['best_params']),
+                model=KNeighborsClassifier(**best_params_knn),
                 df_train=df_train, df_test=df_test,
                 features=features, label_cla=label, label_fm=label_fm)
 
@@ -506,6 +520,12 @@ if __name__ == "__main__":
             vlines=tertile_boundary[feature_x],
             hlines=tertile_boundary[feature_y], colors=colors,
             xlim=(-3, 3), ylim=(-3, 3), figsize=(8, 6), ticks=[0, 1, 2],
+            annot={
+                'text':str(best_params_knn).strip('{}')\
+                    .replace('\'','')\
+                    .replace(',','\n')\
+                    .replace('\n ', '\n'),
+                'x':0.02, 'y':0.98},
             filename=output_path+"knn/decision_boundary/db_best_model")
         
     #---------------------------------------------------------------------------
