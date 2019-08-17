@@ -4,11 +4,11 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="Asset_growth",
+    name="NonlinearML",
     version="0.0.1",
     author="Siinn Che",
     author_email="siinn.che@alliancebernstein.com",
-    description="AB Asset growth project",
+    description="AB Nonlinear factors ML project",
     url="",
     packages=setuptools.find_packages(),
     classifiers=[
