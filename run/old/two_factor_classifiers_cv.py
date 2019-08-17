@@ -14,19 +14,21 @@ from sklearn.svm import LinearSVC
 from xgboost.sklearn import XGBClassifier
 
 # Import custom libraries
-from Asset_growth.lib.heuristicModel import *
-from Asset_growth.lib.plots import *
-from Asset_growth.lib.purged_k_fold import *
-from Asset_growth.lib.stats import *
-from Asset_growth.lib.utils import *
+import Asset_growth.lib.cross_validation as cv
+import Asset_growth.lib.utils as utils
+import Asset_growth.lib.stats as stats
 
+import Asset_growth.plot.plot as plot
+import Asset_growth.plot.decision_boundary as plot_db
+import Asset_growth.plot.backtest as plot_backtest
+import Asset_growth.plot.cross_validation as plot_cv
 
 
 #-------------------------------------------------------------------------------
 # Set user options
 #-------------------------------------------------------------------------------
 # Set input and output path
-INPUT_PATH = '/mnt/mainblob/asset_growth/data/\
+INPUT_PATH = '../data/\
 Data_for_AssetGrowth_Context.r5.p2.csv'
 
 # Set available features and labels
@@ -50,8 +52,11 @@ date_column = "eom"
 test_begin = "2011-01-01"
 test_end = "2017-11-01"
 
-# Set k-fold
-k = 10
+# Set cross-validation configuration
+k = 2
+n_epoch = 10
+subsample = 0.8
+purge_length = 3
 
 # Set p-value threshold for ANOVA test
 p_thres = 0.05
@@ -95,6 +100,19 @@ if __name__ == "__main__":
     df = pd.read_csv(INPUT_PATH, index_col=[0], parse_dates=[date_column])
 
     # Assign tertile labels to the features
+    """
+    Move this to preprocessing.py and separate from main codes
+
+
+    TODO
+
+    Understand how choice of labels affect the codes.
+    ex. group_label
+
+
+
+
+    """
     df = discretize_variables_by_month(
         df=df, variables=features, month="eom",
         labels_tertile={feature_x:[2, 1, 0], feature_y:[2, 1, 0]}, # 0 is high
@@ -123,7 +141,7 @@ if __name__ == "__main__":
             "solver":['newton-cg'],
             "max_iter":[100],
             "n_jobs":[-1],
-            "C": np.logspace(-5, 1, 10)} #[1, 100]}
+            "C": np.logspace(-5, 1, 1)} #[1, 100]}
 
         # Perform hyperparameter search using purged CV
         if run_grid_search:
@@ -132,9 +150,9 @@ if __name__ == "__main__":
                 model=LogisticRegression(),
                 param_grid=param_grid,
                 metric=cv_metric,
-                n_epoch=10, subsample=0.8,
+                n_epoch=n_epoch, subsample=subsample,
                 features=features, label=label,
-                k=k, purge_length=3,
+                k=k, purge_length=purge_length,
                 output_path=output_path+"lr/cross_validation/",
                 verbose=False)
             # Perform ANOVA to select best model
@@ -152,19 +170,19 @@ if __name__ == "__main__":
         # Cross-validation results
         #-----------------------------------------------------------------------
         # Plot distribution of cross-validation results
-        plot_cv_dist(
+        plot_cv.plot_cv_dist(
             cv_results_lr,
             n_bins=10, x_range=None,
             legend_loc=None, legend_box=(1, 1), figsize=(18, 10), alpha=0.6,
             hist_type='stepfilled', edgecolor='black',
             filename=output_path+"lr/cross_validation/cv_hist")
-        plot_cv_box(
+        plot_cv.plot_cv_box(
             cv_results_lr,
             filename=output_path+"lr/cross_validation/cv_box",
             cv_metric=None, figsize=(18, 10), color="#3399FF")
 
         # Plot decision boundaries of all hyperparameter sets
-        plot_decision_boundary_multiple_hparmas(
+        plot_db.plot_decision_boundary_multiple_hparmas(
             param_grid=param_grid, label=label, model=LogisticRegression(),
             df=df_train, features=features, h=0.01,
             x_label=feature_x, y_label=feature_y,
@@ -185,13 +203,13 @@ if __name__ == "__main__":
                 features=features, label_cla=label, label_fm=label_fm)
 
         # Make cumulative return plot
-        plot_cumulative_return(
+        plot_backtest.plot_cumulative_return(
             df_cum_train_lr, df_cum_test_lr, label_reg,
             group_label={0:'T1', 1:'T2', 2:'T3'},
             figsize=(8, 6),
             filename=output_path+"lr/cum_return/return_by_group",
             kwargs_train={'ylim':(-1, 7)}, kwargs_test={'ylim':(-1, 3)})
-        plot_cumulative_return_diff(
+        plot_backtest.plot_cumulative_return_diff(
             list_cum_returns=[df_cum_test_lr], return_label=[0, 1, 2],
             list_labels=["lr"], label_reg=label_reg,
             figsize=(8, 6),
@@ -202,7 +220,7 @@ if __name__ == "__main__":
         # Decision boundary
         #-----------------------------------------------------------------------
         # Plot decision boundary of the trained model with best params.
-        plot_decision_boundary(
+        plot_db.plot_decision_boundary(
             model=model_lr, df=df_test, features=features, h=0.01,
             x_label=feature_x, y_label=feature_y,
             vlines=tertile_boundary[feature_x],
@@ -224,8 +242,10 @@ if __name__ == "__main__":
         print("Running xgboost")
         # Set parameters to search
         param_grid = {
-            'min_child_weight': [1000, 500, 100, 10],
-            'max_depth': [1, 4, 5, 20],
+            #'min_child_weight': [1000, 500, 100, 10],
+            #'max_depth': [1, 4, 5, 20],
+            'min_child_weight': [1000],
+            'max_depth': [1],
             'learning_rate': [0.3],
             'n_estimators': [1],
             'objective': ['multi:softmax'],
@@ -241,10 +261,10 @@ if __name__ == "__main__":
                 model=XGBClassifier(),
                 param_grid=param_grid,
                 metric=cv_metric,
-                n_epoch=10, subsample=0.8,
+                n_epoch=n_epoch, subsample=subsample,
                 features=features, label=label,
                 output_path=output_path+"xgb/cross_validation/",
-                k=k, purge_length=3, verbose=False)
+                k=k, purge_length=purge_length, verbose=False)
             # Perform ANOVA to select best model
             anova_results_xgb = select_best_model_by_anova(
                 cv_results=cv_results_xgb,
@@ -319,7 +339,7 @@ if __name__ == "__main__":
             x_label=feature_x, y_label=feature_y,
             vlines=tertile_boundary[feature_x],
             hlines=tertile_boundary[feature_y], colors=colors,
-            xlim=(-3, 3), ylim=(-3, 3), figsize=(8, 6), ticks=[0, 1, 2],
+            xlim=(-3, 3), ylim=(-3, 3), figsize=(10, 8), ticks=[0, 1, 2],
             annot={
                 'text':str(best_params_xgb).strip('{}')\
                     .replace('\'','')\
@@ -336,7 +356,7 @@ if __name__ == "__main__":
         print("Running svm")
         # Set parameters to search
         param_grid =  {
-            'C': np.logspace(-3, 2, 5),
+            'C': np.logspace(-3, 2, 1),
             'penalty': ['l2']
             }
 
@@ -347,10 +367,10 @@ if __name__ == "__main__":
                 model=LinearSVC(),
                 param_grid=param_grid,
                 metric=cv_metric,
-                n_epoch=10, subsample=0.8,
+                n_epoch=n_epoch, subsample=subsample,
                 features=features, label=label,
                 output_path=output_path+"svm/cross_validation/",
-                k=k, purge_length=3, verbose=False)
+                k=k, purge_length=purge_length, verbose=False)
             # Perform ANOVA to select best model
             anova_results_svm = select_best_model_by_anova(
                 cv_results=cv_results_svm,
@@ -421,7 +441,7 @@ if __name__ == "__main__":
             x_label=feature_x, y_label=feature_y,
             vlines=tertile_boundary[feature_x],
             hlines=tertile_boundary[feature_y], colors=colors,
-            xlim=(-3, 3), ylim=(-3, 3), figsize=(8, 6), ticks=[0, 1, 2],
+            xlim=(-3, 3), ylim=(-3, 3), figsize=(10, 8), ticks=[0, 1, 2],
             annot={
                 'text':str(best_params_svm).strip('{}')\
                     .replace('\'','')\
@@ -436,7 +456,7 @@ if __name__ == "__main__":
     if run_knn:
         print("Running kNN")
         # Set parameters to search
-        param_grid = {'n_neighbors': [int(x) for x in np.logspace(1, 8, 10)]}
+        param_grid = {'n_neighbors': [int(x) for x in np.logspace(1, 8, 1)]}
 
         # Perform hyperparameter search using purged CV
         if run_grid_search:
@@ -445,10 +465,10 @@ if __name__ == "__main__":
                 model=KNeighborsClassifier(),
                 param_grid=param_grid,
                 metric=cv_metric,
-                n_epoch=10, subsample=0.8,
+                n_epoch=n_epoch, subsample=subsample,
                 features=features, label=label,
                 output_path=output_path+"knn/cross_validation/",
-                k=k, purge_length=3, verbose=False)
+                k=k, purge_length=purge_length, verbose=False)
             # Perform ANOVA to select best model
             anova_results_knn = select_best_model_by_anova(
                 cv_results=cv_results_knn,
@@ -519,7 +539,7 @@ if __name__ == "__main__":
             x_label=feature_x, y_label=feature_y,
             vlines=tertile_boundary[feature_x],
             hlines=tertile_boundary[feature_y], colors=colors,
-            xlim=(-3, 3), ylim=(-3, 3), figsize=(8, 6), ticks=[0, 1, 2],
+            xlim=(-3, 3), ylim=(-3, 3), figsize=(10, 8), ticks=[0, 1, 2],
             annot={
                 'text':str(best_params_knn).strip('{}')\
                     .replace('\'','')\

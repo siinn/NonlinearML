@@ -4,11 +4,20 @@ from dateutil import rrule
 import dateutil
 import itertools
 import numpy as np
+import os
 import pandas as pd
 from sklearn.metrics import f1_score, make_scorer
 from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import train_test_split as sklearn_train_test_split
-from Asset_growth.lib.backtest import *
+from NonlinearML.lib.backtest import *
+
+def create_folder(filename):
+    """ Creates folder if not exists."""
+    path = "/".join(filename.split('/')[:-1])
+    if not os.path.exists(path):
+        print("Creating folder: %s" %path)
+        os.makedirs(path)
+    return
 
 def to_datetime(date, date_format='%Y-%m-%d'):
     ''' convert given string to datetime"
@@ -20,7 +29,8 @@ def to_datetime(date, date_format='%Y-%m-%d'):
     return datetime.strptime(date, date_format)
 
 def get_tertile_boundary(df, variables):
-    ''' get boundaries of tertile groups by calculating the average of the boundaries of two adjacent tertile groups.
+    ''' get boundaries of tertile groups by calculating the average of the
+    boundaries of two adjacent tertile groups.
     Only works for tertile.
     Args:
         df: Pandas dataframe containing variables
@@ -107,34 +117,54 @@ def concat_pred_label(df, prediction, columns=[], pred_name='pred'):
                            pd.DataFrame(prediction, columns=['pred'])], axis=1)
     return df_result
 
-def discretize_variables_by_month(df, variables, month="eom", labels_tertile={}, labels_quintile={}):
-    ''' Discretize variables by assigning a quintile and tertile class within each month. 
+#def discretize_variables_by_month(df, variables, month="eom", labels_tertile={}, labels_quintile={}):
+#    ''' Discretize variables by assigning a class within each month. 
+#    Args:
+#        df: Pandas dataframe containing variables
+#        variables: list of variables to discretize
+#        month: column representing time
+#    Return:
+#        df: Pandas dataframe with discretized variable.
+#    '''
+#    # Loop over each variable
+#    for var in variables:
+#        # Check if user provided label. If not, use the default values
+#        # Tertile
+#        if var in labels_tertile:
+#            lt=labels_tertile[var]
+#        else:
+#            lt=[var+" low", var+" mid", var+" high"]
+#        # Tertile
+#        if var in labels_quintile:
+#            lq=labels_quintile[var]
+#        else:
+#            lq=[var+" low", var+" mid-low", var+" mid", var+" mid-high", var+" high"]
+#        # assign classes
+#        df[var+"_tertile"] = df.groupby([month])[var].transform(lambda x: pd.qcut(x, 3, lt))
+#        df[var+"_quintile"] = df.groupby([month])[var].transform(lambda x: pd.qcut(x, 5, lq))
+#    return df
+
+
+def discretize_variables_by_month(
+    df, variables, n_classes, class_names, suffix="discrete", month="eom"):
+    ''' Discretize variables by assigning a class within each month. 
     Args:
         df: Pandas dataframe containing variables
         variables: list of variables to discretize
+        n_classes: number of classes
+        class_name: class labels in ascending order.
+            Example. [2, 1, 0] -> class 0 is the top tercile
+        suffix: suffix added to newly created column
         month: column representing time
     Return:
-        df: Pandas dataframe with columns named x_quintile, x_tertile for all variable x.
+        df: Pandas dataframe with discretized variable.
     '''
     # Loop over each variable
     for var in variables:
-        # Check if user provided label. If not, use the default values
-        # Tertile
-        if var in labels_tertile:
-            lt=labels_tertile[var]
-        else:
-            lt=[var+" low", var+" mid", var+" high"]
-        # Tertile
-        if var in labels_quintile:
-            lq=labels_quintile[var]
-        else:
-            lq=[var+" low", var+" mid-low", var+" mid", var+" mid-high", var+" high"]
-        # assign classes
-        df[var+"_tertile"] = df.groupby([month])[var].transform(lambda x: pd.qcut(x, 3, lt))
-        df[var+"_quintile"] = df.groupby([month])[var].transform(lambda x: pd.qcut(x, 5, lq))
+        # Assign classes
+        df["_".join([var, suffix])] = df.groupby([month])[var]\
+            .transform(lambda x: pd.qcut(x, n_classes, class_names))
     return df
-
-
 
 
 def make_prediction(model, df_train, df_test, features, label):
@@ -175,56 +205,84 @@ def last_cum_return(df, time="eom"):
     return return_top, return_bottom, return_diff
 
 
-def predict_and_calculate_cum_return(model, df_train, df_test, features, label_cla, label_fm, time="eom", refit=True):
-    ''' Make prediction using the fitted model. Then calculate cumulative return using the prediction.
+def predict(
+    model, df_train, df_test, features, label_cla, label_fm, time="eom"):
+    ''' Train model using best params and make prediction using trained model
+    on both train and test dataset. label_fm which represent continuous target
+    variable is joined to the prediction.
     Args:
         model: ML Model that supports .fit and .predict method
         df_train, df_test: train and test dataframe
         features: list of features
-        label_cla: name of column in dataframe that represent classification label
-        label_fm: name of column in dataframe used for calculating cumulative return
+        label_cla: name of column that represent classification label
+        label_fm: monthly return used for calculating cumulative return
+        time: column name representing time
+    Return:
+        pred_train, pred_test: prediction of train and test dataset
+        model: trained model
+    '''
+    print("Making prediction:\n%s" % model)
+    # Fit model
+    model.fit(df_train[features], df_train[label_cla])
+
+    # Make prediction and concatenate prediction and true label
+    pred_train  = concat_pred_label(
+        df=df_train,
+        prediction=model.predict(df_train[features]),
+        columns=[time]+features+[label_cla, label_fm])
+    pred_test  = concat_pred_label(
+        df=df_test,
+        prediction=model.predict(df_test[features]),
+        columns=[time]+features+[label_cla, label_fm])
+    return pred_train, pred_test, model
+
+def calculate_cum_return(pred_train, pred_test, label_fm, time="eom"):
+    ''' Calculate cumulative return using the prediction.
+    Args:
+        pred_train, pred_test: prediction of train and test dataset. This is
+            an output of utils.prediction function.
+        label_fm: monthly return used for calculating cumulative return
         time: column name representing time
     Return:
         df_cum_return_train: cumulative return calculated from train dataset
         df_cum_return_test: cumulative return calculated from test dataset
         model: trained model
     '''
-    if refit:
-        # Refit model using all training data
-        print("Refitting model..")
-        print(model)
-        model.fit(df_train[features], df_train[label_cla])
-
-    # Concatenate prediction and true label
-    pred_train  = concat_pred_label(df=df_train,
-                                    prediction=model.predict(df_train[features]),
-                                    columns=[time, label_cla, label_fm])
-    pred_test  = concat_pred_label(df=df_test,
-                                    prediction=model.predict(df_test[features]),
-                                    columns=[time, label_cla, label_fm])
     # Calculate cumulative return
-    df_cum_return_train = cumulative_return_from_classification(pred_train, var="pred", var_classes="pred", total_return=label_fm, time=time)
-    df_cum_return_test = cumulative_return_from_classification(pred_test, var="pred", var_classes="pred", total_return=label_fm, time=time)
-    return df_cum_return_train, df_cum_return_test, model
+    df_cum_return_train = cumulative_return_from_classification(
+        pred_train, var="pred", var_classes="pred",
+        total_return=label_fm, time=time)
+    df_cum_return_test = cumulative_return_from_classification(
+        pred_test, var="pred", var_classes="pred",
+        total_return=label_fm, time=time)
+    return df_cum_return_train, df_cum_return_test
 
 
-def grid_search(model, param_grid, df_train, df_val, features, label_cla, label_fm):
-    ''' Perform grid search and return the best parameter set based on the following metric:
+def grid_search(
+    model, param_grid, df_train, df_val, features, label_cla, label_fm):
+    ''' Perform grid search and return the best parameter set based on
+    the following metric:
         metric: val_diff - abs(train_diff - val_diff)
-            where train_diff = difference in cumulative return (Q1-Q3) in training set 
-                  val_diff = difference in cumulative return (Q1-Q3) in validation set 
+            where train_diff = difference in cumulative return (Q1-Q3)
+                in training set 
+            val_diff = difference in cumulative return (Q1-Q3)
+                in validation set 
     Args:
         model: sklearn model that supports .fit and .predict method
         df_train, df_val: train and validation dataframe
         features: list of features
-        label_cla: name of column in dataframe that represent classification label
-        label_fm: name of column in dataframe used for calculating cumulative return
+        label_cla: name of column in dataframe that represent classification
+            label
+        label_fm: name of column used for calculating cumulative return
+        return
     Return:
         (best parameters, summary in dataframe)
     '''
     print("Performing grid search using validation set")
     # Dictionary to hold results
-    summary = {"params":[], "train_top":[], "train_bottom":[], "train_diff":[], "val_top":[], "val_bottom":[], "val_diff":[]}
+    summary = {
+        "params":[], "train_top":[], "train_bottom":[], "train_diff":[],
+        "val_top":[], "val_bottom":[], "val_diff":[]}
     # Get all possible combination of parameters
     keys, values = zip(*param_grid.items())
     experiments = [dict(zip(keys, v)) for v in itertools.product(*values)]
@@ -233,18 +291,25 @@ def grid_search(model, param_grid, df_train, df_val, features, label_cla, label_
     count=0
     for params in experiments:
         count = count + 1
-        print("---------------------------")
+        print("-----------------------------------------------------------")
         print("Experiment (%s/%s)" % (count, n_experiments))
-        print("---------------------------")
+        print("-----------------------------------------------------------")
         print("Parameters:")
         print(params)
-        # Calculate cumulative return after training model
-        df_cum_train, df_cum_val, model = predict_and_calculate_cum_return(model=model.set_params(**params),
-                                                             df_train=df_train, df_test=df_val,
-                                                             features=features, label_cla=label_cla, label_fm=label_fm)
+        # Make prediction using best parameters
+        pred_train, pred_test, model = utils.predict(
+                model=model.set_params(**best_params),
+                df_train=df_train, df_test=df_test, features=features,
+                label_cla=label, label_fm=label_fm, time=date_column)
+        # Calculate cumulative return using trained model
+        df_cum_train, df_cum_test = utils.calculate_cum_return(
+                pred_train=pred_train, pred_test=pred_test,
+                label_fm=label_fm, time=date_column)
         # Calculate difference in cumulative return
-        return_train_top, return_train_bottom, return_train_diff = last_cum_return(df_cum_train)
-        return_val_top, return_val_bottom, return_val_diff = last_cum_return(df_cum_val)
+        return_train_top, return_train_bottom, return_train_diff = \
+            last_cum_return(df_cum_train)
+        return_val_top, return_val_bottom, return_val_diff = \
+            last_cum_return(df_cum_val)
         print("Cumulative return")
         print(" > Train")
         print("  >> top: %s" % return_train_top)
@@ -264,8 +329,8 @@ def grid_search(model, param_grid, df_train, df_val, features, label_cla, label_
         summary["val_diff"].append(return_val_diff)
     # Convert results to dataframe
     df_return = pd.DataFrame(summary)
-    #df_return["metric"] = df_return["val_diff"] / abs(df_return["train_diff"] - df_return["val_diff"])
-    df_return["metric"] = df_return["val_diff"] - abs(df_return["train_diff"] - df_return["val_diff"])
+    df_return["metric"] = df_return["val_diff"] \
+        - abs(df_return["train_diff"] - df_return["val_diff"])
     # Return best parameter
     best_params = df_return.iloc[df_return["metric"].idxmax()]["params"]
     print("Best parameters:")
@@ -274,14 +339,17 @@ def grid_search(model, param_grid, df_train, df_val, features, label_cla, label_
 
 
 
-def grid_search_cv(model, param_grid, df_train, features, label_cla, average='macro', n_folds=5):
+def grid_search_cv(
+    model, param_grid, df_train, features, label_cla, average='macro',
+    n_folds=5):
     ''' Perform grid search and return fitted GridSearchCV object.
     Args:
         model: sklearn model that supports .fit and .predict method
         param_grid: parameter grid to search
         df_train: train dataset
         features: list of features
-        label_cla: name of column in dataframe that represent classification label
+        label_cla: name of column in dataframe that represent
+            classification label
         average: average method for multiclass classification metric
         n_fold: number of CV folds
     Return:
@@ -291,7 +359,9 @@ def grid_search_cv(model, param_grid, df_train, features, label_cla, average='ma
     scorer = make_scorer(f1_score, average=average)
     # run grid search
     print("Performing grid search..") 
-    cv = GridSearchCV(model, param_grid, cv=n_folds, scoring=scorer, refit=True, n_jobs=-1, verbose=1)
+    cv = GridSearchCV(
+        model, param_grid, cv=n_folds, scoring=scorer, refit=True,
+        n_jobs=-1, verbose=1)
     cv.fit(df_train[features], df_train[label_cla])
     # Print best parameters
     print("Best parameters:")
@@ -300,14 +370,18 @@ def grid_search_cv(model, param_grid, df_train, features, label_cla, average='ma
 
 
 def save_summary(df_train, label, metric, output_path, cv_results):
-    '''Collect results from all models trained with best parameters and save them as csv
+    '''Collect results from all models trained with best parameters and
+        save them as csv
     Args:
-        df_train: Training dataset used to obtain class names (ex. 0.0, 1.0, 2.0)
+        df_train: Training dataset used to obtain class names
+            Example: 0.0, 1.0, 2.0
         label: Classification label
         metric: Metric used to sort results
         output_path: Path to save results
-        cv_results: Results obtained from grid search using purged cross-validation. 
-                    ex. {'XGB': cv_results_xgb} where cv_results_xgb is output of grid_search_purged_cv
+        cv_results: Results obtained from grid search using purged
+            cross-validation. 
+            Example: {'XGB': cv_results_xgb}
+                where cv_results_xgb is output of grid_search_purged_cv
     Return:
         None
     '''
@@ -316,10 +390,13 @@ def save_summary(df_train, label, metric, output_path, cv_results):
     # List of all available metrics
     metrics = ['accuracy', 'precision', 'recall', 'f1-score']
     for cls in classes:
-        metrics = metrics + ['%s_precision' %cls, '%s_recall' %cls, '%s_f1-score' %cls]
+        metrics = metrics + \
+            ['%s_precision' %cls, '%s_recall' %cls, '%s_f1-score' %cls]
     # Collect results from best parameters
-    df_summary = pd.DataFrame({model:cv_results[model].loc[cv_results[model][metric].idxmax()][metrics]
-                               for model in cv_results}).T
+    df_summary = pd.DataFrame({
+        model:cv_results[model].loc[cv_results[model][metric].idxmax()][metrics]
+            for model in cv_results}).T
     # Save the summary
+    create_folder(output_path+'summary.csv')
     df_summary.to_csv(output_path+'summary.csv')
 

@@ -1,4 +1,4 @@
-from Asset_growth.lib.utils import *
+from NonlinearML.lib.utils import *
 
 
 class HeuristicModel_SortAG():

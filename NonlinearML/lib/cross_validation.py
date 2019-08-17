@@ -220,7 +220,7 @@ def purged_k_fold_cv(df_train, model, features, label, k, purge_length, embargo_
     return {'mean':results_mean, 'std':results_std, 'values':results}
 
 
-def grid_search_purged_cv(df_train, model, param_grid, metric, features, label, k, purge_length, output_path, n_epoch=1, embargo_length=0, date_column='eom', subsample=1, verbose=False):
+def grid_search(df_train, model, param_grid, metric, features, label, k, purge_length, output_path, n_epoch=1, embargo_length=0, date_column='eom', subsample=1, verbose=False):
     ''' Perform grid search using purged cross-validation method. 
     Args:
         df_train: training set given in Pandas dataframe
