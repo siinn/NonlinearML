@@ -130,8 +130,9 @@ if __name__ == "__main__":
             "multi_class":['multinomial'],
             "solver":['newton-cg'],
             "max_iter":[100],
+            "tol": [1e-2, 1e-3, 1e-4],
             "n_jobs":[-1],
-            "C": np.logspace(-5, 1e3, 10)} #[1, 100]}
+            "C": np.logspace(-5, 2, 5)} #[1, 100]}
 
         # Set model
         model_lr = LogisticRegression()
