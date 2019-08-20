@@ -10,6 +10,8 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
 from sklearn.svm import LinearSVC
+import tensorflow as tf
+import warnings
 from xgboost.sklearn import XGBClassifier
 
 # Import custom libraries
@@ -22,7 +24,14 @@ import NonlinearML.plot.decision_boundary as plot_db
 import NonlinearML.plot.backtest as plot_backtest
 import NonlinearML.plot.cross_validation as plot_cv
 
+import NonlinearML.tf.model as tfmodel
 import NonlinearML.interprete.classification as classification
+
+
+# Supress warnings
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+warnings.simplefilter(action='ignore', category=FutureWarning)
+pd.options.mode.chained_assignment = None 
 
 #-------------------------------------------------------------------------------
 # Set configuration
@@ -39,7 +48,8 @@ feature_x = 'AG'
 feature_y = 'FCFA'
 
 # Set path to save output figures
-output_path = 'plots/%s_%s/' % (feature_x, feature_y)
+output_path = 'output_temp/%s_%s/' % (feature_x, feature_y)
+tfboard_path='tf_log_temp/%s_%s/' % (feature_x, feature_y)
 
 # Set labels
 n_classes=3
@@ -59,8 +69,8 @@ test_begin = "2011-01-01"
 test_end = "2017-11-01"
 
 # Set cross-validation configuration
-k = 10
-n_epoch = 100
+k = 2           # Must be > 1
+n_epoch = 1
 subsample = 0.8
 purge_length = 3
 
@@ -75,10 +85,12 @@ db_colors = ["#3DC66D", "#F3F2F2", "#DF4A3A"]
 
 # Set algorithms to run
 run_lr = True
-run_xgb = True
-run_svm = True
-run_knn = True
-run_summary = True
+run_xgb = False
+run_svm = False
+run_knn = False
+run_nn = False
+run_summary = False
+
 
 
 #-------------------------------------------------------------------------------
@@ -113,7 +125,7 @@ if __name__ == "__main__":
     # Discretize target label
     df = utils.discretize_variables_by_month(
         df=df, variables=[label_reg], month=date_column, n_classes=n_classes,
-        class_names=sorted(np.arange(n_classes), reverse=True),
+       class_names=sorted(np.arange(n_classes), reverse=True),
         suffix=suffix)
 
     # Split dataset into train and test dataset
@@ -130,9 +142,9 @@ if __name__ == "__main__":
             "multi_class":['multinomial'],
             "solver":['newton-cg'],
             "max_iter":[100],
-            "tol": [1e-2, 1e-3, 1e-4],
+            "tol": [1e-2],
             "n_jobs":[-1],
-            "C": np.logspace(-5, 2, 5)} #[1, 100]}
+            "C": np.logspace(-4, 3, 10)} # note: C <= 1e-5 doesn't converge
 
         # Set model
         model_lr = LogisticRegression()
@@ -142,7 +154,8 @@ if __name__ == "__main__":
         db_lr = classification.decision_boundary2D(
             config, df_train, df_test,
             model_lr, model_lr_str, param_grid_lr, best_params={},
-            cv_study=True, calculate_return=True, plot_decision_boundary=True)
+            cv_study=True, calculate_return=True,
+            plot_decision_boundary=True, save_csv=True)
 
     #---------------------------------------------------------------------------
     # Xgboost
@@ -150,12 +163,12 @@ if __name__ == "__main__":
     if run_xgb:
         # Set parameters to search
         param_grid_xgb = {
-            'min_child_weight': [1000, 500, 100, 10],
-            'max_depth': [1, 4, 5, 20],
+            'min_child_weight': [1000, 500, 100],
+            'max_depth': [1, 4, 5, 10],
             #'min_child_weight': [1000],
             #'max_depth': [1],
             'learning_rate': [0.3],
-            'n_estimators': [100],
+            'n_estimators': [50],
             'objective': ['multi:softmax'],
             'gamma': [10.0], #np.logspace(-2, 1, 1), # Min loss reduction
             'lambda': [1], #np.logspace(0, 2, 2) # L2 regularization
@@ -170,7 +183,8 @@ if __name__ == "__main__":
         db_xgb = classification.decision_boundary2D(
             config, df_train, df_test,
             model_xgb, model_xgb_str, param_grid_xgb, best_params={},
-            cv_study=True, calculate_return=True, plot_decision_boundary=True)
+            cv_study=True, calculate_return=True,
+            plot_decision_boundary=True, save_csv=True)
 
     #---------------------------------------------------------------------------
     # SVM
@@ -178,18 +192,23 @@ if __name__ == "__main__":
     if run_svm:
         # Set parameters to search
         param_grid_svm = {
-            'C': np.logspace(-3, 2, 10),
-            'penalty': ['l2']}
+            'C': [0.001],
+            'kernel': ['poly'],
+            'degree': [3],
+            'gamma': ['auto'],
+            'cache_size': [30000],
+            }
 
         # Set model
-        model_svm = LinearSVC()
+        model_svm = SVC()
         model_svm_str = 'svm'
 
         # Run analysis on 2D decision boundary
         db_svm = classification.decision_boundary2D(
             config, df_train, df_test,
             model_svm, model_svm_str, param_grid_svm, best_params={},
-            cv_study=True, calculate_return=True, plot_decision_boundary=True)
+            cv_study=True, calculate_return=True,
+            plot_decision_boundary=True, save_csv=True)
 
     #---------------------------------------------------------------------------
     # kNN
@@ -197,7 +216,8 @@ if __name__ == "__main__":
     if run_knn:
         # Set parameters to search
         param_grid_knn = {
-            'n_neighbors': [int(x) for x in np.logspace(1, 8, 10)]}
+            'n_neighbors':
+                sorted([int(x) for x in np.logspace(3, 4, 3)], reverse=True)}
 
         # Set model
         model_knn = KNeighborsClassifier()
@@ -207,7 +227,59 @@ if __name__ == "__main__":
         db_knn = classification.decision_boundary2D(
             config, df_train, df_test,
             model_knn, model_knn_str, param_grid_knn, best_params={},
+            cv_study=True, calculate_return=True,
+            plot_decision_boundary=True, save_csv=True)
+
+
+    #---------------------------------------------------------------------------
+    # Neural net
+    #---------------------------------------------------------------------------
+    if run_nn:
+        # Set parameters to search
+        param_grid = {
+            'learning_rate': [1e-6], #np.logspace(-4,-2,6),
+            'metrics': [
+                #tf.keras.metrics.SparseCategoricalCrossentropy(),
+                tf.keras.metrics.SparseCategoricalAccuracy()],
+            'patience': [3, 4, 5], # 3,4,5
+            'epochs': [200],
+            'validation_split': [0.2],
+            'batch_size': [32],
+            'model': [
+                tf.keras.Sequential([
+                    tf.keras.layers.Dense(32, activation='relu'),
+                    tf.keras.layers.Dropout(0.5),
+                    tf.keras.layers.Dense(32, activation='relu'),
+                    tf.keras.layers.Dropout(0.5),
+                    tf.keras.layers.Dense(32, activation='relu'),
+                    tf.keras.layers.Dense(n_classes, activation='softmax')]),
+                tf.keras.Sequential([
+                    tf.keras.layers.Dense(64, activation='relu'),
+                    tf.keras.layers.Dropout(0.5),
+                    tf.keras.layers.Dense(64, activation='relu'),
+                    tf.keras.layers.Dropout(0.5),
+                    tf.keras.layers.Dense(64, activation='relu'),
+                    tf.keras.layers.Dense(n_classes, activation='softmax')]),
+                tf.keras.Sequential([
+                    tf.keras.layers.Dense(128, activation='relu'),
+                    tf.keras.layers.Dropout(0.5),
+                    tf.keras.layers.Dense(128, activation='relu'),
+                    tf.keras.layers.Dropout(0.5),
+                    tf.keras.layers.Dense(128, activation='relu'),
+                    tf.keras.layers.Dense(n_classes, activation='softmax')])
+            ]}
+
+        # Build model and evaluate
+        model = tfmodel.TensorflowModel(
+            model=None, params={}, log_path=tfboard_path)
+        model_str = 'nn'
+
+        # Run analysis on 2D decision boundary
+        db = classification.decision_boundary2D(
+            config, df_train, df_test,
+            model, model_str, param_grid, best_params={},
             cv_study=True, calculate_return=True, plot_decision_boundary=True)
+
 
 
     #---------------------------------------------------------------------------
