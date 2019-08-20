@@ -1,5 +1,7 @@
 # Import custom libraries
 import numpy as np
+import pandas as pd
+
 
 import NonlinearML.lib.cross_validation as cv
 import NonlinearML.lib.utils as utils
@@ -15,7 +17,8 @@ def decision_boundary2D(
     df_train, df_test,
     model, model_str, param_grid,
     best_params={},
-    cv_study=True, calculate_return=True, plot_decision_boundary=True,
+    cv_study=True, calculate_return=True,
+    plot_decision_boundary=True, save_csv=True,
     cv_hist_n_bins=10, cv_hist_figsize=(18, 10), cv_hist_alpha=0.6,
     cv_box_figsize=(18,10), cv_box_color="#3399FF",
     db_res=0.01, db_figsize=(10,8), db_xlim=(-3,3),
@@ -58,7 +61,7 @@ def decision_boundary2D(
         'model': Trained model with the best hyperparameter set.
 
     """
-    print("Running %s" % model_str)
+    print("\nRunning %s" % model_str)
 
     # Set output path for this model
     output_path = config['output_path'] + model_str + '/'
@@ -108,6 +111,7 @@ def decision_boundary2D(
             # Plot decision boundaries of all hyperparameter sets
             plot_db.decision_boundary_multiple_hparmas(
                 param_grid=param_grid, label=config['label_cla'], model=model,
+                db_annot_x=db_annot_x, db_annot_y=db_annot_y,
                 df=df_train, features=features, h=db_res,
                 x_label=config['feature_x'], y_label=config['feature_y'],
                 #vlines=tertile_boundary[feature_x],
@@ -116,11 +120,6 @@ def decision_boundary2D(
                 figsize=db_figsize,
                 ticks=sorted(np.arange(config['n_classes'])),
                 filename=output_path+"decision_boundary/db",
-                annot={
-                    'text':str(best_params).strip('{}')\
-                        .replace('\'','').replace(',','\n')\
-                        .replace('\n ', '\n'),
-                    'x':db_annot_x, 'y':db_annot_y},
                 )
     
     else:
@@ -184,11 +183,37 @@ def decision_boundary2D(
             ticks=sorted(np.arange(config['n_classes']), reverse=True),
             annot={
                 'text':str(best_params).strip('{}')\
-                    .replace('\'','').replace(',','\n').replace('\n ', '\n'),
+                    .replace('\'','').replace(',','\n')\
+                    .replace('\n ', '\n'),
                 'x':db_annot_x, 'y':db_annot_y},
             filename=output_path+"decision_boundary/db_best_model")
-
-
+    #---------------------------------------------------------------------------
+    # Save output as csv
+    #---------------------------------------------------------------------------
+    if save_csv:
+        utils.create_folder(output_path+'csv/summary.csv')
+        # Save the summary
+        if not cv_results.empty:
+            cv_results.to_csv(output_path+'csv/cv_results.csv')
+        if not df_cum_train.empty:
+            df_cum_train.to_csv(output_path+'csv/cum_return_train.csv')
+        if not df_cum_test.empty:
+            df_cum_test.to_csv(output_path+'csv/cum_return_test.csv')
+        # Save ANOVA results
+        # F-statistics, p-value, and best parameters
+        for x in ['f_stats', 'p_values', 'best_params']:
+            if anova_results[x]:
+                pd.DataFrame.from_dict(anova_results[x], orient='index')\
+                    .to_csv(output_path+'csv/anova_%s.csv' %x)
+        # All tukey test results
+        for metric in anova_results['tukey_all_results'].keys():
+            if type(anova_results['tukey_all_results'][metric]) == pd.DataFrame:
+                    anova_results['tukey_all_results'][metric].to_csv(
+                        output_path+'csv/tukey_all_results_%s.csv' % metric)
+        # Tukey test results related to the top performing model
+        if type(anova_results['tukey_top_results']) == pd.DataFrame:
+            anova_results['tukey_top_results'].to_csv(
+                output_path+'csv/tukey_top_results.csv')
     return {
         'cv_results': cv_results, 'anova_results': anova_results,
         'pred_train': pred_train, 'pred_test': pred_test,

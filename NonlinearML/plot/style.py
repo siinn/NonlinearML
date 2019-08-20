@@ -11,6 +11,7 @@ def load_matplotlib():
     #plt.style.use('ggplot')
     plt.rcParams['axes.facecolor']='white'
     plt.rcParams['savefig.facecolor']='white'
+    plt.rcParams.update({'figure.max_open_warning': 0})
     return plt
 
 def markers():

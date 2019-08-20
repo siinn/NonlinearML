@@ -95,7 +95,6 @@ def create_purged_fold(
     # Return purged training set
     return df_purged_train, df_val
 
-
 def get_val_dates(df, k, date_column, verbose=False):
     ''' Find dates to be used to split data into K-folds.
     Args:
@@ -112,7 +111,7 @@ def get_val_dates(df, k, date_column, verbose=False):
     # Dictionary to hold results
     val_dates = []
     # Calculate the length of one fold
-    fold_length = (date_end - date_begin) / k
+    fold_length = (date_end - date_begin).n / k
 
     # Warn that K-folds will not be of equal size
     if not isinstance(fold_length, int):
@@ -121,44 +120,63 @@ def get_val_dates(df, k, date_column, verbose=False):
         if verbose:
             print('Warning: K-folds will not be of equal size.')
             print('         K = %s, Fold size (month)= %s' %(k, fold_length))
-            print('         date_begin = %s, date_end = %s' %(date_begin, date_end))
-    # Calculate begin and end dates of validation set. Convert them back to timestamp.
+            print('         date_begin = %s, date_end = %s' 
+                %(date_begin, date_end))
+    # Calculate begin and end dates of validation set.
+    # Convert them back to timestamp.
     if verbose:
-        print('\nDataset will be splitted into K-folds with the following dates:')
+        print(
+            '\nDataset will be splitted into K-folds with the',
+            ' following dates:')
     for i in range(k):
         # Calculate validation begin and end dates
         val_begin = date_begin + i * fold_length
         val_end = date_begin + (i+1) * fold_length
-        # Last fold will include the rest of dataset. Therefore, use date_end instead of val_end
+        # Last fold will include the rest of dataset. Therefore,
+        # use date_end instead of val_end
         if i+1 == k:
             if verbose:
-                print(' > k = %s, begin = %s, end = %s, fold size (month) = %s' %(i, val_begin, date_end, date_end-val_begin))
-            val_dates.append((val_begin.to_timestamp(), date_end.to_timestamp()))
+                print(' > k = %s, begin = %s, end = %s, fold size (month) = %s'\
+                %(i, val_begin, date_end, date_end-val_begin))
+            val_dates.append(
+                (val_begin.to_timestamp(), date_end.to_timestamp()))
         else:
             if verbose:
-                print(' > k = %s, begin = %s, end = %s, fold size (month) = %s' %(i, val_begin, val_end, val_end-val_begin))
-            val_dates.append((val_begin.to_timestamp(), val_end.to_timestamp()))
+                print(' > k = %s, begin = %s, end = %s, fold size (month) = %s'\
+                %(i, val_begin, val_end, val_end-val_begin))
+            val_dates.append(
+                ((val_begin.to_timestamp(), val_end.to_timestamp())))
     return val_dates
 
 
-def purged_k_fold_cv(df_train, model, features, label, k, purge_length, embargo_length, n_epoch=1, date_column='eom', subsample=1, verbose=False):
-    ''' Perform purged k-fold cross-validation. Assumes that data is uniformly distributed over the time period. i.e. Data is splitted by dates instead of size.
+def purged_k_fold_cv(
+    df_train, model, features, label, k, purge_length, embargo_length,
+    n_epoch=1, date_column='eom', subsample=1, verbose=False):
+    """ Perform purged k-fold cross-validation. Assumes that data is uniformly
+        distributed over the time period.
+            i.e. Data is splitted by dates instead of size.
     Args:
         model: Model with .fit(X, y) and .predict(X) method.
                 features, label: List of features and target label
         k: k for k-fold CV.
-        purge_length: Overlapping window size to be removed from training samples given in months.
-                      i.e. the overlap between train and validation dataset of size (purge_length) will be removed from training samples.
-        embargo_length: Training samples within the window of size (embargo_length) which follow the overlap between
-                        validation and train set will be removed. Embargo length is given in months.
+        purge_length: Overlapping window size to be removed 
+        from training samples given in months.
+            i.e. the overlap between train and validation dataset
+            of size (purge_length) will be removed from training samples.
+        embargo_length: Training samples within the window of size
+            (embargo_length) which follow the overlap between validation and
+            train set will be removed. Embargo length is given in months.
         date_column: Datetime column
         subsample: fraction of training samples to use.
         verbose: Print debugging information if True
     Return:
-        results[mean]: Dictionary containing average performance across k folds for each metric. ex. {'accuracy':0.3, 'f1-score':0.5, etc.}
-        results[std]: Dictionary containing standard deviation of performance across k folds for each metric. ex. {'accuracy':0.3, 'f1-score':0.5, etc.}
-        results: Raw cross-validation results. May used for plotting distribution.
-    '''
+        results[mean]: Dictionary containing average performance across
+            k folds for each metric. ex. {'accuracy':0.3, 'f1-score':0.5, etc.}
+        results[std]: Dictionary containing standard deviation of performance
+            across k folds for each metric.
+            ex. {'accuracy':0.3, 'f1-score':0.5, etc.}
+        results: Raw cross-validation results. May used for plotting
+            distribution. """
     print('Performing cross-validation with purged k-fold')
     print(' > purge length = %s' % purge_length)
     print(' > embargo length = %s' % embargo_length)
@@ -186,20 +204,23 @@ def purged_k_fold_cv(df_train, model, features, label, k, purge_length, embargo_
                 print('Creating an instance of purged k-fold, epoch=%s' %(i//k))
                 print(' > validation begin = %s' % val_begin.to_period('M'))
                 print(' > validation end = %s' % val_end.to_period('M'))
-            # Create purged training set and validation set as a one instance of k folds.
-            df_k_train, df_k_val = create_purged_fold(df=df_train,
-                                                  purge_length=purge_length,
-                                                  embargo_length=embargo_length,
-                                                  val_begin=val_begin,
-                                                  val_end=val_end,
-                                                  date_column=date_column,
-                                                  subsample=subsample)
+            # Create purged training set and validation set as
+            # a one instance of k folds.
+            df_k_train, df_k_val = create_purged_fold(
+                df=df_train,
+                purge_length=purge_length,
+                embargo_length=embargo_length,
+                val_begin=val_begin,
+                val_end=val_end,
+                date_column=date_column,
+                subsample=subsample)
             # Fit model
             model.fit(X=df_k_train[features], y=df_k_train[label])
             # Make prediction
             y_pred = model.predict(df_k_val[features])
             # Return classification report
-            report = classification_report(df_k_val[label], y_pred, output_dict=True)
+            report = classification_report(
+                df_k_val[label], y_pred, output_dict=True)
             # Append results
             for cls in classes:
                 results['%s_f1-score' %cls].append(report[cls]['f1-score'])
@@ -210,8 +231,10 @@ def purged_k_fold_cv(df_train, model, features, label, k, purge_length, embargo_
             results['precision'].append(report['macro avg']['precision'])
             results['recall'].append(report['macro avg']['recall'])
     # Return results averaged over k folds
-    results_mean = {metric:np.array(results[metric]).mean() for metric in results}
-    results_std = {metric:np.array(results[metric]).std() for metric in results}
+    results_mean = {metric:np.array(results[metric]).mean()
+        for metric in results}
+    results_std = {metric:np.array(results[metric]).std()
+        for metric in results}
     print(" >> Validation performance:")
     for key in results_mean:
         print(" >> mean %s = %s" % (key, results_mean[key]))
@@ -229,10 +252,13 @@ def grid_search(df_train, model, param_grid, metric, features, label, k, purge_l
         metric: Evaluation metric. Available options are 'accuracy', 'f1-score', 'precision', or 'recall'. The last three matrics are macro-averaged.
         features, label: List of features and target label
         k: k for k-fold CV.
-        purge_length: Overlapping window size to be removed from training samples given in months.
-                      i.e. the overlap between train and validation dataset of size (purge_length) will be removed from training samples.
-        embargo_length: Training samples within the window of size (embargo_length) which follow the overlap between
-                        validation and train set will be removed. Embargo length is given in months.
+        purge_length: Overlapping window size to be removed from training
+            samples given in months.
+            i.e. the overlap between train and validation dataset of size
+            (purge_length) will be removed from training samples.
+        embargo_length: Training samples within the window of size
+            (embargo_length) which follow the overlap between validation
+            and train set will be removed. Embargo length is given in months.
         date_column: Datetime column
         subsample: fraction of training samples to use.
         verbose: Print debugging information if True
@@ -240,7 +266,7 @@ def grid_search(df_train, model, param_grid, metric, features, label, k, purge_l
     Return:
         cv_results: Dataframe summarizing cross-validation results
     '''
-    print('Running purged k-fold CV with k = %s' % k)
+    print('Running purged k-fold CV with k = %s, epoch = %s' % (k, n_epoch))
     # Get list of classes
     classes = sorted([str(x) for x in df_train[label].unique()])
     # List of all available metrics
@@ -262,19 +288,23 @@ def grid_search(df_train, model, param_grid, metric, features, label, k, purge_l
         print(" > Parameters: %s" % str(params))
         # Perform purged k-fold cross validation
         #mean, std = purged_k_fold_cv(df_train=df_train,
-        one_fold_result = purged_k_fold_cv(df_train=df_train,
-                                   model=model.set_params(**params),
-                                   features=features, label=label,
-                                   k=k, verbose=verbose, n_epoch=n_epoch,
-                                   purge_length=purge_length, embargo_length=embargo_length,
-                                   subsample=subsample)
+        one_fold_result = purged_k_fold_cv(
+            df_train=df_train,
+            model=model.set_params(**params),
+            features=features, label=label,
+            k=k, verbose=verbose, n_epoch=n_epoch,
+            purge_length=purge_length,
+            embargo_length=embargo_length,
+            subsample=subsample)
         # Save evaluation result of all metrics, not just one that is used.
         for m in metrics:
             cv_results.at[i, m] = one_fold_result['mean'][m]
             cv_results.at[i, m+"_std"] = one_fold_result['std'][m]
             cv_results.at[i, m+"_values"] = str(one_fold_result['values'][m])
         # Save parameters as one string
-        cv_results.at[i, 'params'] = str([x+"="+str(params[x]) for x in params]).strip('[]').replace('\'','')
+        cv_results.at[i, 'params'] = str(
+            [x+"="+str(params[x]) for x in params])\
+            .strip('[]').replace('\'','')
     # Save results as csv
     if not os.path.exists(output_path):
         os.makedirs(output_path)

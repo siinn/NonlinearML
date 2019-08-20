@@ -29,7 +29,7 @@ def plot_cumulative_return(
     Returns:
         None
     ''' 
-    print("Plotting cumulative return plots with filename: %s" %filename)
+    print("Plotting cumulative return plots with filename: \n > %s" %filename)
     # plot train dataset
     plot_line_groupby(
         df=df_cum_train, x=time, y="cumulative_return",
@@ -135,7 +135,7 @@ def plot_partial_dependence_1D(
     Returns:
         None
     '''
-    print("Plotting partial dependence plot with filename: %s" %filename)
+    print("Plotting partial dependence plot with filename: \n >%s" %filename)
     # Create figures for partial dependence plot using Skater
     interpreter = Interpretation(
         examples, feature_names=list(examples.columns))
@@ -217,7 +217,7 @@ def plot_partial_dependence_2D(
     Returns:
         None
     '''
-    print("Plotting 2D partial dependence plot with filename: %s" %filename)
+    print("Plotting 2D partial dependence plot with filename: \n >%s" %filename)
     # Create figures for partial dependence plot using Skater
     interpreter = Interpretation(
         examples, feature_names=list(examples.columns))

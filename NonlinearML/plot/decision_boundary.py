@@ -13,6 +13,18 @@ plt = load_matplotlib()
 #-------------------------------------------------------------------------------
 # Decision boundary plots
 #-------------------------------------------------------------------------------
+def get_param_string(params):
+    """ Get name as a string."""
+    names = []
+    for key in params:
+        if 'name' in dir(params[key]):
+            names.append(key+'='+params[key].name)
+        else:
+            names.append(key+'='+str(params[key]))
+        """ Todo: write a function to extract layer info
+            if 'layers' in dir(params[key]):"""
+    return ",".join(names)
+
 def decision_boundary(
     model, df, features, h=0.01, x_label="", y_label="", xlim=False, ylim=False,
     title=False, title_loc='center', annot=False, vlines = [], hlines = [],
@@ -32,7 +44,7 @@ def decision_boundary(
     Returns:
         None
     '''
-    print("Plotting decision boundary with filename: %s" %filename)
+    print("Plotting decision boundary with filename: \n >%s" %filename)
     # Get x and y domain
     if xlim:
         x_min, x_max = xlim
@@ -89,12 +101,13 @@ def decision_boundary(
     plt.savefig('%s.png' %filename)
 
 
-def decision_boundary_multiple_hparmas(param_grid, label, **kwargs):
+def decision_boundary_multiple_hparmas(param_grid, label, db_annot_x, db_annot_y, **kwargs):
     ''' Plot decision boundary for each hyperparameter set. This is a wrapper
         of 'decision_boundary' function.
     Args:
         param_grid: Hyperparamater grid to search.
         label: classification label
+        db_annot_x, db_annot_y: Location of annotation that displays parameters.
         **kwargs:
             Arguments for 'decision_boundary'. Only difference is
             that df must be training data.
@@ -103,7 +116,7 @@ def decision_boundary_multiple_hparmas(param_grid, label, **kwargs):
     Returns:
         None
     '''
-    print('Creating decision boundary plots for each combination of',
+    print('\nCreating decision boundary plots for each combination of',
           ' hyperparameters')
     # Extract model from kwargs
     model = kwargs['model']
@@ -116,7 +129,6 @@ def decision_boundary_multiple_hparmas(param_grid, label, **kwargs):
     # Loop over different values of k
     n_experiments = len(experiments)
     count=0
-    print("debug 0")
     for i, params in enumerate(experiments):
         count = count + 1
         print(' > Experiment (%s/%s)' % (count, n_experiments))
@@ -130,12 +142,11 @@ def decision_boundary_multiple_hparmas(param_grid, label, **kwargs):
         kwargs['filename'] = filename + "_%s" % i
         # Plot decision boundary of trained model
         decision_boundary(
-        #    annot={
-        #        'text':str(params).strip('{}').replace('\'','')\
-        #                                         .replace(',','\n')\
-        #                                         .replace('\n ', '\n'),
-        #        'x':0.02, 'y':0.98},
-            **kwargs)
+            annot={
+                'text':get_param_string(params).strip('{}')\
+                    .replace('\'','').replace(',','\n').replace('\n ', '\n'),
+                'x':db_annot_x, 'y':db_annot_y},
+        **kwargs)
     return
 
 
@@ -169,8 +180,8 @@ def decision_boundary_pdp(
                 (df[feature_interest]==x) & \
                 (df[feature_other]==y)]['pred'])[0]
         
-    print("Plotting decision boundary plot using partial dependence plot."\
-           + " Filename: %s" %filename)
+    print("\nPlotting decision boundary plot using partial dependence plot."\
+           + " Filename: \n >%s" %filename)
     # Create figures for partial dependence plot using Skater
     interpreter = Interpretation(
         examples, feature_names=list(examples.columns))
