@@ -6,6 +6,7 @@ import os
 import pandas as pd
 from sklearn.metrics import classification_report
 
+import NonlinearML.lib.io as io
 
 
 
@@ -178,18 +179,14 @@ def purged_k_fold_cv(
         results: Raw cross-validation results. May used for plotting
             distribution. """
     print('Performing cross-validation with purged k-fold')
-    print(' > purge length = %s' % purge_length)
-    print(' > embargo length = %s' % embargo_length)
+    print('\t> purge length = %s' % purge_length)
+    print('\t> embargo length = %s' % embargo_length)
     # Find dates to be used to split data into k folds.
     val_dates = get_val_dates(df_train, k, date_column, verbose)
     # Get list of classes
     classes = sorted([str(x) for x in df_train[label].unique()])
     # Dictionary to hold results
-    results = {'accuracy':[], 'f1-score':[], 'precision':[], 'recall':[],
-               #'Avg_%s_%s_f1-score' %(classes[0], classes[2]):[],
-               #'Avg_%s_%s_precision' %(classes[0], classes[2]):[],
-               #'Avg_%s_%s_recall' %(classes[0], classes[2]):[]
-               }
+    results = {'accuracy':[], 'f1-score':[], 'precision':[], 'recall':[]}
     for cls in classes:
         results['%s_f1-score' %cls] = []
         results['%s_precision' %cls] = []
@@ -202,8 +199,8 @@ def purged_k_fold_cv(
             # Print debugging info
             if verbose==True:
                 print('Creating an instance of purged k-fold, epoch=%s' %(i//k))
-                print(' > validation begin = %s' % val_begin.to_period('M'))
-                print(' > validation end = %s' % val_end.to_period('M'))
+                print('\t> validation begin = %s' % val_begin.to_period('M'))
+                print('\t> validation end = %s' % val_end.to_period('M'))
             # Create purged training set and validation set as
             # a one instance of k folds.
             df_k_train, df_k_val = create_purged_fold(
@@ -235,11 +232,12 @@ def purged_k_fold_cv(
         for metric in results}
     results_std = {metric:np.array(results[metric]).std()
         for metric in results}
-    print(" >> Validation performance:")
-    for key in results_mean:
-        print(" >> mean %s = %s" % (key, results_mean[key]))
-    for key in results_std:
-        print(" >> std %s = %s" % (key, results_std[key]))
+    if verbose==True:
+        print("\t>> Validation performance:")
+        for key in results_mean:
+            print("\t\t>> mean %s = %s" % (key, results_mean[key]))
+        for key in results_std:
+            print("\t\t>> std %s = %s" % (key, results_std[key]))
     return {'mean':results_mean, 'std':results_std, 'values':results}
 
 
@@ -266,7 +264,7 @@ def grid_search(df_train, model, param_grid, metric, features, label, k, purge_l
     Return:
         cv_results: Dataframe summarizing cross-validation results
     '''
-    print('Running purged k-fold CV with k = %s, epoch = %s' % (k, n_epoch))
+    io.title('Running purged k-fold CV with k = %s, epoch = %s' % (k, n_epoch))
     # Get list of classes
     classes = sorted([str(x) for x in df_train[label].unique()])
     # List of all available metrics
@@ -285,9 +283,10 @@ def grid_search(df_train, model, param_grid, metric, features, label, k, purge_l
     for i, params in enumerate(experiments):
         count = count + 1
         print(" > Experiment (%s/%s)" % (count, n_experiments))
-        print(" > Parameters: %s" % str(params))
+        print(" > Parameters:")
+        print("\n".join(["\t - "+x+"="+str(params[x]) for x in params]))
         # Perform purged k-fold cross validation
-        one_fold_result = purged_k_fold_cv(
+        single_model_result = purged_k_fold_cv(
             df_train=df_train,
             model=model.set_params(**params),
             features=features, label=label,
@@ -297,9 +296,10 @@ def grid_search(df_train, model, param_grid, metric, features, label, k, purge_l
             subsample=subsample)
         # Save evaluation result of all metrics, not just one that is used.
         for m in metrics:
-            cv_results.at[i, m] = one_fold_result['mean'][m]
-            cv_results.at[i, m+"_std"] = one_fold_result['std'][m]
-            cv_results.at[i, m+"_values"] = str(one_fold_result['values'][m])
+            cv_results.at[i, m] = single_model_result['mean'][m]
+            cv_results.at[i, m+"_std"] = single_model_result['std'][m]
+            cv_results.at[i, m+"_values"] = str(
+                single_model_result['values'][m])
         # Save parameters as one string
         cv_results.at[i, 'params'] = str(
             [x+"="+str(params[x]) for x in params])\

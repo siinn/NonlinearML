@@ -1,5 +1,7 @@
 import pandas as pd
 
+import NonlinearML.lib.io as io
+
 from NonlinearML.lib.backtest import *
 from NonlinearML.lib.utils import create_folder
 from NonlinearML.plot.plot import *
@@ -29,7 +31,7 @@ def plot_cumulative_return(
     Returns:
         None
     ''' 
-    print("Plotting cumulative return plots with filename: \n > %s" %filename)
+    print(" > Plotting cumulative return plots with filename: \n > %s" %filename)
     # plot train dataset
     plot_line_groupby(
         df=df_cum_train.sort_values(date_column), x=date_column, y="cumulative_return",

@@ -8,24 +8,13 @@ from NonlinearML.lib.utils import create_folder
 from NonlinearML.lib.utils import get_param_string
 from NonlinearML.plot.plot import *
 from NonlinearML.plot.style import load_matplotlib
+import NonlinearML.lib.io as io
 plt = load_matplotlib()
 
 
 #-------------------------------------------------------------------------------
 # Decision boundary plots
 #-------------------------------------------------------------------------------
-#def get_param_string(params):
-#    """ Get name as a string."""
-#    names = []
-#    for key in params:
-#        if 'name' in dir(params[key]):
-#            names.append(key+'='+params[key].name)
-#        else:
-#            names.append(key+'='+str(params[key]))
-#        """ Todo: write a function to extract layer info
-#            if 'layers' in dir(params[key]):"""
-#    return ",".join(names)
-
 def decision_boundary(
     model, df, features, h=0.01, x_label="", y_label="", xlim=False, ylim=False,
     title=False, title_loc='center', annot=False, vlines = [], hlines = [],
@@ -102,6 +91,8 @@ def decision_boundary(
     plt.savefig('%s.png' %filename)
 
 
+
+
 def decision_boundary_multiple_hparmas(param_grid, label, db_annot_x, db_annot_y, **kwargs):
     ''' Plot decision boundary for each hyperparameter set. This is a wrapper
         of 'decision_boundary' function.
@@ -117,8 +108,7 @@ def decision_boundary_multiple_hparmas(param_grid, label, db_annot_x, db_annot_y
     Returns:
         None
     '''
-    print('\nCreating decision boundary plots for each combination of',
-          ' hyperparameters')
+    io.title('Creating decision boundary plots of all combinations of\nhyperparameters')
     # Extract model from kwargs
     model = kwargs['model']
     df_train = kwargs['df']
@@ -133,7 +123,8 @@ def decision_boundary_multiple_hparmas(param_grid, label, db_annot_x, db_annot_y
     for i, params in enumerate(experiments):
         count = count + 1
         print(' > Experiment (%s/%s)' % (count, n_experiments))
-        print(' > Parameters: %s' % str(params))
+        print(' > Parameters:')
+        print("\n".join(["\t - "+x+"="+str(params[x]) for x in params]))
         # Train model with given hyperparameter set
         model=model.set_params(**params)
         model.fit(df_train[features], df_train[label])

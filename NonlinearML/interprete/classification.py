@@ -61,7 +61,7 @@ def decision_boundary2D(
         'model': Trained model with the best hyperparameter set.
 
     """
-    print("\nRunning %s" % model_str)
+    print(" > Running %s" % model_str)
 
     # Set output path for this model
     output_path = config['output_path'] + model_str + '/'

@@ -78,7 +78,7 @@ def select_best_model_by_anova(cv_results, cv_metric, param_grid, p_thres):
     metric_values = [
         metric for metric in cv_results.columns if 'values' in metric]
 
-    # Convert string to list
+    # Convert strings to list in cv_results
     """ Example: '[0.0, 0.1, 0.5]' to ['0.0', '0.1', '0.5']. """
     if type(cv_results[metric_values].iloc[0,0]) == str:
         cv_results[metric_values] = cv_results[metric_values].applymap(
@@ -91,6 +91,10 @@ def select_best_model_by_anova(cv_results, cv_metric, param_grid, p_thres):
     post_hoc_top = {}
 
     # Loop over each metric
+    print("=============================================")
+    print(" ANOVA and post hoc test on model performance")
+    print("=============================================")
+    print("Performing ANOVA test..")
     for metric in metric_names:
         metric_values = metric+"_values"
 
@@ -98,18 +102,19 @@ def select_best_model_by_anova(cv_results, cv_metric, param_grid, p_thres):
         model_perf = pd.DataFrame(cv_results[metric_values].tolist())\
                         .astype(float)
         # Perform one way ANOVA
-        print("Performing ANOVA on model performance (%s)" % metric)
         f_stats[metric], p_values[metric] = anova_test(model_perf)
+        print("\t> %s: p-value = %s" % (metric, p_values[metric]))
         # If p-value is less than the threshold, perform post hoc test.
         if p_values[metric] < p_thres:
             post_hoc_results[metric] = post_hoc_test(model_perf)
 
     # Index of the model with the highest score
     id_max = cv_results[cv_metric].idxmax()
-    print("Model %s has the highest score" % id_max)
+    print("\t> Model %s has the highest score" % id_max)
 
     # Check if we passed ANOVA given metric
     if cv_metric in post_hoc_results.keys():
+        print("Performing post hoc test..")
 
         # Filter result by the model with the highest score
         post_hoc_top = post_hoc_results[cv_metric].loc[
@@ -119,21 +124,22 @@ def select_best_model_by_anova(cv_results, cv_metric, param_grid, p_thres):
         # Check if there are multiple models within statistical uncertainties
         num_candidates = post_hoc_top.loc[post_hoc_top[5]==False].shape[0]
         if num_candidates <= 1:
-            print("There is only one model with highest %s score." % cv_metric)
+            print("\t > There is only one model with highest %s score." % cv_metric)
             id_selected_model = id_max
         else:
-            print("There are %s model with highest %s score" 
+            print("\t > There are %s model with highest %s score" 
                 % (num_candidates, cv_metric)
                 , " within statistical uncertainties.")
             # Select preferred model
             id_selected_model = min(
                 post_hoc_top.loc[post_hoc_top[5]==False][0].min(),
                 post_hoc_top.loc[post_hoc_top[5]==False][1].min())
-            print("Model %s is selected by preference" % id_selected_model)
+            print("\t > Model %s is selected by preference" % id_selected_model)
     else:
         print("ANOVA failed for %s. Model is selected by preferred order"
             % cv_metric)
-        id_selected_model = id_max
+        id_selected_model = 0
+        cv_results['params'].iloc[id_selected_model]
 
     # Recreate hyperparameter combinations
     keys, values = zip(*param_grid.items())
@@ -141,6 +147,8 @@ def select_best_model_by_anova(cv_results, cv_metric, param_grid, p_thres):
 
     # Return parameters of the preferred model
     best_params = experiments[id_selected_model]
+    print("Selected model:")
+    print("\n".join(["\t- "+x+"="+str(best_params[x]) for x in best_params]))
     return {
         "f_stats": f_stats,
         "p_values": p_values,
