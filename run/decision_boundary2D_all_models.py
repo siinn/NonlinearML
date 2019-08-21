@@ -48,8 +48,8 @@ feature_x = 'AG'
 feature_y = 'FCFA'
 
 # Set path to save output figures
-output_path = 'output_temp/%s_%s/' % (feature_x, feature_y)
-tfboard_path='tf_log_temp/%s_%s/' % (feature_x, feature_y)
+output_path = 'output/%s_%s/' % (feature_x, feature_y)
+tfboard_path='tf_log/%s_%s/' % (feature_x, feature_y)
 
 # Set labels
 n_classes=3
@@ -69,8 +69,8 @@ test_begin = "2011-01-01"
 test_end = "2017-11-01"
 
 # Set cross-validation configuration
-k = 2           # Must be > 1
-n_epoch = 1
+k = 10           # Must be > 1
+n_epoch = 5
 subsample = 0.8
 purge_length = 3
 
@@ -84,11 +84,11 @@ cv_metric = 'f1-score'
 db_colors = ["#3DC66D", "#F3F2F2", "#DF4A3A"]
 
 # Set algorithms to run
-run_lr = True
+run_lr = False
 run_xgb = False
 run_svm = False
 run_knn = False
-run_nn = False
+run_nn = True
 run_summary = False
 
 
@@ -217,7 +217,7 @@ if __name__ == "__main__":
         # Set parameters to search
         param_grid_knn = {
             'n_neighbors':
-                sorted([int(x) for x in np.logspace(3, 4, 3)], reverse=True)}
+                sorted([int(x) for x in np.logspace(2, 3, 10)], reverse=True)}
 
         # Set model
         model_knn = KNeighborsClassifier()
@@ -241,25 +241,25 @@ if __name__ == "__main__":
             'metrics': [
                 #tf.keras.metrics.SparseCategoricalCrossentropy(),
                 tf.keras.metrics.SparseCategoricalAccuracy()],
-            'patience': [3, 4, 5], # 3,4,5
+            'patience': [3,5,10], # 3,4,5
             'epochs': [200],
             'validation_split': [0.2],
             'batch_size': [32],
             'model': [
-                tf.keras.Sequential([
-                    tf.keras.layers.Dense(32, activation='relu'),
-                    tf.keras.layers.Dropout(0.5),
-                    tf.keras.layers.Dense(32, activation='relu'),
-                    tf.keras.layers.Dropout(0.5),
-                    tf.keras.layers.Dense(32, activation='relu'),
-                    tf.keras.layers.Dense(n_classes, activation='softmax')]),
-                tf.keras.Sequential([
-                    tf.keras.layers.Dense(64, activation='relu'),
-                    tf.keras.layers.Dropout(0.5),
-                    tf.keras.layers.Dense(64, activation='relu'),
-                    tf.keras.layers.Dropout(0.5),
-                    tf.keras.layers.Dense(64, activation='relu'),
-                    tf.keras.layers.Dense(n_classes, activation='softmax')]),
+                #tf.keras.Sequential([
+                #    tf.keras.layers.Dense(32, activation='relu'),
+                #    tf.keras.layers.Dropout(0.5),
+                #    tf.keras.layers.Dense(32, activation='relu'),
+                #    tf.keras.layers.Dropout(0.5),
+                #    tf.keras.layers.Dense(32, activation='relu'),
+                #    tf.keras.layers.Dense(n_classes, activation='softmax')]),
+                #tf.keras.Sequential([
+                #    tf.keras.layers.Dense(64, activation='relu'),
+                #    tf.keras.layers.Dropout(0.5),
+                #    tf.keras.layers.Dense(64, activation='relu'),
+                #    tf.keras.layers.Dropout(0.5),
+                #    tf.keras.layers.Dense(64, activation='relu'),
+                #    tf.keras.layers.Dense(n_classes, activation='softmax')]),
                 tf.keras.Sequential([
                     tf.keras.layers.Dense(128, activation='relu'),
                     tf.keras.layers.Dropout(0.5),
@@ -286,6 +286,14 @@ if __name__ == "__main__":
     # Summary plots
     #---------------------------------------------------------------------------
     if run_summary:
+
+
+        """
+        
+        REPLACE THIS BLOCK WITH FUNCTION
+
+
+        """
         # Read Tensorflow results
         #df_cum_test_tf = pickle.load(
         #    open(output_path+'model_comparison/df_cum_test_tf.pickle', 'rb'))

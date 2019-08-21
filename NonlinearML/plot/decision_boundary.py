@@ -5,6 +5,7 @@ import seaborn as sns
 import itertools
 
 from NonlinearML.lib.utils import create_folder
+from NonlinearML.lib.utils import get_param_string
 from NonlinearML.plot.plot import *
 from NonlinearML.plot.style import load_matplotlib
 plt = load_matplotlib()
@@ -13,17 +14,17 @@ plt = load_matplotlib()
 #-------------------------------------------------------------------------------
 # Decision boundary plots
 #-------------------------------------------------------------------------------
-def get_param_string(params):
-    """ Get name as a string."""
-    names = []
-    for key in params:
-        if 'name' in dir(params[key]):
-            names.append(key+'='+params[key].name)
-        else:
-            names.append(key+'='+str(params[key]))
-        """ Todo: write a function to extract layer info
-            if 'layers' in dir(params[key]):"""
-    return ",".join(names)
+#def get_param_string(params):
+#    """ Get name as a string."""
+#    names = []
+#    for key in params:
+#        if 'name' in dir(params[key]):
+#            names.append(key+'='+params[key].name)
+#        else:
+#            names.append(key+'='+str(params[key]))
+#        """ Todo: write a function to extract layer info
+#            if 'layers' in dir(params[key]):"""
+#    return ",".join(names)
 
 def decision_boundary(
     model, df, features, h=0.01, x_label="", y_label="", xlim=False, ylim=False,

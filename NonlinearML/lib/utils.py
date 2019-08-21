@@ -369,13 +369,11 @@ def grid_search_cv(
     return cv
 
 
-def save_summary(df_train, label, metric, output_path, cv_results):
+def save_summary(class_label, metric, output_path, cv_results):
     '''Collect results from all models trained with best parameters and
         save them as csv
     Args:
-        df_train: Training dataset used to obtain class names
-            Example: 0.0, 1.0, 2.0
-        label: Classification label
+        class_label: Unique class names such as [0, 1, 2]
         metric: Metric used to sort results
         output_path: Path to save results
         cv_results: Results obtained from grid search using purged
@@ -385,13 +383,11 @@ def save_summary(df_train, label, metric, output_path, cv_results):
     Return:
         None
     '''
-    # Get list of classes
-    classes = [str(x) for x in df_train[label].unique()]
     # List of all available metrics
     metrics = ['accuracy', 'precision', 'recall', 'f1-score']
-    for cls in classes:
+    for cls in class_label:
         metrics = metrics + \
-            ['%s_precision' %cls, '%s_recall' %cls, '%s_f1-score' %cls]
+            ['%.1f_precision' %cls, '%.1f_recall' %cls, '%.1f_f1-score' %cls]
     # Collect results from best parameters
     df_summary = pd.DataFrame({
         model:cv_results[model].loc[cv_results[model][metric].idxmax()][metrics]
@@ -400,3 +396,14 @@ def save_summary(df_train, label, metric, output_path, cv_results):
     create_folder(output_path+'summary.csv')
     df_summary.to_csv(output_path+'summary.csv')
 
+def get_param_string(params):
+    """ Get name as a string."""
+    names = []
+    for key in params:
+        if 'name' in dir(params[key]):
+            names.append(key+'='+params[key].name)
+        else:
+            names.append(key+'='+str(params[key]))
+        """ Todo: write a function to extract layer info
+            if 'layers' in dir(params[key]):"""
+    return ",".join(names)

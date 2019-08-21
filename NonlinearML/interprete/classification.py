@@ -152,6 +152,7 @@ def decision_boundary2D(
             group_label=config['class_label'],
             figsize=return_figsize,
             filename=output_path+"cum_return/return_by_group",
+            date_column=config['date_column'],
             kwargs_train={'ylim':return_train_ylim},
             kwargs_test={'ylim':return_test_ylim})
         plot_backtest.plot_cumulative_return_diff(
@@ -159,6 +160,7 @@ def decision_boundary2D(
             return_label=sorted(np.arange(config['n_classes'])),
             list_labels=[model_str], label_reg=config['label_reg'],
             figsize=return_figsize,
+            date_column=config['date_column'],
             filename=output_path+"cum_return/return_diff_group",
             kwargs_train={'ylim':return_diff_train_ylim},
             kwargs_test={'ylim':return_diff_test_ylim})
@@ -182,9 +184,8 @@ def decision_boundary2D(
             xlim=db_xlim, ylim=db_ylim, figsize=db_figsize,
             ticks=sorted(np.arange(config['n_classes']), reverse=True),
             annot={
-                'text':str(best_params).strip('{}')\
-                    .replace('\'','').replace(',','\n')\
-                    .replace('\n ', '\n'),
+                'text':utils.get_param_string(best_params).strip('{}')\
+                    .replace('\'','').replace(',','\n').replace('\n ', '\n'),
                 'x':db_annot_x, 'y':db_annot_y},
             filename=output_path+"decision_boundary/db_best_model")
     #---------------------------------------------------------------------------

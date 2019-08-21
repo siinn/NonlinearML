@@ -287,7 +287,6 @@ def grid_search(df_train, model, param_grid, metric, features, label, k, purge_l
         print(" > Experiment (%s/%s)" % (count, n_experiments))
         print(" > Parameters: %s" % str(params))
         # Perform purged k-fold cross validation
-        #mean, std = purged_k_fold_cv(df_train=df_train,
         one_fold_result = purged_k_fold_cv(
             df_train=df_train,
             model=model.set_params(**params),
@@ -305,10 +304,10 @@ def grid_search(df_train, model, param_grid, metric, features, label, k, purge_l
         cv_results.at[i, 'params'] = str(
             [x+"="+str(params[x]) for x in params])\
             .strip('[]').replace('\'','')
-    # Save results as csv
-    if not os.path.exists(output_path):
-        os.makedirs(output_path)
-    cv_results.to_csv(output_path+"summary.csv")
+    ## Save results as csv
+    #if not os.path.exists(output_path):
+    #    os.makedirs(output_path)
+    #cv_results.to_csv(output_path+"summary.csv")
     return cv_results
 
 
