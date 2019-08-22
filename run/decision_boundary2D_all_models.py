@@ -31,6 +31,7 @@ import NonlinearML.interprete.classification as classification
 # Supress warnings
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 warnings.simplefilter(action='ignore', category=FutureWarning)
+warnings.filterwarnings('once')  # 'error', 'always', 'ignore'
 pd.options.mode.chained_assignment = None 
 
 #-------------------------------------------------------------------------------
@@ -82,6 +83,8 @@ cv_metric = 'f1-score'
 
 # Set color scheme for decision boundary plot
 db_colors = ["#3DC66D", "#F3F2F2", "#DF4A3A"]
+#cmap = matplotlib.cm.get_cmap('Spectral', 10)
+#db_colors = [matplotlib.colors.rgb2hex(cmap(i)) for i in range(cmap.N)]
 
 # Set algorithms to run
 run_lr = False
@@ -89,7 +92,7 @@ run_xgb = False
 run_svm = False
 run_knn = False
 run_nn = True
-run_summary = False
+run_comparison = False
 
 
 
@@ -120,7 +123,7 @@ if __name__ == "__main__":
     # Read dataset
     #---------------------------------------------------------------------------
     # Read input csv
-    df = pd.read_csv(INPUT_PATH, index_col=[0], parse_dates=[date_column])
+    df = pd.read_csv(INPUT_PATH, index_col=None, parse_dates=[date_column])
 
     # Discretize target label
     df = utils.discretize_variables_by_month(
@@ -154,6 +157,7 @@ if __name__ == "__main__":
         db_lr = classification.decision_boundary2D(
             config, df_train, df_test,
             model_lr, model_lr_str, param_grid_lr, best_params={},
+            grid_search=True, cv_results=False,
             cv_study=True, calculate_return=True,
             plot_decision_boundary=True, save_csv=True)
 
@@ -183,6 +187,7 @@ if __name__ == "__main__":
         db_xgb = classification.decision_boundary2D(
             config, df_train, df_test,
             model_xgb, model_xgb_str, param_grid_xgb, best_params={},
+            grid_search=True, cv_results=False,
             cv_study=True, calculate_return=True,
             plot_decision_boundary=True, save_csv=True)
 
@@ -207,6 +212,7 @@ if __name__ == "__main__":
         db_svm = classification.decision_boundary2D(
             config, df_train, df_test,
             model_svm, model_svm_str, param_grid_svm, best_params={},
+            grid_search=True, cv_results=False,
             cv_study=True, calculate_return=True,
             plot_decision_boundary=True, save_csv=True)
 
@@ -227,6 +233,7 @@ if __name__ == "__main__":
         db_knn = classification.decision_boundary2D(
             config, df_train, df_test,
             model_knn, model_knn_str, param_grid_knn, best_params={},
+            grid_search=True, cv_results=False,
             cv_study=True, calculate_return=True,
             plot_decision_boundary=True, save_csv=True)
 
@@ -278,52 +285,21 @@ if __name__ == "__main__":
         db = classification.decision_boundary2D(
             config, df_train, df_test,
             model, model_str, param_grid, best_params={},
-            cv_study=True, calculate_return=True, plot_decision_boundary=True)
+            grid_search=True, cv_results=False,
+            cv_study=True, calculate_return=True,
+            plot_decision_boundary=True, save_csv=True)
 
 
 
     #---------------------------------------------------------------------------
-    # Summary plots
+    # Compare model results
     #---------------------------------------------------------------------------
-    if run_summary:
-
-
-        """
-        
-        REPLACE THIS BLOCK WITH FUNCTION
-
-
-        """
-        # Read Tensorflow results
-        #df_cum_test_tf = pickle.load(
-        #    open(output_path+'model_comparison/df_cum_test_tf.pickle', 'rb'))
-
-
-        plot_backtest.plot_cumulative_return_diff(
-            list_cum_returns=[
-                db_lr['cum_return_test'],
-                db_knn['cum_return_test'],
-                db_xgb['cum_return_test'],
-                db_svm['cum_return_test'],
-                ],
-            list_labels=["Linear", "KNN", "XGB", "SVM"],
-            label_reg=label_reg,
-            figsize=(8, 6), return_label=sorted(np.arange(n_classes)),
-            kwargs_train={'ylim':(-1, 3)},
-            kwargs_test={'ylim':(-1, 3)},
-            legend_order=["XGB", "Linear", "KNN", "SVM"],
-            filename=output_path+"model_comparison/return_diff_summary")
-
-        # Save results
-        utils.save_summary(
-            df_train, label_cla, cv_metric, output_path+"model_comparison/",
-            cv_results={
-                'Logistic': db_lr['cv_results'],
-                'XGB': db_xgb['cv_results'],
-                'KNN': db_knn['cv_results'],
-                'SVM': db_svm['cv_results'],
-            })
-
+    if run_comparison:
+        utils.model_comparison(
+            models=['lr', 'xgb'], output_path=output_path,
+            class_label=sorted(
+                list(config['class_label'].keys()), reverse=True),
+            date_column=config['date_column'])
 
     print("Successfully completed all tasks")
 

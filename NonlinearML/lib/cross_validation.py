@@ -182,7 +182,8 @@ def purged_k_fold_cv(
     print('\t> purge length = %s' % purge_length)
     print('\t> embargo length = %s' % embargo_length)
     # Find dates to be used to split data into k folds.
-    val_dates = get_val_dates(df_train, k, date_column, verbose)
+    val_dates = get_val_dates(
+        df=df_train, k=k, date_column=date_column, verbose=verbose)
     # Get list of classes
     classes = sorted([str(x) for x in df_train[label].unique()])
     # Dictionary to hold results
@@ -290,6 +291,7 @@ def grid_search(df_train, model, param_grid, metric, features, label, k, purge_l
             df_train=df_train,
             model=model.set_params(**params),
             features=features, label=label,
+            date_column=date_column,
             k=k, verbose=verbose, n_epoch=n_epoch,
             purge_length=purge_length,
             embargo_length=embargo_length,

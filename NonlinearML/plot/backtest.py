@@ -17,6 +17,7 @@ plt = load_matplotlib()
 def plot_cumulative_return(
     df_cum_train, df_cum_test, label_reg, filename, figsize=(15,6),
     group_label={0:"Q1", 1:"Q2", 2:"Q3"}, date_column="eom",
+    train_ylim=(-1,7), test_ylim=(-1,5),
     kwargs_train={}, kwargs_test={}):
     ''' Wrapper of plotting functions. Create cumulative return plot for train
     and test dataset.
@@ -34,87 +35,80 @@ def plot_cumulative_return(
     print(" > Plotting cumulative return plots with filename: \n > %s" %filename)
     # plot train dataset
     plot_line_groupby(
-        df=df_cum_train.sort_values(date_column), x=date_column, y="cumulative_return",
+        df=df_cum_train.sort_values(date_column),
+        x=date_column, y="cumulative_return",
         groupby="pred",
         group_label = {key:group_label[key]+" (Train)" for key in group_label}, 
         x_label="Time", y_label="Cumulative %s" %label_reg, ylog=False,
+        ylim=train_ylim,
         figsize=figsize, filename = "%s_train" %filename, **kwargs_train)
     
     # plot test dataset
     plot_line_groupby(
-        df=df_cum_test.sort_values(date_column), x=date_column, y="cumulative_return",
+        df=df_cum_test.sort_values(date_column),
+        x=date_column, y="cumulative_return",
         groupby="pred",
         group_label = {key:group_label[key]+" (Test)" for key in group_label},\
         x_label="Time", y_label="Cumulative %s" %label_reg, ylog=False,
+        ylim=test_ylim,
         figsize=figsize, filename = "%s_test" %filename, **kwargs_test)
     return
 
 
 def plot_cumulative_return_diff(
     list_cum_returns, list_labels, label_reg, return_label=['Q1', 'Q2', 'Q3'],
-    figsize=(15,6), filename="", date_column='eom',
-    kwargs_train={}, kwargs_test={}, legend_order=None):
-    ''' Wrapper for plotting function. This function plots difference in
-    cumulative return for given models where difference in return is
-    defined as Q1+Q2 - Q3.
+    figsize=(15,6), filename="", date_column='eom', ylim=(-1,7),
+    legend_order=None, **kwargs):
+    """ Wrapper of plotting function. This function plots difference in
+    cumulative return between top and bottom classes.
     Args:
         list_cum_Returns: list of dataframe representing cumulative returns
-        (output of "calculate_cum_return")
-        list_label: list of labels for the models
+            (output of "calculate_cum_return")
+        list_label: list of model names. Ex. ['xgb']
+        label_reg: Regression label. Ex. 'fqTotalReturn'
+        return_label: Classification label in descending order.
+            Ex. ['high', 'medium', 'low']
         label_reg: regression label. ex. 'fqTotalReturn'
-    '''
+    """
     # Calculate difference in return and concatenate
-    df_diff_q1q2_q3 = pd.concat([
+    df_diff = pd.concat([
         calculate_diff_return(
-            cum_return, return_label=return_label, output_col=label)[0]
+            cum_return, return_label=return_label,
+            output_col=label, time=date_column)
             for cum_return, label in zip(list_cum_returns, list_labels)])
-    df_diff_q1_q3 = pd.concat([
-        calculate_diff_return(
-            cum_return, return_label=return_label, output_col=label)[1]
+
+    df_diff = pd.concat(
+        [
+            calculate_diff_return(
+                cum_return, return_label=return_label,output_col=label,
+                time=date_column)\
             for cum_return, label in zip(list_cum_returns, list_labels)])
 
     # Sort by dates
-    df_diff_q1q2_q3 = df_diff_q1q2_q3.sort_values(date_column)
-    df_diff_q1_q3 = df_diff_q1_q3.sort_values(date_column)
+    df_diff = df_diff.sort_values(date_column)
 
     # If legend order is given, pass it to plot_line_groupby. 
     if legend_order:
         # plot test dataset
         plot_line_groupby(
-            df=df_diff_q1q2_q3, legend_order=legend_order,
-            x="index", y="cumulative_return", groupby="pred",
-            group_label = {key:key for key in df_diff_q1q2_q3["pred"].unique()},
-            x_label="Time",
-            y_label="Cumulative %s\n(Q1+Q2) - Q3" %label_reg,
-            ylog=False, figsize=figsize,
-            filename = "%s_q1q2_q3" %filename, **kwargs_train)
-        plot_line_groupby(
-            df=df_diff_q1_q3, legend_order=legend_order,
+            df=df_diff, legend_order=legend_order,
             x="index", y="cumulative_return",
             groupby="pred",
-            group_label = {key:key for key in df_diff_q1q2_q3["pred"].unique()},
+            group_label = {key:key for key in df_diff["pred"].unique()},
             x_label="Time",
-            y_label="Cumulative %s\nQ1 - Q3" %label_reg,
-            ylog=False, figsize=figsize,
-            filename = "%s_q1_q3" %filename, **kwargs_test)
+            y_label="Cumulative %s\nTop - bottom" %label_reg,
+            ylog=False, figsize=figsize, ylim=ylim,
+            filename = "%s" %filename, **kwargs)
     else:
         # plot test dataset
         plot_line_groupby(
-            df=df_diff_q1q2_q3,
+            df=df_diff,
             x="index", y="cumulative_return", groupby="pred",
-            group_label = {key:key for key in df_diff_q1q2_q3["pred"].unique()},
+            group_label = {key:key for key in df_diff["pred"].unique()},
             x_label="Time",
-            y_label="Cumulative %s\n(Q1+Q2) - Q3" %label_reg,
-            ylog=False, figsize=figsize,
-            filename = "%s_q1q2_q3" %filename, **kwargs_train)
-        plot_line_groupby(
-            df=df_diff_q1_q3,
-            x="index", y="cumulative_return", groupby="pred",
-            group_label = {key:key for key in df_diff_q1q2_q3["pred"].unique()},
-            x_label="Time",
-            y_label="Cumulative %s\nQ1 - Q3" %label_reg,
-            ylog=False, figsize=figsize,
-            filename = "%s_q1_q3" %filename, **kwargs_test)
+            y_label="Cumulative %s\nTop - bottom" %label_reg,
+            ylog=False, figsize=figsize, ylim=ylim,
+            filename = "%s" %filename, **kwargs)
     return        
 
 

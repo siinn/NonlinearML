@@ -9,7 +9,9 @@ import pandas as pd
 from sklearn.metrics import f1_score, make_scorer
 from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import train_test_split as sklearn_train_test_split
+
 from NonlinearML.lib.backtest import *
+import NonlinearML.lib.io as io
 
 def create_folder(filename):
     """ Creates folder if not exists."""
@@ -249,6 +251,7 @@ def calculate_cum_return(pred_train, pred_test, label_fm, time="eom"):
         model: trained model
     '''
     # Calculate cumulative return
+    io.title("Calculating cumulative return")
     df_cum_return_train = cumulative_return_from_classification(
         pred_train, var="pred", var_classes="pred",
         total_return=label_fm, time=time)
@@ -407,3 +410,54 @@ def get_param_string(params):
         """ Todo: write a function to extract layer info
             if 'layers' in dir(params[key]):"""
     return ",".join(names)
+
+
+def model_comparison(
+    models, output_path, class_label, date_column, ylim=(-1,5), figsize=(8,6)):
+    """ Compare cumulative return of all models. This function reads
+    models results from csv.
+    Args:
+        models: List of models. Ex. ['lr', 'xgb']
+        output_path: Parent path to saved model results
+        class_label: List of class labels. Ex. [0, 1, 2, ..]
+        date_column: Ex. 'eom' or 'smDate'
+        others: Plotting options
+    """
+    io.title("Model comparison") 
+    # Read results from all models
+    cum_return_test = {}
+    cv_results = {}
+
+    for model in models:
+        print("Reading results from model: %s" % model)
+        path = "/".join([output_path.strip("/"), model, "csv/"])
+        # Read csv
+        cum_return_test[model] = pd.read_csv(
+            path+"cum_return_test.csv",
+            parse_dates=[date_column], infer_datetime_format=True)
+        cv_results[model] = pd.read_csv(path+"cv_results.csv")
+
+    # Plot comparison of cumulative return
+    print("Plotting the comparison of cumulative returns..")
+    plot_backtest.plot_cumulative_return_diff(
+        list_cum_returns=list(cum_return_test.values()),
+        list_labels=list(cum_return_test.keys()),
+        label_reg=label_reg,
+        date_column=date_column,
+        figsize=figsize, ylim=ylim,
+        return_label=class_label,
+        legend_order=models,
+        filename=output_path+"model_comparison/return_diff_summary")
+    # Save summary
+    print("Saving summary of model comparison..")
+    utils.save_summary(
+        class_label=class_label, metric=cv_metric,
+        output_path=output_path+"model_comparison/",
+        cv_results=cv_results)
+    return
+
+
+
+
+
+

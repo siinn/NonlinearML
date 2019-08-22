@@ -108,7 +108,7 @@ def decision_boundary_multiple_hparmas(param_grid, label, db_annot_x, db_annot_y
     Returns:
         None
     '''
-    io.title('Creating decision boundary plots of all combinations of\nhyperparameters')
+    io.title('Creating decision boundary plots of all combinations of hyperparameters')
     # Extract model from kwargs
     model = kwargs['model']
     df_train = kwargs['df']

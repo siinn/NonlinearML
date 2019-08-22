@@ -3,6 +3,8 @@ import pandas as pd
 import scipy.stats as stats
 from statsmodels.stats.multicomp import MultiComparison
 
+import NonlinearML.lib.io as io
+
 def anova_test(df_data, verbose=False):
     """ Perform Anova test.
 
@@ -91,9 +93,7 @@ def select_best_model_by_anova(cv_results, cv_metric, param_grid, p_thres):
     post_hoc_top = {}
 
     # Loop over each metric
-    print("=============================================")
-    print(" ANOVA and post hoc test on model performance")
-    print("=============================================")
+    io.title("ANOVA and post hoc test on model performance")
     print("Performing ANOVA test..")
     for metric in metric_names:
         metric_values = metric+"_values"

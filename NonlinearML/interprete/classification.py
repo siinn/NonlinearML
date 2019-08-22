@@ -3,9 +3,10 @@ import numpy as np
 import pandas as pd
 
 
+import NonlinearML.lib.backtest as backtest
 import NonlinearML.lib.cross_validation as cv
-import NonlinearML.lib.utils as utils
 import NonlinearML.lib.stats as stats
+import NonlinearML.lib.utils as utils
 
 import NonlinearML.plot.decision_boundary as plot_db
 import NonlinearML.plot.backtest as plot_backtest
@@ -16,15 +17,15 @@ def decision_boundary2D(
     config,
     df_train, df_test,
     model, model_str, param_grid,
-    best_params={},
-    cv_study=True, calculate_return=True,
+    best_params={}, cv_results=None,
+    grid_search=True, cv_study=True, calculate_return=True,
     plot_decision_boundary=True, save_csv=True,
     cv_hist_n_bins=10, cv_hist_figsize=(18, 10), cv_hist_alpha=0.6,
     cv_box_figsize=(18,10), cv_box_color="#3399FF",
     db_res=0.01, db_figsize=(10,8), db_xlim=(-3,3),
     db_ylim=(-3,3), db_annot_x=0.02, db_annot_y=0.98,
     return_figsize=(8,6), return_train_ylim=(-1,7), return_test_ylim=(-1,5),
-    return_diff_train_ylim=(-1,7), return_diff_test_ylim=(-1,5)):
+    return_diff_test_ylim=(-1,5)):
     """
     Args:
         config: Global configuration passed as dictionary
@@ -39,10 +40,9 @@ def decision_boundary2D(
         param_grid: Dictionary of hyperparameter sets.
             Example: {'C':[0,1], 'penalty':['l2']
 
-        best_params: Dictionary of best hyperparameters. If this is specified,
-            this function will not perform grid search. Instead, it will use
-            the best params for model fitting.
-
+        best_params: Dictionary of best hyperparameters. 
+        cv_results: grid search results. Ignored if grid_search is True
+        grid_search: Run grid search if True. Must provide cv_results if False
         cv_study: Perform study on cross-validation if True
         calculate_return: Calculate cumulative return if True
         plot_decision_boundary: Plot decision boundary of the best model if True
@@ -69,10 +69,10 @@ def decision_boundary2D(
     # Set features of interest
     features = [config['feature_x'], config['feature_y']]
     
-    #-----------------------------------------------------------------------
+    #---------------------------------------------------------------------------
     # Perform hyperparameter search using cross-validation
-    #-----------------------------------------------------------------------
-    if not best_params:
+    #---------------------------------------------------------------------------
+    if grid_search:
         cv_results = cv.grid_search(
             df_train=df_train,
             model=model,
@@ -80,47 +80,51 @@ def decision_boundary2D(
             metric=config['cv_metric'],
             n_epoch=config['n_epoch'], subsample=config['subsample'],
             features=features, label=config['label_cla'],
+            date_column=config['date_column'],
             k=config['k'], purge_length=config['purge_length'],
             output_path=output_path+"cross_validation/",
             verbose=False)
-        # Perform ANOVA to select best model
-        anova_results = stats.select_best_model_by_anova(
-            cv_results=cv_results,
-            cv_metric=config['cv_metric'],
-            param_grid=param_grid, p_thres=config['p_thres'])
+    #---------------------------------------------------------------------------
+    # Perform ANOVA to select best model
+    #---------------------------------------------------------------------------
+    anova_results = stats.select_best_model_by_anova(
+        cv_results=cv_results,
+        cv_metric=config['cv_metric'],
+        param_grid=param_grid, p_thres=config['p_thres'])
 
-        # Get best parameters
+    # Get best parameters
+    if not best_params:
         best_params = anova_results['best_params']
     
-        #-----------------------------------------------------------------------
-        # Cross-validation study
-        #-----------------------------------------------------------------------
-        if cv_study:
-            # Plot distribution of cross-validation results
-            plot_cv.plot_cv_dist(
-                cv_results,
-                n_bins=cv_hist_n_bins, x_range=None, legend_loc=None,
-                legend_box=(1, 1), figsize=cv_hist_figsize, alpha=cv_hist_alpha,
-                hist_type='stepfilled', edgecolor='black',
-                filename=output_path+"cross_validation/cv_hist")
-            plot_cv.plot_cv_box(
-                cv_results,
-                filename=output_path+"cross_validation/cv_box",
-                cv_metric=None, figsize=cv_box_figsize, color=cv_box_color)
-            
-            # Plot decision boundaries of all hyperparameter sets
-            plot_db.decision_boundary_multiple_hparmas(
-                param_grid=param_grid, label=config['label_cla'], model=model,
-                db_annot_x=db_annot_x, db_annot_y=db_annot_y,
-                df=df_train, features=features, h=db_res,
-                x_label=config['feature_x'], y_label=config['feature_y'],
-                #vlines=tertile_boundary[feature_x],
-                #hlines=tertile_boundary[feature_y],
-                colors=config['db_colors'], xlim=db_xlim, ylim=db_ylim,
-                figsize=db_figsize,
-                ticks=sorted(np.arange(config['n_classes'])),
-                filename=output_path+"decision_boundary/db",
-                )
+    #---------------------------------------------------------------------------
+    # Cross-validation study
+    #---------------------------------------------------------------------------
+    if cv_study:
+        # Plot distribution of cross-validation results
+        plot_cv.plot_cv_dist(
+            cv_results,
+            n_bins=cv_hist_n_bins, x_range=None, legend_loc=None,
+            legend_box=(1, 1), figsize=cv_hist_figsize, alpha=cv_hist_alpha,
+            hist_type='stepfilled', edgecolor='black',
+            filename=output_path+"cross_validation/cv_hist")
+        plot_cv.plot_cv_box(
+            cv_results,
+            filename=output_path+"cross_validation/cv_box",
+            cv_metric=None, figsize=cv_box_figsize, color=cv_box_color)
+        
+        # Plot decision boundaries of all hyperparameter sets
+        plot_db.decision_boundary_multiple_hparmas(
+            param_grid=param_grid, label=config['label_cla'], model=model,
+            db_annot_x=db_annot_x, db_annot_y=db_annot_y,
+            df=df_train, features=features, h=db_res,
+            x_label=config['feature_x'], y_label=config['feature_y'],
+            #vlines=tertile_boundary[feature_x],
+            #hlines=tertile_boundary[feature_y],
+            colors=config['db_colors'], xlim=db_xlim, ylim=db_ylim,
+            figsize=db_figsize,
+            ticks=sorted(list(config['class_label'].keys())),
+            filename=output_path+"decision_boundary/db",
+            )
     
     else:
         # If grid search is not performed, set results to be an empty dictionary
@@ -142,8 +146,9 @@ def decision_boundary2D(
     #---------------------------------------------------------------------------
     if calculate_return:
         # Calculate cumulative return using trained model
-        df_cum_train, df_cum_test = utils.calculate_cum_return(
+        df_cum_train, df_cum_test = backtest.calculate_cum_return(
                 pred_train=pred_train, pred_test=pred_test, 
+                list_class=list(config['class_label'].keys()),
                 label_fm=config['label_fm'], time=config['date_column'])
         
         # Make cumulative return plot
@@ -153,17 +158,17 @@ def decision_boundary2D(
             figsize=return_figsize,
             filename=output_path+"cum_return/return_by_group",
             date_column=config['date_column'],
-            kwargs_train={'ylim':return_train_ylim},
-            kwargs_test={'ylim':return_test_ylim})
+            train_ylim=return_train_ylim,
+            test_ylim=return_test_ylim)
         plot_backtest.plot_cumulative_return_diff(
             list_cum_returns=[df_cum_test],
-            return_label=sorted(np.arange(config['n_classes'])),
+            return_label=sorted(
+                list(config['class_label'].keys()), reverse=True),
             list_labels=[model_str], label_reg=config['label_reg'],
             figsize=return_figsize,
             date_column=config['date_column'],
             filename=output_path+"cum_return/return_diff_group",
-            kwargs_train={'ylim':return_diff_train_ylim},
-            kwargs_test={'ylim':return_diff_test_ylim})
+            ylim=return_diff_test_ylim)
     else:
         # If cumulative returns are not calculated, create dummy results
             df_cum_train = None
@@ -182,7 +187,7 @@ def decision_boundary2D(
             #hlines=tertile_boundary[feature_y],
             colors=config['db_colors'],
             xlim=db_xlim, ylim=db_ylim, figsize=db_figsize,
-            ticks=sorted(np.arange(config['n_classes']), reverse=True),
+            ticks=sorted(list(config['class_label'].keys()), reverse=True),
             annot={
                 'text':utils.get_param_string(best_params).strip('{}')\
                     .replace('\'','').replace(',','\n').replace('\n ', '\n'),
