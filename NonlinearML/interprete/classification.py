@@ -62,10 +62,18 @@ def decision_boundary2D(
         'model': Trained model with the best hyperparameter set.
 
     """
-    print(" > Running %s" % model_str)
-
     # Set output path for this model
     output_path = config['output_path'] + model_str + '/'
+
+    # Set logging configuration
+    utils.create_folder(output_path+'log')
+    io.setConfig(output_path+"log")
+    io.title('Running two factor classification with two factors:')
+    io.message(' > feature x: %s' % config['feature_x'])
+    io.message(' > feature y: %s' % config['feature_y'])
+
+    io.message(" > Running %s" % model_str)
+
 
     # Set features of interest
     features = [config['feature_x'], config['feature_y']]
@@ -89,7 +97,6 @@ def decision_boundary2D(
             df_train=df_train,
             model=model,
             param_grid=param_grid,
-            metric=config['cv_metric'],
             n_epoch=config['n_epoch'], subsample=config['subsample'],
             features=features, label=config['label_cla'],
             date_column=config['date_column'],
@@ -125,7 +132,7 @@ def decision_boundary2D(
         plot_cv.plot_cv_box(
             cv_results,
             filename=output_path+"cross_validation/cv_box",
-            cv_metric=None, figsize=cv_box_figsize, color=cv_box_color)
+            figsize=cv_box_figsize, color=cv_box_color)
         
         # Plot decision boundaries of all hyperparameter sets
         plot_db.decision_boundary_multiple_hparmas(
@@ -236,6 +243,9 @@ def decision_boundary2D(
         if type(anova_results['tukey_top_results']) == pd.DataFrame:
             anova_results['tukey_top_results'].to_csv(
                 output_path+'csv/tukey_top_results.csv')
+
+    io.message("Successfully completed all tasks!")
+
     return {
         'cv_results': cv_results, 'anova_results': anova_results,
         'pred_train': pred_train, 'pred_test': pred_test,

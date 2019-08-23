@@ -59,8 +59,8 @@ test_begin = "2012-01-01"
 test_end = "2019-05-01"
 
 # Set cross-validation configuration
-k = 3           # Must be > 1
-n_epoch = 3
+k = 10           # Must be > 1
+n_epoch = 10
 subsample = 0.8
 purge_length = 3
 
@@ -68,7 +68,7 @@ purge_length = 3
 p_thres = 0.05
 
 # Set metric for training
-cv_metric = 'f1-score'
+cv_metric = ['f1-score', 'precision', 'recall', 'accuracy']
 
 # Set color scheme for decision boundary plot
 #db_colors = ["#3DC66D", "#F3F2F2", "#DF4A3A"]
@@ -76,9 +76,10 @@ cmap = matplotlib.cm.get_cmap('Spectral', 10)
 db_colors = [matplotlib.colors.rgb2hex(cmap(i)) for i in range(cmap.N)]
 
 # Set algorithms to run
-run_lr = True
+run_lr = False
 run_xgb = True
-run_comparison = True
+run_knn = False
+run_comparison = False
 
 # Set default warning
 warnings.filterwarnings('once')  # 'error', 'always', 'ignore'
@@ -103,10 +104,6 @@ config = {
 if __name__ == "__main__":
 
 
-    io.title('Running two factor classification with two factors:')
-    print(' > feature x: %s' % config['feature_x'])
-    print(' > feature y: %s' % config['feature_y'])
-
     #---------------------------------------------------------------------------
     # Read dataset
     #---------------------------------------------------------------------------
@@ -129,7 +126,7 @@ if __name__ == "__main__":
             "max_iter":[50],
             "tol": [1e-2],
             "n_jobs":[-1],
-            "C": np.logspace(-4, 3, 2)} # note: C <= 1e-5 doesn't converge
+            "C": np.logspace(-4, 4, 2)} # note: C <= 1e-5 doesn't converge
 
         # Set model
         model_lr = LogisticRegression()
@@ -153,15 +150,13 @@ if __name__ == "__main__":
     if run_xgb:
         # Set parameters to search
         param_grid_xgb = {
-            #'min_child_weight': [1500, 1000, 500],
-            #'max_depth': [3,5,7],
-            'min_child_weight': [100],
-            'max_depth': [3, 5],
+            'min_child_weight': [1000, 500, 100],
+            'max_depth': [7],
             'learning_rate': [0.1],
             'n_estimators': [50],
             'objective': ['multi:softmax'],
             'gamma': [0], #np.logspace(-2, 1, 1), # Min loss reduction
-            'lambda': [1], #np.logspace(0, 2, 2) # L2 regularization
+            'lambda': [1,10,100], #np.logspace(0, 2, 2) # L2 regularization
             'n_jobs':[-1],
             'num_class': [n_classes]}
 
@@ -199,7 +194,9 @@ if __name__ == "__main__":
             config, df_train, df_test,
             model_knn, model_knn_str, param_grid_knn, best_params={},
             read_last=False, cv_study=True, calculate_return=True,
-            plot_decision_boundary=True, save_csv=True)
+            plot_decision_boundary=True, save_csv=True,
+            db_xlim=(0,0.2), db_ylim=(-1,1.5), db_res=0.001,
+            return_train_ylim=(-1,20), return_test_ylim=(-1,5))
 
 
 
@@ -215,7 +212,6 @@ if __name__ == "__main__":
             cv_metric=config['cv_metric'],
             date_column=config['date_column'])
 
-    print("Successfully completed all tasks")
 
 
 

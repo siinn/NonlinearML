@@ -66,7 +66,7 @@ def remove_missing_targets(df, targets):
     # check null values
     null_fraction = count_null(df, targets)
     for i, key in enumerate(null_fraction):
-        print("Removing the observations with missing %s (%.4f)" \
+        io.message("Removing the observations with missing %s (%.4f)" \
             % (targets[i], null_fraction[key]))
     # remove null
     return df.dropna(subset=targets)  
@@ -87,7 +87,7 @@ def impute_data(df, method, features):
     elif method == "securityId_average":
         df = impute_by_securityID_forward(df, features)
     else:
-        print("Impute method is not valid.")
+        io.message("Impute method is not valid.")
     return df
 
 def impute_by_month(df, features):

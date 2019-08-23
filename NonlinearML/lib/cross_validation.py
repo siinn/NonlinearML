@@ -119,14 +119,14 @@ def get_val_dates(df, k, date_column, verbose=False):
         # Remove decimals
         fold_length = int(fold_length)
         if verbose:
-            print('Warning: K-folds will not be of equal size.')
-            print('         K = %s, Fold size (month)= %s' %(k, fold_length))
-            print('         date_begin = %s, date_end = %s' 
+            io.message('Warning: K-folds will not be of equal size.')
+            io.message('         K = %s, Fold size (month)= %s' %(k, fold_length))
+            io.message('         date_begin = %s, date_end = %s' 
                 %(date_begin, date_end))
     # Calculate begin and end dates of validation set.
     # Convert them back to timestamp.
     if verbose:
-        print(
+        io.message(
             '\nDataset will be splitted into K-folds with the',
             ' following dates:')
     for i in range(k):
@@ -137,13 +137,13 @@ def get_val_dates(df, k, date_column, verbose=False):
         # use date_end instead of val_end
         if i+1 == k:
             if verbose:
-                print(' > k = %s, begin = %s, end = %s, fold size (month) = %s'\
+                io.message(' > k = %s, begin = %s, end = %s, fold size (month) = %s'\
                 %(i, val_begin, date_end, date_end-val_begin))
             val_dates.append(
                 (val_begin.to_timestamp(), date_end.to_timestamp()))
         else:
             if verbose:
-                print(' > k = %s, begin = %s, end = %s, fold size (month) = %s'\
+                io.message(' > k = %s, begin = %s, end = %s, fold size (month) = %s'\
                 %(i, val_begin, val_end, val_end-val_begin))
             val_dates.append(
                 ((val_begin.to_timestamp(), val_end.to_timestamp())))
@@ -178,9 +178,9 @@ def purged_k_fold_cv(
             ex. {'accuracy':0.3, 'f1-score':0.5, etc.}
         results: Raw cross-validation results. May used for plotting
             distribution. """
-    print('Performing cross-validation with purged k-fold')
-    print('\t> purge length = %s' % purge_length)
-    print('\t> embargo length = %s' % embargo_length)
+    io.message('Performing cross-validation with purged k-fold')
+    io.message('\t> purge length = %s' % purge_length)
+    io.message('\t> embargo length = %s' % embargo_length)
     # Find dates to be used to split data into k folds.
     val_dates = get_val_dates(
         df=df_train, k=k, date_column=date_column, verbose=verbose)
@@ -199,9 +199,9 @@ def purged_k_fold_cv(
         for val_begin, val_end in val_dates:
             # Print debugging info
             if verbose==True:
-                print('Creating an instance of purged k-fold, epoch=%s' %(i//k))
-                print('\t> validation begin = %s' % val_begin.to_period('M'))
-                print('\t> validation end = %s' % val_end.to_period('M'))
+                io.message('Creating an instance of purged k-fold, epoch=%s' %(i//k))
+                io.message('\t> validation begin = %s' % val_begin.to_period('M'))
+                io.message('\t> validation end = %s' % val_end.to_period('M'))
             # Create purged training set and validation set as
             # a one instance of k folds.
             df_k_train, df_k_val = create_purged_fold(
@@ -234,15 +234,15 @@ def purged_k_fold_cv(
     results_std = {metric:np.array(results[metric]).std()
         for metric in results}
     if verbose==True:
-        print("\t>> Validation performance:")
+        io.message("\t>> Validation performance:")
         for key in results_mean:
-            print("\t\t>> mean %s = %s" % (key, results_mean[key]))
+            io.message("\t\t>> mean %s = %s" % (key, results_mean[key]))
         for key in results_std:
-            print("\t\t>> std %s = %s" % (key, results_std[key]))
+            io.message("\t\t>> std %s = %s" % (key, results_std[key]))
     return {'mean':results_mean, 'std':results_std, 'values':results}
 
 def grid_search(
-    df_train, model, param_grid, metric, features, label, k, purge_length,
+    df_train, model, param_grid, features, label, k, purge_length,
     output_path, n_epoch=1, embargo_length=0, date_column='eom', subsample=1,
     verbose=False):
     ''' Perform grid search using purged cross-validation method. 
@@ -250,9 +250,6 @@ def grid_search(
         df_train: training set given in Pandas dataframe
         model: Model with .fit(X, y) and .predict(X) method.
         params_grid: Hyperparamater grid to search.
-        metric: Evaluation metric. 
-            Available options are 'accuracy', 'f1-score', 'precision', or
-            'recall'. The last three matrics are macro-averaged.
         features, label: List of features and target label
         k: k for k-fold CV.
         purge_length: Overlapping window size to be removed from training
@@ -287,9 +284,9 @@ def grid_search(
     count=0
     for i, params in enumerate(experiments):
         count = count + 1
-        print(" > Experiment (%s/%s)" % (count, n_experiments))
-        print(" > Parameters:")
-        print("\n".join(["\t - "+x+"="+str(params[x]) for x in params]))
+        io.message("Experiment (%s/%s)" % (count, n_experiments))
+        io.message("Parameters:")
+        io.message(["\t - "+x+"="+str(params[x]) for x in params])
         # Perform purged k-fold cross validation
         single_model_result = purged_k_fold_cv(
             df_train=df_train,

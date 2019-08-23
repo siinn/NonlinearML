@@ -34,7 +34,8 @@ def decision_boundary(
     Returns:
         None
     '''
-    print("Plotting decision boundary with filename: \n >%s" %filename)
+    io.message("Plotting decision boundary with filename:")
+    io.message("\t" + filename)
     # Get x and y domain
     if xlim:
         x_min, x_max = xlim
@@ -122,9 +123,9 @@ def decision_boundary_multiple_hparmas(param_grid, label, db_annot_x, db_annot_y
     count=0
     for i, params in enumerate(experiments):
         count = count + 1
-        print(' > Experiment (%s/%s)' % (count, n_experiments))
-        print(' > Parameters:')
-        print("\n".join(["\t - "+x+"="+str(params[x]) for x in params]))
+        io.message(' > Experiment (%s/%s)' % (count, n_experiments))
+        io.message(' > Parameters:')
+        io.message(["\t - "+x+"="+str(params[x]) for x in params])
         # Train model with given hyperparameter set
         model=model.set_params(**params)
         model.fit(df_train[features], df_train[label])
@@ -172,7 +173,7 @@ def decision_boundary_pdp(
                 (df[feature_interest]==x) & \
                 (df[feature_other]==y)]['pred'])[0]
         
-    print("\nPlotting decision boundary plot using partial dependence plot."\
+    io.message("\nPlotting decision boundary plot using partial dependence plot."\
            + " Filename: \n >%s" %filename)
     # Create figures for partial dependence plot using Skater
     interpreter = Interpretation(

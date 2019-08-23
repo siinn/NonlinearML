@@ -17,7 +17,7 @@ def create_folder(filename):
     """ Creates folder if not exists."""
     path = "/".join(filename.split('/')[:-1])
     if not os.path.exists(path):
-        print("Creating folder: %s" %path)
+        io.message("Creating folder: %s" %path)
         os.makedirs(path)
     return
 
@@ -196,7 +196,7 @@ def predict(
         pred_train, pred_test: prediction of train and test dataset
         model: trained model
     '''
-    print("Making prediction:\n%s" % model)
+    io.message("Making prediction:\n%s" % model)
     # Fit model
     model.fit(df_train[features], df_train[label_cla])
 
@@ -254,7 +254,7 @@ def grid_search(
     Return:
         (best parameters, summary in dataframe)
     '''
-    print("Performing grid search using validation set")
+    io.message("Performing grid search using validation set")
     # Dictionary to hold results
     summary = {
         "params":[], "train_top":[], "train_bottom":[], "train_diff":[],
@@ -267,11 +267,11 @@ def grid_search(
     count=0
     for params in experiments:
         count = count + 1
-        print("-----------------------------------------------------------")
-        print("Experiment (%s/%s)" % (count, n_experiments))
-        print("-----------------------------------------------------------")
-        print("Parameters:")
-        print(params)
+        io.message("-----------------------------------------------------------")
+        io.message("Experiment (%s/%s)" % (count, n_experiments))
+        io.message("-----------------------------------------------------------")
+        io.message("Parameters:")
+        io.message(params)
         # Make prediction using best parameters
         pred_train, pred_test, model = utils.predict(
                 model=model.set_params(**best_params),
@@ -286,15 +286,15 @@ def grid_search(
             last_cum_return(df_cum_train)
         return_val_top, return_val_bottom, return_val_diff = \
             last_cum_return(df_cum_val)
-        print("Cumulative return")
-        print(" > Train")
-        print("  >> top: %s" % return_train_top)
-        print("  >> bottom: %s" % return_train_bottom)
-        print("  >> diff: %s" % return_train_diff)
-        print(" > Validation")
-        print("  >> top: %s" % return_val_top)
-        print("  >> bottom: %s" % return_val_bottom)
-        print("  >> diff: %s" % return_val_diff)
+        io.message("Cumulative return")
+        io.message(" > Train")
+        io.message("  >> top: %s" % return_train_top)
+        io.message("  >> bottom: %s" % return_train_bottom)
+        io.message("  >> diff: %s" % return_train_diff)
+        io.message(" > Validation")
+        io.message("  >> top: %s" % return_val_top)
+        io.message("  >> bottom: %s" % return_val_bottom)
+        io.message("  >> diff: %s" % return_val_diff)
         # Return k and difference
         summary["params"].append(params)
         summary["train_top"].append(return_train_top)
@@ -309,8 +309,8 @@ def grid_search(
         - abs(df_return["train_diff"] - df_return["val_diff"])
     # Return best parameter
     best_params = df_return.iloc[df_return["metric"].idxmax()]["params"]
-    print("Best parameters:")
-    print(best_params)
+    io.message("Best parameters:")
+    io.message(best_params)
     return (best_params, df_return)
 
 
@@ -334,14 +334,14 @@ def grid_search_cv(
     # custom scorer for multi-class classification
     scorer = make_scorer(f1_score, average=average)
     # run grid search
-    print("Performing grid search..") 
+    io.message("Performing grid search..") 
     cv = GridSearchCV(
         model, param_grid, cv=n_folds, scoring=scorer, refit=True,
         n_jobs=-1, verbose=1)
     cv.fit(df_train[features], df_train[label_cla])
     # Print best parameters
-    print("Best parameters:")
-    print(cv.best_params_)
+    io.message("Best parameters:")
+    io.message(cv.best_params_)
     return cv
 
 def get_param_string(params):

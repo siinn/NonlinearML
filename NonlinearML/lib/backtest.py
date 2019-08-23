@@ -21,7 +21,7 @@ import NonlinearML.lib.io as io
 #            df_curr = df.loc[df[time]==date].sort_values(var_classes) # retrieve current return and previous asset
 #            for classes in df[var_classes].unique():
 #                if classes not in df_curr[var_classes].unique():
-#                    print("Found a period in which mean return is not available: date=%s, classes=%s" %(date, classes))
+#                    io.message("Found a period in which mean return is not available: date=%s, classes=%s" %(date, classes))
 #                    df_add = df_curr.head(1).copy()
 #                    df_add[total_return]=0
 #                    df_add[var_classes]=classes
@@ -74,8 +74,8 @@ def cumulative_return_from_classification(
             df_curr = df.loc[df[time]==date].sort_values(col_class) 
             for classes in list_class:
                 if classes not in df_curr[col_class].unique():
-                    print("\tFound a period in which mean return is not", 
-                        "available: date=%s, classes=%s" %(date, classes))
+                    io.message("\tFound a period in which mean return is not"\
+                        + "available: date=%s, classes=%s" %(date, classes))
                     df_add = df_curr.head(1).copy()
                     df_add[month_return]=0
                     df_add[col_class]=classes
@@ -152,8 +152,8 @@ def diff_cumulative_return_q5q1(df, var, var_quintile, time="eom"):
 #    df_cum_return_group = {}
 #    df_diff_q5q1_group = {}
 #    for name, df_group in df.groupby(groupby):
-#        print("Processing group: %s" %name)
-#        print(name)
+#        io.message("Processing group: %s" %name)
+#        io.message(name)
 #        # calculate cumulative return
 #        df_cum_return_group[name]= cumulative_return_classification(
 #            df=df_group, var=var, var_quintile=var_quintile,
@@ -212,12 +212,12 @@ def calculate_cum_return(pred_train, pred_test, list_class, label_fm, time):
     '''
     # Calculate cumulative return
     io.title("Calculating cumulative return")
-    print(" > Calculating cumulative return of train dataset..")
+    io.message(" > Calculating cumulative return of train dataset..")
     df_cum_return_train = cumulative_return_from_classification(
         df=pred_train, list_class=list_class,
         col_class="pred",
         month_return=label_fm, time=time)
-    print(" > Calculating cumulative return of train dataset..")
+    io.message(" > Calculating cumulative return of train dataset..")
     df_cum_return_test = cumulative_return_from_classification(
         df=pred_test, 
         col_class="pred", list_class=list_class,

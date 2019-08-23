@@ -2,6 +2,7 @@ import numpy as np
 import seaborn as sns
 import itertools
 
+import NonlinearML.lib.io as io
 from NonlinearML.lib.utils import create_folder
 from NonlinearML.plot.style import load_matplotlib, lines
 plt = load_matplotlib()
@@ -73,7 +74,7 @@ def plot_distribution(
     # Create output folder and save figure
     create_folder(filename)
     if filename != "":
-        print('Saving figure as "%s.png"' %filename)
+        io.message('Saving figure as "%s.png"' %filename)
         plt.savefig('%s.png' % filename)
     return
 

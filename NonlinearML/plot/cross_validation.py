@@ -55,7 +55,7 @@ def plot_cv_dist(
     return
 
 
-def plot_cv_box(cv_results, filename, figsize=(8,5), cv_metric=None, **kwargs):
+def plot_cv_box(cv_results, filename, figsize=(8,5), **kwargs):
     ''' Plot cross-validation distribution from each hyperparameter set.
     For example, if CV is performed on 5 hyperparameter sets with k=10,
     this function will plot the distribution of 5 runs where each distribution
@@ -75,8 +75,6 @@ def plot_cv_box(cv_results, filename, figsize=(8,5), cv_metric=None, **kwargs):
 
     # Loop over metrics to plot CV result distribution
     for name, values in zip(metric_names, metric_values):
-        if (cv_metric != None) and (cv_metric!=name):
-            continue
         # Convert columns of list to multiple columns
         df_values = utils.expand_column(cv_results, values)
 

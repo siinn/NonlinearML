@@ -2,6 +2,8 @@ import os
 import datetime
 import pandas as pd
 
+import NonlinearML.lib.io as io
+
 
 def write_log(list_features, input_path, log_path, model, grid_train_results, grid_test_results,
               test_begin, test_end):
@@ -21,7 +23,7 @@ def write_log(list_features, input_path, log_path, model, grid_train_results, gr
     if not os.path.exists(log_path):
         os.makedirs(log_path)
     # Open file to write log
-    print("Writing results to %s" % datetime.datetime.now().strftime("%Y-%m-%d_%H-%M"))
+    io.message("Writing results to %s" % datetime.datetime.now().strftime("%Y-%m-%d_%H-%M"))
     with open(log_path+"tf_%s" % datetime.datetime.now().strftime("%Y-%m-%d_%H-%M"), "a") as f:
         f.write("==================================\n")
         f.write(" Keras Model\n")
