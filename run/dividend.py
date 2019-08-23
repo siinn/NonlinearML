@@ -19,6 +19,7 @@ import NonlinearML.lib.cross_validation as cv
 import NonlinearML.lib.utils as utils
 import NonlinearML.lib.stats as stats
 import NonlinearML.lib.io as io
+import NonlinearML.lib.summary as summary
 
 import NonlinearML.plot.plot as plot
 import NonlinearML.plot.decision_boundary as plot_db
@@ -58,8 +59,8 @@ test_begin = "2012-01-01"
 test_end = "2019-05-01"
 
 # Set cross-validation configuration
-k = 5           # Must be > 1
-n_epoch = 5
+k = 3           # Must be > 1
+n_epoch = 3
 subsample = 0.8
 purge_length = 3
 
@@ -75,7 +76,7 @@ cmap = matplotlib.cm.get_cmap('Spectral', 10)
 db_colors = [matplotlib.colors.rgb2hex(cmap(i)) for i in range(cmap.N)]
 
 # Set algorithms to run
-run_lr = False
+run_lr = True
 run_xgb = True
 run_comparison = True
 
@@ -128,7 +129,7 @@ if __name__ == "__main__":
             "max_iter":[50],
             "tol": [1e-2],
             "n_jobs":[-1],
-            "C": np.logspace(-4, 3, 10)} # note: C <= 1e-5 doesn't converge
+            "C": np.logspace(-4, 3, 2)} # note: C <= 1e-5 doesn't converge
 
         # Set model
         model_lr = LogisticRegression()
@@ -138,8 +139,13 @@ if __name__ == "__main__":
         db_lr = classification.decision_boundary2D(
             config, df_train, df_test,
             model_lr, model_lr_str, param_grid_lr, best_params={},
-            cv_study=True, calculate_return=True,
-            plot_decision_boundary=True, save_csv=True)
+            read_last=False,
+            cv_study=True,
+            calculate_return=True,
+            plot_decision_boundary=True,
+            save_csv=True,
+            db_xlim=(0,0.2), db_ylim=(-1,1.5), db_res=0.001,
+            return_train_ylim=(-1,20), return_test_ylim=(-1,5))
 
     #---------------------------------------------------------------------------
     # Xgboost
@@ -147,8 +153,10 @@ if __name__ == "__main__":
     if run_xgb:
         # Set parameters to search
         param_grid_xgb = {
-            'min_child_weight': [1000, 500],
-            'max_depth': [5, 20, 50],
+            #'min_child_weight': [1500, 1000, 500],
+            #'max_depth': [3,5,7],
+            'min_child_weight': [100],
+            'max_depth': [3, 5],
             'learning_rate': [0.1],
             'n_estimators': [50],
             'objective': ['multi:softmax'],
@@ -165,22 +173,50 @@ if __name__ == "__main__":
         db_xgb = classification.decision_boundary2D(
             config, df_train, df_test,
             model_xgb, model_xgb_str, param_grid_xgb, best_params={},
-            grid_search=True, cv_results=None,
-            cv_study=True, calculate_return=True,
-            plot_decision_boundary=True, save_csv=True,
+            read_last=False,
+            cv_study=True,
+            calculate_return=True,
+            plot_decision_boundary=True,
+            save_csv=True,
             db_xlim=(0,0.2), db_ylim=(-1,1.5), db_res=0.001,
             return_train_ylim=(-1,20), return_test_ylim=(-1,5))
+
+    #---------------------------------------------------------------------------
+    # kNN
+    #---------------------------------------------------------------------------
+    if run_knn:
+        # Set parameters to search
+        param_grid_knn = {
+            'n_neighbors':
+                sorted([int(x) for x in np.logspace(2, 3, 10)], reverse=True)}
+
+        # Set model
+        model_knn = KNeighborsClassifier()
+        model_knn_str = 'knn'
+
+        # Run analysis on 2D decision boundary
+        db_knn = classification.decision_boundary2D(
+            config, df_train, df_test,
+            model_knn, model_knn_str, param_grid_knn, best_params={},
+            read_last=False, cv_study=True, calculate_return=True,
+            plot_decision_boundary=True, save_csv=True)
+
+
 
     #---------------------------------------------------------------------------
     # Compare model results
     #---------------------------------------------------------------------------
     if run_comparison:
-        utils.model_comparison(
-            models=['lr', 'xgb'], output_path=output_path,
+        summary.model_comparison(
+            models=['lr', 'xgb', 'nn'], output_path=output_path,
+            label_reg=config['label_reg'],
             class_label=sorted(
                 list(config['class_label'].keys()), reverse=True),
+            cv_metric=config['cv_metric'],
             date_column=config['date_column'])
 
     print("Successfully completed all tasks")
+
+
 
 

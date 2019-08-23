@@ -119,33 +119,6 @@ def concat_pred_label(df, prediction, columns=[], pred_name='pred'):
                            pd.DataFrame(prediction, columns=['pred'])], axis=1)
     return df_result
 
-#def discretize_variables_by_month(df, variables, month="eom", labels_tertile={}, labels_quintile={}):
-#    ''' Discretize variables by assigning a class within each month. 
-#    Args:
-#        df: Pandas dataframe containing variables
-#        variables: list of variables to discretize
-#        month: column representing time
-#    Return:
-#        df: Pandas dataframe with discretized variable.
-#    '''
-#    # Loop over each variable
-#    for var in variables:
-#        # Check if user provided label. If not, use the default values
-#        # Tertile
-#        if var in labels_tertile:
-#            lt=labels_tertile[var]
-#        else:
-#            lt=[var+" low", var+" mid", var+" high"]
-#        # Tertile
-#        if var in labels_quintile:
-#            lq=labels_quintile[var]
-#        else:
-#            lq=[var+" low", var+" mid-low", var+" mid", var+" mid-high", var+" high"]
-#        # assign classes
-#        df[var+"_tertile"] = df.groupby([month])[var].transform(lambda x: pd.qcut(x, 3, lt))
-#        df[var+"_quintile"] = df.groupby([month])[var].transform(lambda x: pd.qcut(x, 5, lq))
-#    return df
-
 
 def discretize_variables_by_month(
     df, variables, n_classes, class_names, suffix="discrete", month="eom"):
@@ -371,34 +344,6 @@ def grid_search_cv(
     print(cv.best_params_)
     return cv
 
-
-def save_summary(class_label, metric, output_path, cv_results):
-    '''Collect results from all models trained with best parameters and
-        save them as csv
-    Args:
-        class_label: Unique class names such as [0, 1, 2]
-        metric: Metric used to sort results
-        output_path: Path to save results
-        cv_results: Results obtained from grid search using purged
-            cross-validation. 
-            Example: {'XGB': cv_results_xgb}
-                where cv_results_xgb is output of grid_search_purged_cv
-    Return:
-        None
-    '''
-    # List of all available metrics
-    metrics = ['accuracy', 'precision', 'recall', 'f1-score']
-    for cls in class_label:
-        metrics = metrics + \
-            ['%.1f_precision' %cls, '%.1f_recall' %cls, '%.1f_f1-score' %cls]
-    # Collect results from best parameters
-    df_summary = pd.DataFrame({
-        model:cv_results[model].loc[cv_results[model][metric].idxmax()][metrics]
-            for model in cv_results}).T
-    # Save the summary
-    create_folder(output_path+'summary.csv')
-    df_summary.to_csv(output_path+'summary.csv')
-
 def get_param_string(params):
     """ Get name as a string."""
     names = []
@@ -412,52 +357,19 @@ def get_param_string(params):
     return ",".join(names)
 
 
-def model_comparison(
-    models, output_path, class_label, date_column, ylim=(-1,5), figsize=(8,6)):
-    """ Compare cumulative return of all models. This function reads
-    models results from csv.
+def expand_column(df, col):
+    """ Expand columns of strings into multiple columns.
+    Ex. '['0.1', '0.4']' to two column of 0.1 0.4
     Args:
-        models: List of models. Ex. ['lr', 'xgb']
-        output_path: Parent path to saved model results
-        class_label: List of class labels. Ex. [0, 1, 2, ..]
-        date_column: Ex. 'eom' or 'smDate'
-        others: Plotting options
+        df: Pandas dataframe
+        col: Column to expand
+    Return:
+        Dataframe with multiple columns
     """
-    io.title("Model comparison") 
-    # Read results from all models
-    cum_return_test = {}
-    cv_results = {}
-
-    for model in models:
-        print("Reading results from model: %s" % model)
-        path = "/".join([output_path.strip("/"), model, "csv/"])
-        # Read csv
-        cum_return_test[model] = pd.read_csv(
-            path+"cum_return_test.csv",
-            parse_dates=[date_column], infer_datetime_format=True)
-        cv_results[model] = pd.read_csv(path+"cv_results.csv")
-
-    # Plot comparison of cumulative return
-    print("Plotting the comparison of cumulative returns..")
-    plot_backtest.plot_cumulative_return_diff(
-        list_cum_returns=list(cum_return_test.values()),
-        list_labels=list(cum_return_test.keys()),
-        label_reg=label_reg,
-        date_column=date_column,
-        figsize=figsize, ylim=ylim,
-        return_label=class_label,
-        legend_order=models,
-        filename=output_path+"model_comparison/return_diff_summary")
-    # Save summary
-    print("Saving summary of model comparison..")
-    utils.save_summary(
-        class_label=class_label, metric=cv_metric,
-        output_path=output_path+"model_comparison/",
-        cv_results=cv_results)
-    return
-
-
-
+    return pd.DataFrame(df[col].str.strip('[]\' ')\
+            .apply(lambda x:x.split(',') if type(x) == str else x)\
+        .tolist())\
+        .applymap(lambda x:float(x.strip(' \'')) if type(x) == str else float(x))
 
 
 

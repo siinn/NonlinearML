@@ -5,6 +5,7 @@ import pandas as pd
 
 import NonlinearML.lib.backtest as backtest
 import NonlinearML.lib.cross_validation as cv
+import NonlinearML.lib.io as io
 import NonlinearML.lib.stats as stats
 import NonlinearML.lib.utils as utils
 
@@ -16,9 +17,8 @@ import NonlinearML.plot.cross_validation as plot_cv
 def decision_boundary2D(
     config,
     df_train, df_test,
-    model, model_str, param_grid,
-    best_params={}, cv_results=None,
-    grid_search=True, cv_study=True, calculate_return=True,
+    model, model_str, param_grid, best_params={},
+    read_last=False, cv_study=None, calculate_return=True,
     plot_decision_boundary=True, save_csv=True,
     cv_hist_n_bins=10, cv_hist_figsize=(18, 10), cv_hist_alpha=0.6,
     cv_box_figsize=(18,10), cv_box_color="#3399FF",
@@ -39,13 +39,14 @@ def decision_boundary2D(
         model_str: String represents model name. Ex. 'lr' or 'xgb'
         param_grid: Dictionary of hyperparameter sets.
             Example: {'C':[0,1], 'penalty':['l2']
-
-        best_params: Dictionary of best hyperparameters. 
-        cv_results: grid search results. Ignored if grid_search is True
-        grid_search: Run grid search if True. Must provide cv_results if False
+        best_params: Dictionary of best hyperparameters.
+            Override best parameters found by grid search
+        read_last: If True, it reads cv_results from local path. If False, it
+            performs grid search
         cv_study: Perform study on cross-validation if True
         calculate_return: Calculate cumulative return if True
         plot_decision_boundary: Plot decision boundary of the best model if True
+        save_csv: Save all results as csv
 
 
         Others: parameters for nested functions.
@@ -72,7 +73,18 @@ def decision_boundary2D(
     #---------------------------------------------------------------------------
     # Perform hyperparameter search using cross-validation
     #---------------------------------------------------------------------------
-    if grid_search:
+    if read_last:
+        io.title("Import CV results")
+        io.message("Grid search is set to False. Reading CV results from:")
+        cv_path = output_path + "csv/cv_results.csv"
+        io.message(" > " + cv_path)
+
+        # Read CV results from local file
+        try:
+            cv_results = pd.read_csv(cv_path, index_col='Unnamed: 0')
+        except IOError:
+            io.error("CV results is not available at %s" % cv_path)
+    else:
         cv_results = cv.grid_search(
             df_train=df_train,
             model=model,
@@ -84,6 +96,9 @@ def decision_boundary2D(
             k=config['k'], purge_length=config['purge_length'],
             output_path=output_path+"cross_validation/",
             verbose=False)
+
+            
+
     #---------------------------------------------------------------------------
     # Perform ANOVA to select best model
     #---------------------------------------------------------------------------
@@ -193,6 +208,7 @@ def decision_boundary2D(
                     .replace('\'','').replace(',','\n').replace('\n ', '\n'),
                 'x':db_annot_x, 'y':db_annot_y},
             filename=output_path+"decision_boundary/db_best_model")
+
     #---------------------------------------------------------------------------
     # Save output as csv
     #---------------------------------------------------------------------------

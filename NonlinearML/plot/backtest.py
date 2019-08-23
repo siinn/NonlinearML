@@ -68,7 +68,6 @@ def plot_cumulative_return_diff(
         label_reg: Regression label. Ex. 'fqTotalReturn'
         return_label: Classification label in descending order.
             Ex. ['high', 'medium', 'low']
-        label_reg: regression label. ex. 'fqTotalReturn'
     """
     # Calculate difference in return and concatenate
     df_diff = pd.concat([

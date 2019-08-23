@@ -1,5 +1,7 @@
 import pandas as pd
+
 from NonlinearML.plot.plot import *
+import NonlinearML.lib.utils as utils
 
 
 #-------------------------------------------------------------------------------
@@ -25,17 +27,10 @@ def plot_cv_dist(
     metric_values = [
         metric for metric in cv_results.columns if 'values' in metric]
 
-    # Convert string to list
-    if type(cv_results[metric_values].iloc[0,0]) == str:
-        cv_results[metric_values] = \
-            cv_results[metric_values].applymap(
-                lambda x: x.strip('][').split(', '))
-
     # Loop over metrics to plot CV result distribution
     for name, values in zip(metric_names, metric_values):
         # Convert columns of list to multiple columns
-        df_values = pd.DataFrame(cv_results[values].tolist())
-        df_values = df_values.astype(float)
+        df_values = utils.expand_column(cv_results, values)
 
         # Stack dataframe for plotting.
         ''' column 'level_0' represent different CV run (hyperparameter set).
@@ -78,19 +73,12 @@ def plot_cv_box(cv_results, filename, figsize=(8,5), cv_metric=None, **kwargs):
     metric_values = [
         metric for metric in cv_results.columns if 'values' in metric]
 
-    # Convert string to list
-    if type(cv_results[metric_values].iloc[0,0]) == str:
-        cv_results[metric_values] = \
-            cv_results[metric_values].applymap(
-                lambda x: x.strip('][').split(', '))
-
     # Loop over metrics to plot CV result distribution
     for name, values in zip(metric_names, metric_values):
         if (cv_metric != None) and (cv_metric!=name):
             continue
         # Convert columns of list to multiple columns
-        df_values = pd.DataFrame(cv_results[values].tolist())
-        df_values = df_values.astype(float)
+        df_values = utils.expand_column(cv_results, values)
 
         # Stack dataframe for plotting.
         ''' column 'level_1' represent different CV run (hyperparameter set).

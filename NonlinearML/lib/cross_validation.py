@@ -241,14 +241,19 @@ def purged_k_fold_cv(
             print("\t\t>> std %s = %s" % (key, results_std[key]))
     return {'mean':results_mean, 'std':results_std, 'values':results}
 
-
-def grid_search(df_train, model, param_grid, metric, features, label, k, purge_length, output_path, n_epoch=1, embargo_length=0, date_column='eom', subsample=1, verbose=False):
+--------------------------------------------------------------------------------
+def grid_search(
+    df_train, model, param_grid, metric, features, label, k, purge_length,
+    output_path, n_epoch=1, embargo_length=0, date_column='eom', subsample=1,
+    verbose=False):
     ''' Perform grid search using purged cross-validation method. 
     Args:
         df_train: training set given in Pandas dataframe
         model: Model with .fit(X, y) and .predict(X) method.
         params_grid: Hyperparamater grid to search.
-        metric: Evaluation metric. Available options are 'accuracy', 'f1-score', 'precision', or 'recall'. The last three matrics are macro-averaged.
+        metric: Evaluation metric. 
+            Available options are 'accuracy', 'f1-score', 'precision', or
+            'recall'. The last three matrics are macro-averaged.
         features, label: List of features and target label
         k: k for k-fold CV.
         purge_length: Overlapping window size to be removed from training
@@ -265,7 +270,7 @@ def grid_search(df_train, model, param_grid, metric, features, label, k, purge_l
     Return:
         cv_results: Dataframe summarizing cross-validation results
     '''
-    io.title('Running purged k-fold CV with k = %s, epoch = %s' % (k, n_epoch))
+    io.title('Grid search with k-fold CV: k = %s, epoch = %s' % (k, n_epoch))
     # Get list of classes
     classes = sorted([str(x) for x in df_train[label].unique()])
     # List of all available metrics
@@ -306,10 +311,6 @@ def grid_search(df_train, model, param_grid, metric, features, label, k, purge_l
         cv_results.at[i, 'params'] = str(
             [x+"="+str(params[x]) for x in params])\
             .strip('[]').replace('\'','')
-    ## Save results as csv
-    #if not os.path.exists(output_path):
-    #    os.makedirs(output_path)
-    #cv_results.to_csv(output_path+"summary.csv")
     return cv_results
 
 

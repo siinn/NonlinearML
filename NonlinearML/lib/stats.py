@@ -2,8 +2,12 @@ import itertools
 import pandas as pd
 import scipy.stats as stats
 from statsmodels.stats.multicomp import MultiComparison
+from statsmodels.stats.weightstats import ttest_ind
+#from statsmodels.stats.multicomp import pairwise_tukeyhsd
 
 import NonlinearML.lib.io as io
+import NonlinearML.lib.utils as utils
+
 
 def anova_test(df_data, verbose=False):
     """ Perform Anova test.
@@ -29,7 +33,19 @@ def anova_test(df_data, verbose=False):
         print(" >> DOF1 (K-1) = %s, DOF2 (N-K) = %s" % (dof1, dof2))
     return round(f_stat, 6), round(p_value, 6)
 
-def post_hoc_test(df_data):
+def two_sample_ttest(df_stacked, p_thres):
+    """ Perform two sample t-test."""
+    # t-test
+    test = ttest_ind(
+        df_stacked.loc[df_stacked['model']==0]['perf'],
+        df_stacked.loc[df_stacked['model']==1]['perf'])
+    p_value = test[1]
+    reject = p_value < p_thres
+    return pd.DataFrame(
+        data=[[0, 1, reject]],
+        columns=['group1', 'group2', 'reject'])
+
+def post_hoc_test(df_data, p_thres):
     """ Perform post hoc test (Tukey)
     Args:
         data: Pandas dataframe representing data in the following format
@@ -41,10 +57,19 @@ def post_hoc_test(df_data):
     # Stack data from all groups
     df_stacked = df_data.stack().reset_index().rename(
         {'level_0': 'model','level_1': 'run',0: 'perf'}, axis=1)
-    # Perform post hoc test
-    post_hoc = MultiComparison(df_stacked['perf'], df_stacked['model'])
-    df_posthoc = pd.DataFrame(post_hoc.tukeyhsd(alpha=0.05).summary().data)
+    # Perform t-test (2 samples) or Tukey test (> 2 samples)
+    if df_stacked['model'].nunique() == 2:
+        io.message("Perform two sample t-test")
+        df_posthoc = two_sample_ttest(df_stacked, p_thres)
+    else:
+        io.message("Perform Tukey’s test to compare means of all"+\
+            " pairs of groups")
+        post_hoc = MultiComparison(df_stacked['perf'], df_stacked['model'])
+        df_posthoc = pd.DataFrame(
+            data=post_hoc.tukeyhsd(alpha=p_thres).summary().data[1:],
+            columns=post_hoc.tukeyhsd(alpha=p_thres).summary().data[0])
     return df_posthoc
+
 
 def select_best_model_by_anova(cv_results, cv_metric, param_grid, p_thres):
     """ Select best model by performing ANOVA and post-hoc test.
@@ -80,12 +105,6 @@ def select_best_model_by_anova(cv_results, cv_metric, param_grid, p_thres):
     metric_values = [
         metric for metric in cv_results.columns if 'values' in metric]
 
-    # Convert strings to list in cv_results
-    """ Example: '[0.0, 0.1, 0.5]' to ['0.0', '0.1', '0.5']. """
-    if type(cv_results[metric_values].iloc[0,0]) == str:
-        cv_results[metric_values] = cv_results[metric_values].applymap(
-            lambda x: x.strip('[]').split(', '))
-
     # Perform ANOVA and post hoc test on each metrics
     f_stats = {}
     p_values = {}
@@ -96,17 +115,17 @@ def select_best_model_by_anova(cv_results, cv_metric, param_grid, p_thres):
     io.title("ANOVA and post hoc test on model performance")
     print("Performing ANOVA test..")
     for metric in metric_names:
-        metric_values = metric+"_values"
+        values = metric+"_values"
 
         # Extract values of CV results
-        model_perf = pd.DataFrame(cv_results[metric_values].tolist())\
-                        .astype(float)
+        model_perf = utils.expand_column(cv_results, values)
+
         # Perform one way ANOVA
         f_stats[metric], p_values[metric] = anova_test(model_perf)
         print("\t> %s: p-value = %s" % (metric, p_values[metric]))
         # If p-value is less than the threshold, perform post hoc test.
         if p_values[metric] < p_thres:
-            post_hoc_results[metric] = post_hoc_test(model_perf)
+            post_hoc_results[metric] = post_hoc_test(model_perf, p_thres)
 
     # Index of the model with the highest score
     id_max = cv_results[cv_metric].idxmax()
@@ -114,15 +133,13 @@ def select_best_model_by_anova(cv_results, cv_metric, param_grid, p_thres):
 
     # Check if we passed ANOVA given metric
     if cv_metric in post_hoc_results.keys():
-        print("Performing post hoc test..")
-
         # Filter result by the model with the highest score
         post_hoc_top = post_hoc_results[cv_metric].loc[
-            (post_hoc_results[cv_metric][0]==id_max) |
-            (post_hoc_results[cv_metric][1]==id_max)]
+            (post_hoc_results[cv_metric]['group1']==id_max) |
+            (post_hoc_results[cv_metric]['group2']==id_max)]
 
         # Check if there are multiple models within statistical uncertainties
-        num_candidates = post_hoc_top.loc[post_hoc_top[5]==False].shape[0]
+        num_candidates = post_hoc_top.loc[post_hoc_top['reject']==False].shape[0]
         if num_candidates <= 1:
             print("\t > There is only one model with highest %s score." % cv_metric)
             id_selected_model = id_max
@@ -132,8 +149,8 @@ def select_best_model_by_anova(cv_results, cv_metric, param_grid, p_thres):
                 , " within statistical uncertainties.")
             # Select preferred model
             id_selected_model = min(
-                post_hoc_top.loc[post_hoc_top[5]==False][0].min(),
-                post_hoc_top.loc[post_hoc_top[5]==False][1].min())
+                post_hoc_top.loc[post_hoc_top['reject']==False]['group1'].min(),
+                post_hoc_top.loc[post_hoc_top['reject']==False]['group2'].min())
             print("\t > Model %s is selected by preference" % id_selected_model)
     else:
         print("ANOVA failed for %s. Model is selected by preferred order"

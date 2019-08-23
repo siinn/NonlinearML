@@ -91,7 +91,7 @@ run_lr = False
 run_xgb = False
 run_svm = False
 run_knn = False
-run_nn = True
+run_nn = False
 run_comparison = False
 
 
@@ -157,8 +157,7 @@ if __name__ == "__main__":
         db_lr = classification.decision_boundary2D(
             config, df_train, df_test,
             model_lr, model_lr_str, param_grid_lr, best_params={},
-            grid_search=True, cv_results=False,
-            cv_study=True, calculate_return=True,
+            read_last=False, cv_study=True, calculate_return=True,
             plot_decision_boundary=True, save_csv=True)
 
     #---------------------------------------------------------------------------
@@ -187,8 +186,7 @@ if __name__ == "__main__":
         db_xgb = classification.decision_boundary2D(
             config, df_train, df_test,
             model_xgb, model_xgb_str, param_grid_xgb, best_params={},
-            grid_search=True, cv_results=False,
-            cv_study=True, calculate_return=True,
+            read_last=False, cv_study=True, calculate_return=True,
             plot_decision_boundary=True, save_csv=True)
 
     #---------------------------------------------------------------------------
@@ -212,8 +210,7 @@ if __name__ == "__main__":
         db_svm = classification.decision_boundary2D(
             config, df_train, df_test,
             model_svm, model_svm_str, param_grid_svm, best_params={},
-            grid_search=True, cv_results=False,
-            cv_study=True, calculate_return=True,
+            read_last=False, cv_study=True, calculate_return=True,
             plot_decision_boundary=True, save_csv=True)
 
     #---------------------------------------------------------------------------
@@ -233,8 +230,7 @@ if __name__ == "__main__":
         db_knn = classification.decision_boundary2D(
             config, df_train, df_test,
             model_knn, model_knn_str, param_grid_knn, best_params={},
-            grid_search=True, cv_results=False,
-            cv_study=True, calculate_return=True,
+            read_last=False, cv_study=True, calculate_return=True,
             plot_decision_boundary=True, save_csv=True)
 
 
@@ -285,8 +281,7 @@ if __name__ == "__main__":
         db = classification.decision_boundary2D(
             config, df_train, df_test,
             model, model_str, param_grid, best_params={},
-            grid_search=True, cv_results=False,
-            cv_study=True, calculate_return=True,
+            read_last=False, cv_study=True, calculate_return=True,
             plot_decision_boundary=True, save_csv=True)
 
 
@@ -295,10 +290,12 @@ if __name__ == "__main__":
     # Compare model results
     #---------------------------------------------------------------------------
     if run_comparison:
-        utils.model_comparison(
-            models=['lr', 'xgb'], output_path=output_path,
+        summary.model_comparison(
+            models=['lr', 'xgb', 'knn', 'nn'], output_path=output_path,
+            label_reg=config['label_reg'],
             class_label=sorted(
                 list(config['class_label'].keys()), reverse=True),
+            cv_metric=config['cv_metric'],
             date_column=config['date_column'])
 
     print("Successfully completed all tasks")
