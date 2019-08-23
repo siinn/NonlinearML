@@ -241,7 +241,6 @@ def purged_k_fold_cv(
             print("\t\t>> std %s = %s" % (key, results_std[key]))
     return {'mean':results_mean, 'std':results_std, 'values':results}
 
---------------------------------------------------------------------------------
 def grid_search(
     df_train, model, param_grid, metric, features, label, k, purge_length,
     output_path, n_epoch=1, embargo_length=0, date_column='eom', subsample=1,
