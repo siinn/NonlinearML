@@ -1,6 +1,7 @@
 # Import custom libraries
 import numpy as np
 import pandas as pd
+#import logging
 
 
 import NonlinearML.lib.backtest as backtest
@@ -66,14 +67,11 @@ def decision_boundary2D(
     output_path = config['output_path'] + model_str + '/'
 
     # Set logging configuration
-    utils.create_folder(output_path+'log')
-    io.setConfig(output_path+"log")
+    io.setConfig(path=output_path, filename="log")
     io.title('Running two factor classification with two factors:')
     io.message(' > feature x: %s' % config['feature_x'])
     io.message(' > feature y: %s' % config['feature_y'])
-
     io.message(" > Running %s" % model_str)
-
 
     # Set features of interest
     features = [config['feature_x'], config['feature_y']]

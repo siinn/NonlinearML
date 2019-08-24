@@ -10,7 +10,6 @@ from sklearn.metrics import f1_score, make_scorer
 from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import train_test_split as sklearn_train_test_split
 
-from NonlinearML.lib.backtest import *
 import NonlinearML.lib.io as io
 
 def create_folder(filename):
@@ -211,27 +210,27 @@ def predict(
         columns=[time]+features+[label_cla, label_fm])
     return pred_train, pred_test, model
 
-def calculate_cum_return(pred_train, pred_test, label_fm, time="eom"):
-    ''' Calculate cumulative return using the prediction.
-    Args:
-        pred_train, pred_test: prediction of train and test dataset. This is
-            an output of utils.prediction function.
-        label_fm: monthly return used for calculating cumulative return
-        time: column name representing time
-    Return:
-        df_cum_return_train: cumulative return calculated from train dataset
-        df_cum_return_test: cumulative return calculated from test dataset
-        model: trained model
-    '''
-    # Calculate cumulative return
-    io.title("Calculating cumulative return")
-    df_cum_return_train = cumulative_return_from_classification(
-        pred_train, var="pred", var_classes="pred",
-        total_return=label_fm, time=time)
-    df_cum_return_test = cumulative_return_from_classification(
-        pred_test, var="pred", var_classes="pred",
-        total_return=label_fm, time=time)
-    return df_cum_return_train, df_cum_return_test
+#def calculate_cum_return(pred_train, pred_test, label_fm, time="eom"):
+#    ''' Calculate cumulative return using the prediction.
+#    Args:
+#        pred_train, pred_test: prediction of train and test dataset. This is
+#            an output of utils.prediction function.
+#        label_fm: monthly return used for calculating cumulative return
+#        time: column name representing time
+#    Return:
+#        df_cum_return_train: cumulative return calculated from train dataset
+#        df_cum_return_test: cumulative return calculated from test dataset
+#        model: trained model
+#    '''
+#    # Calculate cumulative return
+#    io.title("Calculating cumulative return")
+#    df_cum_return_train = cumulative_return_from_classification(
+#        pred_train, var="pred", var_classes="pred",
+#        total_return=label_fm, time=time)
+#    df_cum_return_test = cumulative_return_from_classification(
+#        pred_test, var="pred", var_classes="pred",
+#        total_return=label_fm, time=time)
+#    return df_cum_return_train, df_cum_return_test
 
 
 def grid_search(

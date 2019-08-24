@@ -70,7 +70,7 @@ test_begin = "2011-01-01"
 test_end = "2017-11-01"
 
 # Set cross-validation configuration
-k = 10           # Must be > 1
+k = 10          # Must be > 1
 n_epoch = 10
 subsample = 0.8
 purge_length = 3
@@ -88,10 +88,10 @@ db_colors = ["#3DC66D", "#F3F2F2", "#DF4A3A"]
 
 # Set algorithms to run
 run_lr = False
-run_xgb = True
+run_xgb = False
 run_svm = False
 run_knn = False
-run_nn = False
+run_nn = True
 run_comparison = False
 
 
@@ -114,10 +114,6 @@ config = {
 # Main
 #-------------------------------------------------------------------------------
 if __name__ == "__main__":
-
-    io.message('Running two factor classification with the following two factors:')
-    io.message(' > feature x: %s' % config['feature_x'])
-    io.message(' > feature y: %s' % config['feature_y'])
 
     #---------------------------------------------------------------------------
     # Read dataset
@@ -147,7 +143,7 @@ if __name__ == "__main__":
             "max_iter":[100],
             "tol": [1e-2],
             "n_jobs":[-1],
-            "C": np.logspace(-4, 4, 20)} # note: C <= 1e-5 doesn't converge
+            "C": np.logspace(-4, 4, 15)} # note: C <= 1e-5 doesn't converge
 
         # Set model
         model_lr = LogisticRegression()
@@ -195,7 +191,7 @@ if __name__ == "__main__":
     if run_svm:
         # Set parameters to search
         param_grid_svm = {
-            'C': [0.001],
+            'C': [0.001, 0.01],
             'kernel': ['poly'],
             'degree': [3],
             'gamma': ['auto'],
@@ -244,8 +240,8 @@ if __name__ == "__main__":
             'metrics': [
                 #tf.keras.metrics.SparseCategoricalCrossentropy(),
                 tf.keras.metrics.SparseCategoricalAccuracy()],
-            'patience': [3,5,10], # 3,4,5
-            'epochs': [2],
+            'patience': [5,10,20], # 3,4,5
+            'epochs': [200],
             'validation_split': [0.2],
             'batch_size': [32],
             'model': [
@@ -298,6 +294,5 @@ if __name__ == "__main__":
             cv_metric=config['cv_metric'],
             date_column=config['date_column'])
 
-    io.message("Successfully completed all tasks!")
 
 

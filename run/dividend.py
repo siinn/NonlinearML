@@ -59,12 +59,12 @@ test_begin = "2012-01-01"
 test_end = "2019-05-01"
 
 # Set cross-validation configuration
-k = 10           # Must be > 1
+k = 10            # Must be > 1
 n_epoch = 10
 subsample = 0.8
 purge_length = 3
 
-# Set p-value threshold for ANOVA test
+# Set p-value threshold for ANOVA test p_thres = 0.05
 p_thres = 0.05
 
 # Set metric for training
@@ -77,7 +77,7 @@ db_colors = [matplotlib.colors.rgb2hex(cmap(i)) for i in range(cmap.N)]
 
 # Set algorithms to run
 run_lr = False
-run_xgb = True
+run_xgb = False
 run_knn = False
 run_comparison = False
 
@@ -126,7 +126,7 @@ if __name__ == "__main__":
             "max_iter":[50],
             "tol": [1e-2],
             "n_jobs":[-1],
-            "C": np.logspace(-4, 4, 2)} # note: C <= 1e-5 doesn't converge
+            "C": np.logspace(-4, 4, 15)} # note: C <= 1e-5 doesn't converge
 
         # Set model
         model_lr = LogisticRegression()

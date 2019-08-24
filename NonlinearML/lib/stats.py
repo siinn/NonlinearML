@@ -152,9 +152,9 @@ def select_best_model_by_anova(cv_results, cv_metric, param_grid, p_thres):
             io.message("\t > There is only one model with highest %s score." % selected_metric)
             id_selected_model = id_max
         else:
-            io.message("\t > There are %s model with highest %s score" 
-                % (num_candidates, selected_metric)
-                , " within statistical uncertainties.")
+            io.message("\t > There are %s model with highest %s score"\
+                % (num_candidates, selected_metric)\
+                + " within statistical uncertainties.")
             # Select preferred model
             id_selected_model = min(
                 post_hoc_top.loc[post_hoc_top['reject']==False]['group1'].min(),
