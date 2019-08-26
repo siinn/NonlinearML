@@ -49,4 +49,4 @@ def message(message):
 def error(error):
     """ Print error."""
     logger = logging.getLogger('test')
-    logger.error("ERROR: " + message)
+    logger.error(message)
