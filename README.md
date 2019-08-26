@@ -16,14 +16,14 @@ To avoid over-fitting due to correlation between adjacent dates in time-series d
 # Dependencies
 The following packages are required.
 
-- pandas >= 0.25.0
-- sikit-learn >= 0.21.3
-- seaborn >= 0.9
-- statsmodels >= 0.10.1
-- tensorflow >= 2.0.0b1
-- xgboost >= 0.90
-- cycler >= 0.10
-- scipy >= 1.3.1
+- [pandas](https://pandas.pydata.org) >= 0.25.0
+- [sikit-learn](https://scikit-learn.org) >= 0.21.3
+- [seaborn](https://seaborn.pydata.org) >= 0.9
+- [statsmodels](https://www.statsmodels.org) >= 0.10.1
+- [tensorflow](https://www.tensorflow.org) >= 2.0.0b1
+- [xgboost](https://github.com/dmlc/xgboost) >= 0.90
+- [cycler](https://pypi.org/project/Cycler/) >= 0.10
+- [scipy](https://www.scipy.org) >= 1.3.1
 
 
 # Install
