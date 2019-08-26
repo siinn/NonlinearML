@@ -8,7 +8,7 @@ With modern machine learning techniques, this tool is developed to explore the n
 # Method
 First, given a set of features and the tabel label, classification or regression models are trained using various machine learning models (linear and logistic regression, tree-based models, svm, knn, neural nets, etc.). In the context of financial sector, features will be financial factors and the target is return on investment.
 
-To avoid over-fitting due to correlation between adjacent dates in time-series data, purged cross-validation method [^1] is used in training procedure. Once models are trained, the performance of models are compared between linear models (base-line) and machine learning models. Machine learning models are expected to perform better than linear models. Then interpretabl machine learning methods[^2] are used to extract nonlinear relationship. 
+To avoid over-fitting due to correlation between adjacent dates in time-series data, purged cross-validation method[1] is used in training procedure. Once models are trained, the performance of models are compared between linear models (base-line) and machine learning models. Machine learning models are expected to perform better than linear models. Then interpretabl machine learning methods[2] are used to extract nonlinear relationship. 
 
 - Decision boundaries
 - Partial dependence plots
@@ -38,5 +38,8 @@ pip install NonlinearML
 
 
 
-[^1]: M. L. de Prado, Advances in financial machine learning, John Wiley & Sons, 2018.
-[^2]: C Molnar - A Guide for Making Black Box Models Explainable, 2018
+
+---
+[1]: M. L. de Prado, Advances in financial machine learning, John Wiley & Sons, 2018.
+
+[2]: C Molnar - A Guide for Making Black Box Models Explainable, 2018
