@@ -146,11 +146,6 @@ def decision_boundary2D(
             filename=output_path+"decision_boundary/db",
             )
     
-    else:
-        # If grid search is not performed, set results to be an empty dictionary
-        cv_results={}
-        anova_results={}
-    
     #---------------------------------------------------------------------------
     # Prediction
     #---------------------------------------------------------------------------
@@ -222,9 +217,9 @@ def decision_boundary2D(
         # Save the summary
         if not read_last:
             cv_results.to_csv(output_path+'csv/cv_results.csv')
-        if not df_cum_train.empty:
+        if type(df_cum_train)==pd.DataFrame:
             df_cum_train.to_csv(output_path+'csv/cum_return_train.csv')
-        if not df_cum_test.empty:
+        if type(df_cum_test)==pd.DataFrame:
             df_cum_test.to_csv(output_path+'csv/cum_return_test.csv')
         # Save ANOVA results
         for key in anova_results:
@@ -234,7 +229,7 @@ def decision_boundary2D(
         # All tukey test results
         for metric in anova_results['tukey_all_results'].keys():
             if type(anova_results['tukey_all_results'][metric]) == pd.DataFrame:
-                    anova_results['tukey_all_results'][metric].to_csv(
+                anova_results['tukey_all_results'][metric].to_csv(
                         output_path+'csv/tukey_all_results_%s.csv' % metric)
         # Tukey test results related to the top performing model
         if type(anova_results['tukey_top_results']) == pd.DataFrame:
