@@ -220,18 +220,17 @@ def decision_boundary2D(
     if save_csv:
         utils.create_folder(output_path+'csv/summary.csv')
         # Save the summary
-        if not cv_results.empty:
+        if not read_last:
             cv_results.to_csv(output_path+'csv/cv_results.csv')
         if not df_cum_train.empty:
             df_cum_train.to_csv(output_path+'csv/cum_return_train.csv')
         if not df_cum_test.empty:
             df_cum_test.to_csv(output_path+'csv/cum_return_test.csv')
         # Save ANOVA results
-        # F-statistics, p-value, and best parameters
-        for x in ['f_stats', 'p_values', 'best_params']:
-            if anova_results[x]:
-                pd.DataFrame.from_dict(anova_results[x], orient='index')\
-                    .to_csv(output_path+'csv/anova_%s.csv' %x)
+        for key in anova_results:
+            if type(anova_results[key]) == dict:
+                pd.DataFrame.from_dict(anova_results[key], orient='index')\
+                    .to_csv(output_path+'csv/anova_%s.csv' %key)
         # All tukey test results
         for metric in anova_results['tukey_all_results'].keys():
             if type(anova_results['tukey_all_results'][metric]) == pd.DataFrame:
