@@ -102,8 +102,6 @@ def decision_boundary2D(
             output_path=output_path+"cross_validation/",
             verbose=False)
 
-            
-
     #---------------------------------------------------------------------------
     # Perform ANOVA to select best model
     #---------------------------------------------------------------------------
@@ -235,6 +233,11 @@ def decision_boundary2D(
         if type(anova_results['tukey_top_results']) == pd.DataFrame:
             anova_results['tukey_top_results'].to_csv(
                 output_path+'csv/tukey_top_results.csv')
+        # Save ID of the selected model
+        pd.DataFrame(
+            data=[anova_results['id_selected_model']],
+            columns=['id_selected_model']).to_csv(
+                output_path+'csv/id_selected_model.csv')
 
     io.message("Successfully completed all tasks!")
 
