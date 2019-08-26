@@ -115,6 +115,7 @@ def select_best_model_by_anova(cv_results, cv_metric, param_grid, p_thres):
     # Loop over each metric
     io.title("ANOVA and post hoc test on model performance")
     io.message("Performing ANOVA test..")
+    io.message(" > p-value threshold: %s" % p_thres)
     for metric in metric_names:
         values = metric+"_values"
 
