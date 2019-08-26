@@ -79,7 +79,7 @@ purge_length = 3
 p_thres = 0.05
 
 # Set metric for training
-cv_metric = 'f1-score'
+cv_metric = ['f1-score', 'precision', 'recall', 'accuracy']
 
 # Set color scheme for decision boundary plot
 db_colors = ["#3DC66D", "#F3F2F2", "#DF4A3A"]
@@ -164,12 +164,12 @@ if __name__ == "__main__":
         param_grid_xgb = {
             #'min_child_weight': [1000, 500, 100],
             #'max_depth': [1, 4, 5, 10],
-            'min_child_weight': [1000],
-            'max_depth': [1],
+            'min_child_weight': [2000, 1500, 1000, 500],
+            'max_depth': [5, 10, 15, 20, 50],
             'learning_rate': [0.3],
             'n_estimators': [50],
             'objective': ['multi:softmax'],
-            'gamma': [10.0], #np.logspace(-2, 1, 1), # Min loss reduction
+            'gamma': [0], #np.logspace(-2, 1, 1), # Min loss reduction
             'lambda': [1], #np.logspace(0, 2, 2) # L2 regularization
             'n_jobs':[-1],
             'num_class': [3]}
@@ -240,8 +240,8 @@ if __name__ == "__main__":
             'metrics': [
                 #tf.keras.metrics.SparseCategoricalCrossentropy(),
                 tf.keras.metrics.SparseCategoricalAccuracy()],
-            'patience': [5,10,20], # 3,4,5
-            'epochs': [200],
+            'patience': [30, 40, 100], # 3,4,5
+            'epochs': [2000],
             'validation_split': [0.2],
             'batch_size': [32],
             'model': [

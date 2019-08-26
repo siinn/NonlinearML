@@ -59,7 +59,7 @@ test_begin = "2012-01-01"
 test_end = "2019-05-01"
 
 # Set cross-validation configuration
-k = 10            # Must be > 1
+k = 10           # Must be > 1
 n_epoch = 10
 subsample = 0.8
 purge_length = 3
@@ -77,8 +77,9 @@ db_colors = [matplotlib.colors.rgb2hex(cmap(i)) for i in range(cmap.N)]
 
 # Set algorithms to run
 run_lr = False
-run_xgb = False
+run_xgb = True
 run_knn = False
+run_svm = False
 run_comparison = False
 
 # Set default warning
@@ -150,14 +151,15 @@ if __name__ == "__main__":
     if run_xgb:
         # Set parameters to search
         param_grid_xgb = {
-            'min_child_weight': [1000, 500, 100],
-            'max_depth': [7],
+            'min_child_weight': [2000, 1500, 1000, 500],
+            'max_depth': [5, 10, 15, 20, 50],
             'learning_rate': [0.1],
             'n_estimators': [50],
             'objective': ['multi:softmax'],
             'gamma': [0], #np.logspace(-2, 1, 1), # Min loss reduction
-            'lambda': [1,10,100], #np.logspace(0, 2, 2) # L2 regularization
+            'lambda': [1], #np.logspace(0, 2, 2) # L2 regularization
             'n_jobs':[-1],
+            'subsample':[1],
             'num_class': [n_classes]}
 
         # Set model
@@ -199,6 +201,29 @@ if __name__ == "__main__":
             return_train_ylim=(-1,20), return_test_ylim=(-1,5))
 
 
+    #---------------------------------------------------------------------------
+    # SVM
+    #---------------------------------------------------------------------------
+    if run_svm:
+        # Set parameters to search
+        param_grid_svm = {
+            'C': [0.001, 0.01],
+            'kernel': ['poly'],
+            'degree': [3],
+            'gamma': ['auto'],
+            'cache_size': [3000],
+            }
+
+        # Set model
+        model_svm = SVC()
+        model_svm_str = 'svm'
+
+        # Run analysis on 2D decision boundary
+        db_svm = classification.decision_boundary2D(
+            config, df_train, df_test,
+            model_svm, model_svm_str, param_grid_svm, best_params={},
+            read_last=False, cv_study=True, calculate_return=True,
+            plot_decision_boundary=True, save_csv=True)
 
     #---------------------------------------------------------------------------
     # Compare model results
