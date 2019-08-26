@@ -91,6 +91,7 @@ def select_best_model_by_anova(cv_results, cv_metric, param_grid, p_thres):
         p_values: p-values of all models calculated using each metric
         post_hoc_results: results of post-hoc tests 
         best_params: best parameter selected
+        id_selected_model: ID of the selected model,
 
     """
     def _convert_to_float(x):
@@ -185,7 +186,9 @@ def select_best_model_by_anova(cv_results, cv_metric, param_grid, p_thres):
         "p_values": p_values,
         "tukey_all_results": post_hoc_results, 
         "tukey_top_results": post_hoc_top,
-        "best_params": best_params}
+        "best_params": best_params,
+        "id_selected_model": id_selected_model,
+        }
 
 
 
