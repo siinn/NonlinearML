@@ -33,7 +33,7 @@ import NonlinearML.interprete.classification as classification
 # Set configuration
 #-------------------------------------------------------------------------------
 # Set input and output path
-INPUT_PATH = '/mnt/mainblob/nonlinearML/EnhancedDividend/data/Data_EM.csv'
+INPUT_PATH = '/mnt/mainblob/nonlinearML/EnhancedDividend/data/Data_EM_extended.csv'
 
 # Set features of interest
 feature_x = 'DividendYield'
@@ -60,8 +60,8 @@ test_end = "2019-05-01"
 
 # Set cross-validation configuration
 k = 10           # Must be > 1
-n_epoch = 10
-subsample = 0.8
+n_epoch = 20
+subsample = 0.5
 purge_length = 3
 
 # Set p-value threshold for ANOVA test p_thres = 0.05
@@ -76,11 +76,11 @@ cmap = matplotlib.cm.get_cmap('Spectral', 10)
 db_colors = [matplotlib.colors.rgb2hex(cmap(i)) for i in range(cmap.N)]
 
 # Set algorithms to run
-run_lr = False
+run_lr = True
 run_xgb = True
-run_knn = False
+run_knn = True
 run_svm = False
-run_comparison = False
+run_comparison = True
 
 # Set default warning
 warnings.filterwarnings('once')  # 'error', 'always', 'ignore'
@@ -151,12 +151,12 @@ if __name__ == "__main__":
     if run_xgb:
         # Set parameters to search
         param_grid_xgb = {
-            'min_child_weight': [2000, 1500, 1000, 500],
-            'max_depth': [5, 10, 15, 20, 50],
+            'min_child_weight': [1000, 500],
+            'max_depth': [5, 7, 10],
             'learning_rate': [0.1],
             'n_estimators': [50],
             'objective': ['multi:softmax'],
-            'gamma': [0], #np.logspace(-2, 1, 1), # Min loss reduction
+            'gamma': [0, 5, 10], #np.logspace(-2, 1, 1), # Min loss reduction
             'lambda': [1], #np.logspace(0, 2, 2) # L2 regularization
             'n_jobs':[-1],
             'subsample':[1],
@@ -195,8 +195,11 @@ if __name__ == "__main__":
         db_knn = classification.decision_boundary2D(
             config, df_train, df_test,
             model_knn, model_knn_str, param_grid_knn, best_params={},
-            read_last=False, cv_study=True, calculate_return=True,
-            plot_decision_boundary=True, save_csv=True,
+            read_last=False,
+            cv_study=True,
+            calculate_return=True,
+            plot_decision_boundary=True,
+            save_csv=True,
             db_xlim=(0,0.2), db_ylim=(-1,1.5), db_res=0.001,
             return_train_ylim=(-1,20), return_test_ylim=(-1,5))
 
@@ -222,19 +225,23 @@ if __name__ == "__main__":
         db_svm = classification.decision_boundary2D(
             config, df_train, df_test,
             model_svm, model_svm_str, param_grid_svm, best_params={},
-            read_last=False, cv_study=True, calculate_return=True,
-            plot_decision_boundary=True, save_csv=True)
+            read_last=False,
+            cv_study=True,
+            calculate_return=True,
+            plot_decision_boundary=True,
+            save_csv=True,
+            db_xlim=(0,0.2), db_ylim=(-1,1.5), db_res=0.001,
+            return_train_ylim=(-1,20), return_test_ylim=(-1,5))
 
     #---------------------------------------------------------------------------
     # Compare model results
     #---------------------------------------------------------------------------
     if run_comparison:
         summary.model_comparison(
-            models=['lr', 'xgb', 'nn'], output_path=output_path,
+            models=['lr', 'xgb', 'knn'], output_path=output_path,
             label_reg=config['label_reg'],
             class_label=sorted(
                 list(config['class_label'].keys()), reverse=True),
-            cv_metric=config['cv_metric'],
             date_column=config['date_column'])
 
 
