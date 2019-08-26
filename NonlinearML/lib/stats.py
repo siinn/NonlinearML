@@ -134,8 +134,8 @@ def select_best_model_by_anova(cv_results, cv_metric, param_grid, p_thres):
     # If one of the specified metrics passed ANOVA, perform post hoc test
     if len(cv_metric) > 0:
 
-        io.message("\t> %s is selected as metric.")
         selected_metric = cv_metric[0]
+        io.message("\t> %s is selected as metric." %selected_metric)
 
         # Index of the model with the highest score
         id_max = cv_results[selected_metric].idxmax()
@@ -145,14 +145,14 @@ def select_best_model_by_anova(cv_results, cv_metric, param_grid, p_thres):
         post_hoc_top = post_hoc_results[selected_metric].loc[
             (post_hoc_results[selected_metric]['group1']==id_max) |
             (post_hoc_results[selected_metric]['group2']==id_max)]
-
         # Check if there are multiple models within statistical uncertainties
-        num_candidates = post_hoc_top.loc[post_hoc_top['reject']==False].shape[0]
-        if num_candidates <= 1:
+        num_candidates = post_hoc_top.loc[post_hoc_top['reject']==False]\
+            .shape[0] + 1 # Adding 1 to include the highest model
+        if num_candidates < 2:
             io.message("\t > There is only one model with highest %s score." % selected_metric)
             id_selected_model = id_max
         else:
-            io.message("\t > There are %s model with highest %s score"\
+            io.message("\t > There are %s models with highest %s score"\
                 % (num_candidates, selected_metric)\
                 + " within statistical uncertainties.")
             # Select preferred model
@@ -168,11 +168,17 @@ def select_best_model_by_anova(cv_results, cv_metric, param_grid, p_thres):
     # Recreate hyperparameter combinations
     keys, values = zip(*param_grid.items())
     experiments = [dict(zip(keys, v)) for v in itertools.product(*values)]
+    '''
+
+    read best_parmas from csv instead of experiment when reading from last?
+
+    '''
 
     # Return parameters of the preferred model
     best_params = experiments[id_selected_model]
     io.message("Selected model:")
     io.message(["\t- "+x+"="+str(best_params[x]) for x in best_params])
+
     return {
         "f_stats": f_stats,
         "p_values": p_values,
