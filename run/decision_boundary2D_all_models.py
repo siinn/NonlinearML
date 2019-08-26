@@ -71,7 +71,7 @@ test_end = "2017-11-01"
 
 # Set cross-validation configuration
 k = 10          # Must be > 1
-n_epoch = 10
+n_epoch = 20
 subsample = 0.8
 purge_length = 3
 
@@ -88,10 +88,10 @@ db_colors = ["#3DC66D", "#F3F2F2", "#DF4A3A"]
 
 # Set algorithms to run
 run_lr = False
-run_xgb = False
+run_xgb = True
 run_svm = False
 run_knn = False
-run_nn = True
+run_nn = False
 run_comparison = False
 
 
@@ -164,12 +164,12 @@ if __name__ == "__main__":
         param_grid_xgb = {
             #'min_child_weight': [1000, 500, 100],
             #'max_depth': [1, 4, 5, 10],
-            'min_child_weight': [2000, 1500, 1000, 500],
-            'max_depth': [5, 10, 15, 20, 50],
+            'min_child_weight': [1500, 1000, 500],
+            'max_depth': [5, 10, 15, 20],
             'learning_rate': [0.3],
             'n_estimators': [50],
             'objective': ['multi:softmax'],
-            'gamma': [0], #np.logspace(-2, 1, 1), # Min loss reduction
+            'gamma': [10,5,0], #np.logspace(-2, 1, 1), # Min loss reduction
             'lambda': [1], #np.logspace(0, 2, 2) # L2 regularization
             'n_jobs':[-1],
             'num_class': [3]}
@@ -287,12 +287,10 @@ if __name__ == "__main__":
     #---------------------------------------------------------------------------
     if run_comparison:
         summary.model_comparison(
-            models=['lr', 'xgb', 'knn', 'nn'], output_path=output_path,
+            models=['lr', 'xgb', 'knn'], output_path=output_path,
             label_reg=config['label_reg'],
             class_label=sorted(
                 list(config['class_label'].keys()), reverse=True),
-            cv_metric=config['cv_metric'],
             date_column=config['date_column'])
-
 
 
