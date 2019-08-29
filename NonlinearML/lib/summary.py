@@ -20,11 +20,15 @@ def save_summary(output_path, cv_results, id_selected):
     '''
     df_summary = pd.DataFrame()
     for model in cv_results:
+        # Get id of selected model
+        id_selected_model = id_selected[model]['id_selected_model'][0]
+        best_model = cv_results[model].drop(
+            cv_results[model].filter(regex='value').columns, axis=1)\
+            .loc[id_selected_model]
+        best_model['Model'] = model
         # Append to summary results
-        df_summary = df_summary.append(cv_results[model].loc[
-            id_selected[model]['id_selected_model'][0],
-            cv_results[model].columns.str.contains(
-                'accuracy|precision|recall|f1-score')])
+        df_summary = df_summary.append(best_model)
+    df_summary = df_summary.sort_index(axis=1)
     # Save the summary
     utils.create_folder(output_path+'summary.csv')
     df_summary.to_csv(output_path+'summary.csv')
@@ -46,6 +50,8 @@ def model_comparison(
         class_label: List of return labels in order of [high, medium, low]
         date_column: Ex. 'eom' or 'smDate'
         others: Plotting options
+    Return:
+        csvs loaded into dataframe
     """
     # Initialize logger
     io.setConfig(path=output_path+"model_comparison/", filename="log")
@@ -86,7 +92,10 @@ def model_comparison(
         output_path=output_path+"model_comparison/",
         cv_results=cv_results,
         id_selected=id_selected)
-    return
+    return {
+        'cv_results': cv_results,
+        'id_selcted': id_selected,
+        'cum_return_test': cum_return_test}
 
 
 
