@@ -139,38 +139,6 @@ def diff_cumulative_return_q5q1(df, var, var_quintile, time="eom"):
     return df_join
 
 
-#def diff_cumulative_return_q5q1_groupby(df, var, var_quintile, groupby):
-#    '''calculate cumulative return and the difference between first and last quintile for each industry sector
-#    Args:
-#        df: input Pandas dataframe
-#        var: variable of interest (ex. AG)
-#        var_quintile: column name representing quintile of the variable of interest (ex. AG_quintile)
-#        groupby: column representing industry sector
-#    Return:
-#        dataframe containing the difference in cumulative return (q1-q5) by industry sector
-#    '''
-#    df_cum_return_group = {}
-#    df_diff_q5q1_group = {}
-#    for name, df_group in df.groupby(groupby):
-#        io.message("Processing group: %s" %name)
-#        io.message(name)
-#        # calculate cumulative return
-#        df_cum_return_group[name]= cumulative_return_classification(
-#            df=df_group, var=var, var_quintile=var_quintile,
-#            total_return=total_return, time= date_column)
-#        # calculate difference between AG quintile 1 and 5
-#        df_diff_q5q1_group[name] = diff_cumulative_return_q5q1(df=df_cum_return_group[name], var=var, var_quintile=var_quintile)
-#        
-#    for name, df_group in df_diff_q5q1_group.items():
-#        # add prefix
-#        df_diff_q5q1_group[name] = df_group.add_prefix(str(name)+"_")
-#    
-#    # concatenate "q5q1" columns from dataframes by industry group
-#    return pd.concat([df_group[str(name)+"_q5q1"] for name, df_group in df_diff_q5q1_group.items()], axis=1, join='outer')
-
-
-
-    
 
 def calculate_diff_return(df_cum_return, return_label, output_col, time="eom"):
     ''' Calculate difference in return between top and bottom classes.
@@ -186,6 +154,9 @@ def calculate_diff_return(df_cum_return, return_label, output_col, time="eom"):
     # Set time as index
     df_cum_return = df_cum_return.set_index(time)
     # Calculate difference
+    io.message("Calculating difference in return: top (%s) - bottom (%s)." \
+        % (str(return_label[0]), str(return_label[-1])))
+
     df_diff = pd.DataFrame(
         df_cum_return.loc[
             df_cum_return["pred"]==return_label[0]]["cumulative_return"]\

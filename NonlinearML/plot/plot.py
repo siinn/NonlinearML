@@ -200,7 +200,7 @@ def plot_line_groupby(
     fig, ax = plt.subplots(1, 1, figsize=figsize, squeeze=False)
     ax=ax.flatten()
     line = lines() 
-    for name, df_group in df.groupby(by=groupby, sort=False):
+    for name, df_group in df.groupby(by=groupby, sort=True):
         if x=="index":
             df_group[y].plot(
                 kind='line', legend=True, label=group_label[name],

@@ -110,7 +110,7 @@ def decision_boundary2D(
         cv_metric=config['cv_metric'],
         param_grid=param_grid, p_thres=config['p_thres'])
 
-    # Get best parameters
+    # Override best parameters with the specified set.
     if not best_params:
         best_params = anova_results['best_params']
     
@@ -175,8 +175,7 @@ def decision_boundary2D(
             test_ylim=return_test_ylim)
         plot_backtest.plot_cumulative_return_diff(
             list_cum_returns=[df_cum_test],
-            return_label=sorted(
-                list(config['class_label'].keys()), reverse=True),
+            return_label=config['class_order'],
             list_labels=[model_str], label_reg=config['label_reg'],
             figsize=return_figsize,
             date_column=config['date_column'],
@@ -200,12 +199,26 @@ def decision_boundary2D(
             #hlines=tertile_boundary[feature_y],
             colors=config['db_colors'],
             xlim=db_xlim, ylim=db_ylim, figsize=db_figsize,
-            ticks=sorted(list(config['class_label'].keys()), reverse=True),
+            #ticks=sorted(list(config['class_label'].keys()), reverse=True),
+            ticks=config['class_order'],
             annot={
                 'text':utils.get_param_string(best_params).strip('{}')\
                     .replace('\'','').replace(',','\n').replace('\n ', '\n'),
                 'x':db_annot_x, 'y':db_annot_y},
             filename=output_path+"decision_boundary/db_best_model")
+
+        #plot_db.decision_boundary_ext(
+        #    model=model, dim_red_method=None,
+        #    X=df_test[features].values, Y=df_test[config['label_cla']].values,
+        #    xrg=db_xlim, yrg=db_ylim, Nx=300, Ny=300, scatter_sample=0.01,
+        #    figsize=db_figsize, alpha=0.7,
+		#	colors=config['db_colors'],
+        #    filename=output_path+"decision_boundary/db_best_model_ext")
+        
+        
+
+
+
 
     #---------------------------------------------------------------------------
     # Save output as csv

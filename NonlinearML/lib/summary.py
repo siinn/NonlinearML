@@ -43,11 +43,14 @@ def model_comparison(
         models: List of models. Ex. ['lr', 'xgb']
         output_path: Parent path to saved model results
         label_reg: Regression label. Ex. 'fqTotalReturn'
-        class_label: List of class labels. Ex. [0, 1, 2, ..]
+        class_label: List of return labels in order of [high, medium, low]
         date_column: Ex. 'eom' or 'smDate'
         others: Plotting options
     """
+    # Initialize logger
+    io.setConfig(path=output_path+"model_comparison/", filename="log")
     io.title("Model comparison") 
+
     # Read results from all models
     cum_return_test = {}
     cv_results = {}
