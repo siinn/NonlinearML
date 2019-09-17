@@ -136,8 +136,11 @@ def discretize_variables_by_month(
     # Loop over each variable
     for var in variables:
         # Assign classes
+        #df["_".join([var, suffix])] = df.groupby([month])[var]\
+        #    .transform(lambda x: pd.qcut(x, n_classes, class_names))
         df["_".join([var, suffix])] = df.groupby([month])[var]\
-            .transform(lambda x: pd.qcut(x, n_classes, class_names))
+            .transform(
+                lambda x: pd.qcut(x.rank(method='first'), n_classes, class_names))
     return df
 
 
