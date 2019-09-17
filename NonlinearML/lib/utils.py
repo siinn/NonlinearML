@@ -141,20 +141,20 @@ def discretize_variables_by_month(
     return df
 
 
-def make_prediction(model, df_train, df_test, features, label):
-    ''' Train model with df_train and make predictions on df_test
-    Args:
-        df_train, df_test: train and test dataset in Pandas DataFrame
-        features: list of features
-        label: name of label column
-    Return:
-        pred_test: prediction of test dataset.
-    '''
-    # Fit model
-    model.fit(X=df_train[features], y=df_train[label])
-    # Make prediction
-    pred_test = model.predict(df_test[features])
-    return pred_test
+#def make_prediction(model, df_train, df_test, features, label):
+#    ''' Train model with df_train and make predictions on df_test
+#    Args:
+#        df_train, df_test: train and test dataset in Pandas DataFrame
+#        features: list of features
+#        label: name of label column
+#    Return:
+#        pred_test: prediction of test dataset.
+#    '''
+#    # Fit model
+#    model.fit(X=df_train[features], y=df_train[label])
+#    # Make prediction
+#    pred_test = model.predict(df_test[features])
+#    return pred_test
     
 
 
@@ -180,7 +180,7 @@ def last_cum_return(df, time="eom"):
 
 
 def predict(
-    model, df_train, df_test, features, label_cla, label_fm, time="eom"):
+    model, df_train, df_test, features, label_cla, date_column, cols, label_reg=False):
     ''' Train model using best params and make prediction using trained model
     on both train and test dataset. label_fm which represent continuous target
     variable is joined to the prediction.
@@ -189,25 +189,41 @@ def predict(
         df_train, df_test: train and test dataframe
         features: list of features
         label_cla: name of column that represent classification label
-        label_fm: monthly return used for calculating cumulative return
-        time: column name representing time
+        cols: Other columns to include in output dataframe
+        label_reg: If specified, model is triained on this regression label.
+            Label_cla is ignored
     Return:
         pred_train, pred_test: prediction of train and test dataset
         model: trained model
     '''
     io.message("Making prediction:\n%s" % model)
-    # Fit model
-    model.fit(df_train[features], df_train[label_cla])
+    if label_reg:
+        # Fit model
+        model.fit(df_train[features], df_train[label_reg])
 
-    # Make prediction and concatenate prediction and true label
-    pred_train  = concat_pred_label(
-        df=df_train,
-        prediction=model.predict(df_train[features]),
-        columns=[time]+features+[label_cla, label_fm])
-    pred_test  = concat_pred_label(
-        df=df_test,
-        prediction=model.predict(df_test[features]),
-        columns=[time]+features+[label_cla, label_fm])
+        # Make prediction and concatenate prediction and true label
+        pred_train  = concat_pred_label(
+            df=df_train,
+            prediction=model.predict(df_train[features], df_train[date_column]),
+            columns=[date_column]+features+cols)
+        pred_test  = concat_pred_label(
+            df=df_test,
+            prediction=model.predict(df_test[features], df_test[date_column]),
+            columns=[date_column]+features+cols)
+    else:
+        # Fit model
+        model.fit(df_train[features], df_train[label_cla])
+
+        # Make prediction and concatenate prediction and true label
+        pred_train  = concat_pred_label(
+            df=df_train,
+            prediction=model.predict(df_train[features]),
+            columns=[date_column]+features+cols)
+        pred_test  = concat_pred_label(
+            df=df_test,
+            prediction=model.predict(df_test[features]),
+            columns=[date_column]+features+cols)
+
     return pred_train, pred_test, model
 
 #def calculate_cum_return(pred_train, pred_test, label_fm, time="eom"):
@@ -234,7 +250,7 @@ def predict(
 
 
 def grid_search(
-    model, param_grid, df_train, df_val, features, label_cla, label_fm):
+    model, param_grid, df_train, df_val, features, label_cla, label_fm, label_reg=False):
     ''' Perform grid search and return the best parameter set based on
     the following metric:
         metric: val_diff - abs(train_diff - val_diff)
@@ -249,7 +265,8 @@ def grid_search(
         label_cla: name of column in dataframe that represent classification
             label
         label_fm: name of column used for calculating cumulative return
-        return
+        label_reg: If specified, model is triained on this regression label. label_cla
+            is ignored
     Return:
         (best parameters, summary in dataframe)
     '''
@@ -275,7 +292,8 @@ def grid_search(
         pred_train, pred_test, model = utils.predict(
                 model=model.set_params(**best_params),
                 df_train=df_train, df_test=df_test, features=features,
-                label_cla=label, label_fm=label_fm, time=date_column)
+                label_cla=label, label_fm=label_fm, time=date_column,
+                label_reg=label_reg)
         # Calculate cumulative return using trained model
         df_cum_train, df_cum_test = utils.calculate_cum_return(
                 pred_train=pred_train, pred_test=pred_test,

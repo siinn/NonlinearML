@@ -1,11 +1,12 @@
 import numpy as np
-import seaborn as sns
 import itertools
 
 import NonlinearML.lib.io as io
 from NonlinearML.lib.utils import create_folder
 from NonlinearML.plot.style import load_matplotlib, lines
+from NonlinearML.plot.style import load_matplotlib, load_seaborn, lines
 plt = load_matplotlib()
+sns = load_seaborn()
 
 
 
@@ -292,7 +293,9 @@ def plot_heatmap(
 
 
 def plot_scatter(
-    df, x, y, x_label="", y_label="", figsize=(20,6), filename="", **kwargs):
+    df, x, y, x_label="", y_label="", figsize=(20,6), filename="",
+    legend=False, leg_loc='center left', legend_title=None, bbox_to_anchor=(1, 0.5),
+    ylim=False, xlim=False, **kwargs):
     ''' create scatter plot from given dataframe
     Args:
         df: Pandas dataframe
@@ -307,7 +310,49 @@ def plot_scatter(
     # customize plot
     ax.set_ylabel(y_label)
     ax.set_xlabel(x_label)
-    ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    if legend:
+        ax.legend(loc=leg_loc, bbox_to_anchor=bbox_to_anchor, title=legend_title)
+        #Hack to remove the first legend entry (which is the undesired title)
+        vpacker = ax.get_legend()._legend_handle_box.get_children()[0]
+        vpacker._children = vpacker.get_children()[1:]
+    if ylim:
+        ax.set_ylim(ylim)
+    if xlim:
+        ax.set_xlim(xlim)
+    # Create output folder and save figure
+    create_folder(filename)
+    plt.tight_layout()
+    plt.savefig('%s.png' % filename)
+    plt.cla()
+    return
+
+def plot_reg(
+    df, x, y, x_label="", y_label="", figsize=(20,6), filename="",
+    legend=False, leg_loc='center left', legend_title=None, bbox_to_anchor=(1, 0.5),
+    ylim=False, xlim=False, **kwargs):
+    ''' create scatter plot from given dataframe
+    Args:
+        df: Pandas dataframe
+        others: plotting options
+    Returns:
+        None
+    '''
+    # create figure and axes
+    fig, ax = plt.subplots(1, 1, figsize=figsize, squeeze=False)
+    # plot heatmap
+    ax = sns.regplot(data=df, x=x, y=y, **kwargs)
+    # customize plot
+    ax.set_ylabel(y_label)
+    ax.set_xlabel(x_label)
+    if legend:
+        ax.legend(loc=leg_loc, bbox_to_anchor=bbox_to_anchor, title=legend_title)
+        #Hack to remove the first legend entry (which is the undesired title)
+        vpacker = ax.get_legend()._legend_handle_box.get_children()[0]
+        vpacker._children = vpacker.get_children()[1:]
+    if ylim:
+        ax.set_ylim(ylim)
+    if xlim:
+        ax.set_xlim(xlim)
     # Create output folder and save figure
     create_folder(filename)
     plt.tight_layout()

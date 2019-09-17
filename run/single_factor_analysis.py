@@ -5,17 +5,18 @@ import dateutil.relativedelta
 import itertools
 import numpy as np
 import pandas as pd
+import seaborn as sns
 
 # Import custom libraries
-from Asset_growth.lib.backtest import *
-from Asset_growth.lib.plots import *
-from Asset_growth.lib.utils import *
+import NonlinearML.plot.backtest as plot_backtest
+import NonlinearML.plot.plot as plot
+import NonlinearML.lib.utils as utils
 
-#----------------------------------------------
-# set user options
-#----------------------------------------------
+#-------------------------------------------------------------------------------
+# Set user options
+#-------------------------------------------------------------------------------
 # set input and output path
-input_path = '/mnt/mainblob/asset_growth/data/Data_for_AssetGrowth_Context.pd.r4.csv'
+input_path = '../data/Data_for_AssetGrowth_Context.r5.p2.csv'
 
 # set algorithms to run
 run_simple_sort = False
@@ -38,7 +39,7 @@ return_quintile_map = {0.0:'Q1', 1.0:'Q2', 2.0:'Q3', 3.0:'Q4', 4.0:'Q5'}
 # set variable of interest
 var = 'AG'
 var_quintile = var+"_quintile"
-var_tertile = var+"_tertile"
+var_tertile = var+"_discrete"
 var_label = {float(x):var+str(x+1) for x in range(0,5)} # ex. {0: AG1, 1:AG2, etc.}
 
 # map industry sector code to string
@@ -146,7 +147,7 @@ if __name__ == "__main__":
 
 
     # assign quintile and tertile classes to AG, return, and FCFA
-    df = discretize_variables_by_month(df=df, variables=[var, total_return, 'FCFA'])
+    df = utils.discretize_variables_by_month(df=df, variables=[var, total_return, 'FCFA'], n_classes=3, class_names=['Low','Medium', 'High'])
 
     #------------------------------------------
     # classification by simple sort (AG and industry)
@@ -157,9 +158,9 @@ if __name__ == "__main__":
     if run_simple_sort:
 
         # calculate average return by industry sector
-        df_return_mean = df.groupby(['AG_tertile', 'GICSSubIndustryNumber']).mean()[month_return]\
+        df_return_mean = df.groupby(['AG_discrete', 'GICSSubIndustryNumber']).mean()[month_return]\
                            .unstack(1).transpose().rename(sector_map, axis=0)
-        df_return_std = df.groupby(['AG_tertile', 'GICSSubIndustryNumber']).std()[month_return]\
+        df_return_std = df.groupby(['AG_discrete', 'GICSSubIndustryNumber']).std()[month_return]\
                           .unstack(1).transpose().rename(sector_map, axis=0)
 
         # calculate cumulative return
@@ -235,41 +236,44 @@ if __name__ == "__main__":
     if run_ag_fc == True:
 
         # plot return by AG and FCFA
-        plot_box(df=df, x=var_tertile, y=total_return, title="", color="white", linewidth=1, showmeans=True, ylim=(-0.5,2),
-                 hue="FCFA_tertile", #ylim=(0.7, 1.3),
-                 x_label="AG", y_label=total_return, figsize=(10,6), filename="%s_by_AG_FCFA" %total_return)
+        plot.plot_box(df=df, x=var_tertile, y=total_return, title="", color="white", linewidth=1, showmeans=True, ylim=(-0.5,2),
+                 hue="FCFA_discrete", #ylim=(0.7, 1.3),
+                 x_label="AG", y_label=total_return, figsize=(10,6), filename="./output/singlefactor/%s_by_AG_FCFA" %total_return)
 
 
         # plot heatmap of number of samples within FCFA and return tertile groups for given AG group
         for i_ag in df[var_tertile].unique():
-            plot_heatmap(df=df.loc[df[var_tertile]==i_ag].groupby([return_tertile, "FCFA_tertile"]).count().iloc[:,0].unstack(level=-1),\
+            plot.plot_heatmap(df=df.loc[df[var_tertile]==i_ag].groupby([return_tertile, "FCFA_discrete"]).count().iloc[:,0].unstack(level=-1),\
                          x_label="fq total return", y_label="FCFA",\
-                         figsize=(10,7), filename="%s_FCFA_AG%s" % (total_return, i_ag), fmt='.0f')
+                         figsize=(10,7), filename="./output/singlefactor/%s_FCFA_AG%s" % (total_return, i_ag), fmt='.0f')
+
 
         # plot average return of AG and FCFA tertile group
-        plot_heatmap(df=df.groupby([var_tertile, "FCFA_tertile"]).mean()[total_return].unstack(1).sort_index(ascending=False),\
-                         x_label="Profitability", y_label="Asset Growth",\
-                         figsize=(10,7), filename="%s_FCFA_AG_tertile" % (total_return), fmt='.3f')
+        plot.plot_heatmap(df=df.groupby(["FCFA_discrete", var_tertile]).mean()[total_return].unstack(1).sort_index(ascending=False), square=True,\
+            annot_kws={'fontsize':20},
+            x_label="Asset growth", y_label="Free Cash Flow to Asset", annot=True,\
+            figsize=(8,6), filename="./output/singlefactor/%s_FCFA_AG_tertile" % (total_return), fmt='.3f')
+
 
         # plot standard deviation of return for AG and FCFA tertile group by sector
         df_std_list = {}
         for i_industry in df[categories[0]].unique():
             df_std_list[i_industry]=df.loc[df[categories[0]]==i_industry]\
-                                          .groupby([var_tertile, "FCFA_tertile"])\
+                                          .groupby([var_tertile, "FCFA_discrete"])\
                                           .std()[total_return].unstack(1)
-        plot_heatmap_group(df_list=df_std_list, n_subplot_columns=4,
+        plot.plot_heatmap_group(df_list=df_std_list, n_subplot_columns=4,
                            x_label="FCFA", y_label="AG", group_map=sector_map, figsize=(25,20),
-                           filename="%s_std_FCFA_AG_sector_tertile" % (total_return), fmt='.3f', cmap=sns.light_palette("gray"))
+                           filename="./output/singlefactor/%s_std_FCFA_AG_sector_tertile" % (total_return), fmt='.3f', cmap=sns.light_palette("gray"))
 
         # plot average return of AG and FCFA tertile group by sector
         df_mean_list = {}
         for i_industry in df[categories[0]].unique():
             df_mean_list[i_industry]=df.loc[df[categories[0]]==i_industry]\
-                                          .groupby([var_tertile, "FCFA_tertile"])\
+                                          .groupby([var_tertile, "FCFA_discrete"])\
                                           .mean()[total_return].unstack(1)
-        plot_heatmap_group(df_list=df_mean_list, df_err_list=df_std_list, n_subplot_columns=4,
+        plot.plot_heatmap_group(df_list=df_mean_list, df_err_list=df_std_list, n_subplot_columns=4,
                            x_label="FCFA", y_label="AG", group_map=sector_map, figsize=(25,20), fmt="s", cmap=sns.color_palette("RdBu_r", 7),
-                           filename="%s_mean_FCFA_AG_sector_tertile" % (total_return))
+                           filename="./output/singlefactor/%s_mean_FCFA_AG_sector_tertile" % (total_return))
 
 
 

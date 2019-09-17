@@ -152,7 +152,7 @@ def get_val_dates(df, k, date_column, verbose=False):
 
 def purged_k_fold_cv(
     df_train, model, features, label, k, purge_length, embargo_length,
-    n_epoch=1, date_column='eom', subsample=1, verbose=False):
+    n_epoch=1, date_column='eom', subsample=1, verbose=False, label_reg=False):
     """ Perform purged k-fold cross-validation. Assumes that data is uniformly
         distributed over the time period.
             i.e. Data is splitted by dates instead of size.
@@ -170,6 +170,7 @@ def purged_k_fold_cv(
         date_column: Datetime column
         subsample: fraction of training samples to use.
         verbose: Print debugging information if True
+        label_reg: If specified, model is triained on this regression label.
     Return:
         results[mean]: Dictionary containing average performance across
             k folds for each metric. ex. {'accuracy':0.3, 'f1-score':0.5, etc.}
@@ -212,10 +213,13 @@ def purged_k_fold_cv(
                 val_end=val_end,
                 date_column=date_column,
                 subsample=subsample)
-            # Fit model
-            model.fit(X=df_k_train[features], y=df_k_train[label])
-            # Make prediction
-            y_pred = model.predict(df_k_val[features])
+            # Fit and make prediction
+            if label_reg:
+                model.fit(X=df_k_train[features], y=df_k_train[label_reg])
+                y_pred = model.predict(df_k_val[features], df_k_val[date_column])
+            else:
+                model.fit(X=df_k_train[features], y=df_k_train[label])
+                y_pred = model.predict(df_k_val[features])
             # Return classification report
             report = classification_report(
                 df_k_val[label], y_pred, output_dict=True)
@@ -244,7 +248,7 @@ def purged_k_fold_cv(
 def grid_search(
     df_train, model, param_grid, features, label, k, purge_length,
     output_path, n_epoch=1, embargo_length=0, date_column='eom', subsample=1,
-    verbose=False):
+    verbose=False, label_reg=False):
     ''' Perform grid search using purged cross-validation method. 
     Args:
         df_train: training set given in Pandas dataframe
@@ -263,6 +267,7 @@ def grid_search(
         subsample: fraction of training samples to use.
         verbose: Print debugging information if True
         output_path: Path to save results as csv
+        label_reg: If specified, model is triained on this regression label.
     Return:
         cv_results: Dataframe summarizing cross-validation results
     '''
@@ -296,7 +301,8 @@ def grid_search(
             k=k, verbose=verbose, n_epoch=n_epoch,
             purge_length=purge_length,
             embargo_length=embargo_length,
-            subsample=subsample)
+            subsample=subsample,
+            label_reg=label_reg)
         # Save evaluation result of all metrics, not just one that is used.
         for m in metrics:
             cv_results.at[i, m] = single_model_result['mean'][m]

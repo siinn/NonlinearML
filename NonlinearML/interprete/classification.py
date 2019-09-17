@@ -19,14 +19,13 @@ def decision_boundary2D(
     config,
     df_train, df_test,
     model, model_str, param_grid, best_params={},
-    read_last=False, cv_study=None, calculate_return=True,
+    read_last=False, cv_study=None, run_backtest=True,
     plot_decision_boundary=True, save_csv=True,
     cv_hist_n_bins=10, cv_hist_figsize=(18, 10), cv_hist_alpha=0.6,
     cv_box_figsize=(18,10), cv_box_color="#3399FF",
-    db_res=0.01, db_figsize=(10,8), db_xlim=(-3,3),
-    db_ylim=(-3,3), db_annot_x=0.02, db_annot_y=0.98,
     return_figsize=(8,6), return_train_ylim=(-1,7), return_test_ylim=(-1,5),
-    return_diff_test_ylim=(-1,5)):
+    return_diff_test_ylim=(-1,5),
+    label_reg=False):
     """
     Args:
         config: Global configuration passed as dictionary
@@ -45,10 +44,10 @@ def decision_boundary2D(
         read_last: If True, it reads cv_results from local path. If False, it
             performs grid search
         cv_study: Perform study on cross-validation if True
-        calculate_return: Calculate cumulative return if True
+        run_backtest: Calculate cumulative return, annual return, and IR if True
         plot_decision_boundary: Plot decision boundary of the best model if True
         save_csv: Save all results as csv
-
+        label_reg: If specified, model is triained on this regression label.
 
         Others: parameters for nested functions.
 
@@ -100,7 +99,7 @@ def decision_boundary2D(
             date_column=config['date_column'],
             k=config['k'], purge_length=config['purge_length'],
             output_path=output_path+"cross_validation/",
-            verbose=False)
+            verbose=False, label_reg=label_reg)
 
     #---------------------------------------------------------------------------
     # Perform ANOVA to select best model
@@ -133,15 +132,34 @@ def decision_boundary2D(
         # Plot decision boundaries of all hyperparameter sets
         plot_db.decision_boundary_multiple_hparmas(
             param_grid=param_grid, label=config['label_cla'], model=model,
-            db_annot_x=db_annot_x, db_annot_y=db_annot_y,
-            df=df_train, features=features, h=db_res,
+            db_annot_x=config['db_annot_x'], db_annot_y=config['db_annot_y'],
+            df=df_train, features=features, h=config['db_res'],
             x_label=config['feature_x'], y_label=config['feature_y'],
-            #vlines=tertile_boundary[feature_x],
-            #hlines=tertile_boundary[feature_y],
-            colors=config['db_colors'], xlim=db_xlim, ylim=db_ylim,
-            figsize=db_figsize,
-            ticks=sorted(list(config['class_label'].keys())),
+            colors=config['db_colors'], xlim=config['db_xlim'], ylim=config['db_ylim'],
+            figsize=config['db_figsize'],
+            #ticks=sorted(list(config['class_label'].keys())),
+            ticks=None,
+            scatter=True, subsample=0.01, label_cla=config['label_cla'],
+            scatter_legend=False,
+            dist=True, nbins=config['db_nbins'],
+            filename=output_path+"decision_boundary/overlay_db",
+            label_reg=label_reg
+            )
+
+        plot_db.decision_boundary_multiple_hparmas(
+            param_grid=param_grid, label=config['label_cla'], model=model,
+            db_annot_x=config['db_annot_x'], db_annot_y=config['db_annot_y'],
+            df=df_train, features=features, h=config['db_res'],
+            x_label=config['feature_x'], y_label=config['feature_y'],
+            colors=config['db_colors'], xlim=config['db_xlim'], ylim=config['db_ylim'],
+            figsize=config['db_figsize'],
+            #ticks=config['class_order'],
+            ticks=None,
+            scatter=False, subsample=0.01, label_cla=config['label_cla'],
+            scatter_legend=True,
+            dist=True, nbins=config['db_nbins'],
             filename=output_path+"decision_boundary/db",
+            label_reg=label_reg
             )
     
     #---------------------------------------------------------------------------
@@ -151,22 +169,37 @@ def decision_boundary2D(
     pred_train, pred_test, model = utils.predict(
             model=model.set_params(**best_params),
             df_train=df_train, df_test=df_test, features=features,
-            label_cla=config['label_cla'], label_fm=config['label_fm'],
-            time=config['date_column'])
+            date_column=config['date_column'],
+            label_cla=config['label_cla'], label_reg=label_reg,
+            cols=[
+                config['label_fm'],
+                config['security_id']])
 
     #---------------------------------------------------------------------------
     # Cumulative return
     #---------------------------------------------------------------------------
-    if calculate_return:
+    if run_backtest:
         # Calculate cumulative return using trained model
-        df_cum_train, df_cum_test = backtest.calculate_cum_return(
+        df_backtest_train, df_backtest_test = backtest.perform_backtest(
                 pred_train=pred_train, pred_test=pred_test, 
                 list_class=list(config['class_label'].keys()),
                 label_fm=config['label_fm'], time=config['date_column'])
+
+        # Calculate diff. in cumulative return, annual return, and IR
+        df_diff_train = backtest.calculate_diff_IR(
+            df=df_backtest_train, 
+            return_label=config['class_order'],
+            class_reg=config['label_fm'],
+            time=config['date_column'])
+        df_diff_test = backtest.calculate_diff_IR(
+            df=df_backtest_test, 
+            return_label=config['class_order'],
+            class_reg=config['label_fm'],
+            time=config['date_column'])
         
         # Make cumulative return plot
         plot_backtest.plot_cumulative_return(
-            df_cum_train, df_cum_test, config['label_reg'],
+            df_backtest_train, df_backtest_test, config['label_fm'],
             group_label=config['class_label'],
             figsize=return_figsize,
             filename=output_path+"cum_return/return_by_group",
@@ -174,17 +207,19 @@ def decision_boundary2D(
             train_ylim=return_train_ylim,
             test_ylim=return_test_ylim)
         plot_backtest.plot_cumulative_return_diff(
-            list_cum_returns=[df_cum_test],
+            list_cum_returns=[df_backtest_test],
             return_label=config['class_order'],
-            list_labels=[model_str], label_reg=config['label_reg'],
+            list_labels=[model_str], label_reg=config['label_fm'],
             figsize=return_figsize,
             date_column=config['date_column'],
             filename=output_path+"cum_return/return_diff_group",
             ylim=return_diff_test_ylim)
     else:
         # If cumulative returns are not calculated, create dummy results
-            df_cum_train = None
-            df_cum_test = None
+            df_backtest_train = None
+            df_backtest_test = None
+            df_diff_train = None
+            df_diff_test = None
 
 
     #---------------------------------------------------------------------------
@@ -193,29 +228,38 @@ def decision_boundary2D(
     if plot_decision_boundary:
         # Plot decision boundary of the best model.
         plot_db.decision_boundary(
-            model=model, df=df_test, features=features, h=db_res,
+            model=model, df=df_train, features=features, h=config['db_res'],
             x_label=config['feature_x'], y_label=config['feature_y'],
-            #vlines=tertile_boundary[feature_x],
-            #hlines=tertile_boundary[feature_y],
             colors=config['db_colors'],
-            xlim=db_xlim, ylim=db_ylim, figsize=db_figsize,
-            #ticks=sorted(list(config['class_label'].keys()), reverse=True),
-            ticks=config['class_order'],
+            xlim=config['db_xlim'], ylim=config['db_ylim'], figsize=config['db_figsize'],
+            #ticks=config['class_order'],
+            ticks=None,
             annot={
                 'text':utils.get_param_string(best_params).strip('{}')\
                     .replace('\'','').replace(',','\n').replace('\n ', '\n'),
-                'x':db_annot_x, 'y':db_annot_y},
-            filename=output_path+"decision_boundary/db_best_model")
+                'x':config['db_annot_x'], 'y':config['db_annot_y']},
+            scatter=True, subsample=0.01, label_cla=config['label_cla'],
+            scatter_legend=False,
+            dist=True, nbins=config['db_nbins'],
+            filename=output_path+"decision_boundary/overlay_db_best_model",
+            label_reg=label_reg)
 
-        #plot_db.decision_boundary_ext(
-        #    model=model, dim_red_method=None,
-        #    X=df_test[features].values, Y=df_test[config['label_cla']].values,
-        #    xrg=db_xlim, yrg=db_ylim, Nx=300, Ny=300, scatter_sample=0.01,
-        #    figsize=db_figsize, alpha=0.7,
-		#	colors=config['db_colors'],
-        #    filename=output_path+"decision_boundary/db_best_model_ext")
-        
-        
+        plot_db.decision_boundary(
+            model=model, df=df_train, features=features, h=config['db_res'],
+            x_label=config['feature_x'], y_label=config['feature_y'],
+            colors=config['db_colors'],
+            xlim=config['db_xlim'], ylim=config['db_ylim'], figsize=config['db_figsize'],
+            #ticks=config['class_order'],
+            ticks=None,
+            annot={
+                'text':utils.get_param_string(best_params).strip('{}')\
+                    .replace('\'','').replace(',','\n').replace('\n ', '\n'),
+                'x':config['db_annot_x'], 'y':config['db_annot_y']},
+            scatter=False, subsample=0.01, label_cla=config['label_cla'],
+            scatter_legend=False,
+            dist=True, nbins=config['db_nbins'],
+            filename=output_path+"decision_boundary/db_best_model",
+            label_reg=label_reg)
 
 
 
@@ -228,10 +272,14 @@ def decision_boundary2D(
         # Save the summary
         if not read_last:
             cv_results.to_csv(output_path+'csv/cv_results.csv')
-        if type(df_cum_train)==pd.DataFrame:
-            df_cum_train.to_csv(output_path+'csv/cum_return_train.csv')
-        if type(df_cum_test)==pd.DataFrame:
-            df_cum_test.to_csv(output_path+'csv/cum_return_test.csv')
+        if type(df_backtest_train)==pd.DataFrame:
+            df_backtest_train.to_csv(output_path+'csv/cum_return_train.csv')
+        if type(df_backtest_test)==pd.DataFrame:
+            df_backtest_test.to_csv(output_path+'csv/cum_return_test.csv')
+        if type(df_diff_train)==pd.DataFrame:
+            df_diff_train.to_csv(output_path+'csv/backtest_diff_train.csv')
+        if type(df_diff_test)==pd.DataFrame:
+            df_diff_test.to_csv(output_path+'csv/backtest_diff_test.csv')
         # Save ANOVA results
         for key in anova_results:
             if type(anova_results[key]) == dict:
@@ -251,13 +299,18 @@ def decision_boundary2D(
             data=[anova_results['id_selected_model']],
             columns=['id_selected_model']).to_csv(
                 output_path+'csv/id_selected_model.csv')
+        # Save predictions
+        if type(pred_train)==pd.DataFrame:
+            pred_train.to_csv(output_path+'csv/pred_train.csv')
+        if type(pred_test)==pd.DataFrame:
+            pred_test.to_csv(output_path+'csv/pred_test.csv')
 
     io.message("Successfully completed all tasks!")
 
     return {
         'cv_results': cv_results, 'anova_results': anova_results,
         'pred_train': pred_train, 'pred_test': pred_test,
-        'cum_return_train': df_cum_train, 'cum_return_test': df_cum_test,
+        'cum_return_train': df_backtest_train, 'cum_return_test': df_backtest_test,
         'model': model}
             
 

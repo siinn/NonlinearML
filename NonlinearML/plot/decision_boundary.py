@@ -1,23 +1,44 @@
 from matplotlib.colors import ListedColormap
+from matplotlib.transforms import Affine2D
+import mpl_toolkits.axisartist.floating_axes as floating_axes
 import numpy as np
 import pandas as pd
-import seaborn as sns
 import itertools
 
 from NonlinearML.lib.utils import create_folder
 from NonlinearML.lib.utils import get_param_string
 from NonlinearML.plot.plot import *
 from NonlinearML.plot.style import load_matplotlib
+from NonlinearML.plot.style import load_seaborn
 import NonlinearML.lib.io as io
 plt = load_matplotlib()
+sns = load_seaborn()
 
 
 #-------------------------------------------------------------------------------
 # Decision boundary plots
 #-------------------------------------------------------------------------------
+def setup_axes(fig, rect, rotation, axisScale, axisLimits, doShift):
+    """ Setup matplotlib axes"""
+    tr_rot = Affine2D().scale(axisScale[0], axisScale[1]).rotate_deg(rotation)
+    # This seems to do nothing
+    if doShift:
+        tr_trn = Affine2D().translate(-90,-5)
+    else:
+        tr_trn = Affine2D().translate(0,0)
+    tr = tr_rot + tr_trn
+    grid_helper = floating_axes.GridHelperCurveLinear(tr, extremes=axisLimits)
+    ax = floating_axes.FloatingSubplot(fig, rect, grid_helper=grid_helper)
+    fig.add_subplot(ax)
+    aux_ax = ax.get_aux_axes(tr)
+    return ax, aux_ax
+
 def decision_boundary(
-    model, df, features, h=0.01, x_label="", y_label="", xlim=False, ylim=False,
-    title=False, title_loc='center', annot=False, vlines = [], hlines = [],
+    model, df, features, label_reg=False,
+    h=0.01, x_label="", y_label="", xlim=False, ylim=False,
+    title=False, title_loc='center', annot=False, vlines=[], hlines=[],
+    scatter=False, subsample=0.01, label_cla=None, scatter_legend=False,
+    dist=False, nbins=20,
     colors=["#BA2832", "#F3F2F2", "#2A71B2"], figsize=(8,4), ticks=[],
     filename=""):
     ''' Plot decision boundary of trained model.
@@ -28,8 +49,20 @@ def decision_boundary(
             feature becomes x, second feature becomes y. 
         features: list of features. ex. ["AG", "FCFA"]
         h: step size when creating grid
+        annot: Dictionary containing the following:
+            {'x': x coordinateof annotation,
+             'y': y coordinateof annotation,
+             'text': text to display}
+            If False, do not display any annotation. 
         vlines, hlines: vertical and horizontal lines to draw given in list
             Example: vlines=[-0.5, 0, 0.5]
+        scatter: Plot data as scatter plot on top of decision boundaries.
+        subsample: subsampling rate used for scatter plot.
+            ex. subsampling=0.1 means only 10% of data will be plotted.
+            Used for scatter plot.
+        dist: Plot distribution of two features.
+        n_bins: Number of bins in histogram.
+        label_reg: If specified, model is triained on this regression label.
         others: plotting option
     Returns:
         None
@@ -52,12 +85,42 @@ def decision_boundary(
     df_mesh = pd.DataFrame(np.c_[xx.ravel(), yy.ravel()])\
                 .rename({i:features[i] for i in range(len(features))}, axis=1)
     # Make prediction for each point on grid
-    z = model.predict(df_mesh)
+    if label_reg:
+        z = model.predict(df_mesh, None)
+    else:
+        z = model.predict(df_mesh)
     z = z.reshape(xx.shape)
     # Put the result into a color plot
     cmap = ListedColormap(sns.color_palette(colors).as_hex())
-    fig, ax = plt.subplots(1,1, figsize=figsize)
+    # Create figure
+    if not dist:
+        fig, ax = plt.subplots(1,1, figsize=figsize)
+    # Plot distribution of two features
+    elif dist:
+        # Create joint plot using seaborn
+        g = sns.JointGrid(
+            x=features[0], y=features[1], data=df,
+            height=figsize[1], space=0.3, ratio=6)
+        g = g.plot_marginals(
+            sns.distplot, kde=False, bins=nbins,
+            color="gray", hist_kws={
+                "histtype": "stepfilled", "linewidth": 1.5,
+                "alpha": 1, "color": "gray", "edgecolor": "black"})
+        # Set axes and figure to joint plot
+        ax = g.ax_joint
+        fig = g.fig
+    # Plot decision boundaries
     im = ax.pcolormesh(xx, yy, z, cmap=cmap)
+    # Add scatter plot
+    if scatter:
+        df_sub = df.sample(frac=subsample)
+        for i, cls in enumerate(sorted(df_sub[label_cla].unique())):
+            _df = df_sub.loc[df_sub[label_cla]==cls]
+            ax.scatter(
+                x=_df[features[0]], y=_df[features[1]], s=25,
+                edgecolors='black', c=colors[i], label=cls)
+            if scatter_legend==True:
+                ax.legend(loc='lower right')
     # Customize plot
     ax.set_xlabel(x_label)
     ax.set_ylabel(y_label)
@@ -76,9 +139,9 @@ def decision_boundary(
         ax.set_ylim(ylim)
     else:
         ax.set_ylim(yy.min(), yy.max())
-    plt.tight_layout()
-    colorbar = fig.colorbar(im, ax=ax)
+    #plt.tight_layout()
     if ticks:
+        colorbar = fig.colorbar(im, ax=ax)
         colorbar.set_ticks(ticks)
     # Draw vertical and horizontal lines.
     if vlines:
@@ -94,13 +157,15 @@ def decision_boundary(
 
 
 
-def decision_boundary_multiple_hparmas(param_grid, label, db_annot_x, db_annot_y, **kwargs):
+def decision_boundary_multiple_hparmas(param_grid, label, db_annot_x, db_annot_y, label_reg=False, **kwargs):
     ''' Plot decision boundary for each hyperparameter set. This is a wrapper
         of 'decision_boundary' function.
     Args:
         param_grid: Hyperparamater grid to search.
         label: classification label
         db_annot_x, db_annot_y: Location of annotation that displays parameters.
+        label_reg: If specified, model is triained on this regression label.
+                   Label is ignored.
         **kwargs:
             Arguments for 'decision_boundary'. Only difference is
             that df must be training data.
@@ -128,7 +193,10 @@ def decision_boundary_multiple_hparmas(param_grid, label, db_annot_x, db_annot_y
         io.message(["\t - "+x+"="+str(params[x]) for x in params])
         # Train model with given hyperparameter set
         model=model.set_params(**params)
-        model.fit(df_train[features], df_train[label])
+        if label_reg:
+            model.fit(df_train[features], df_train[label_reg])
+        else:
+            model.fit(df_train[features], df_train[label])
         # Assign trained model back to kwargs
         kwargs['model'] = model
         # Add counter to filename
@@ -139,8 +207,10 @@ def decision_boundary_multiple_hparmas(param_grid, label, db_annot_x, db_annot_y
                 'text':get_param_string(params).strip('{}')\
                     .replace('\'','').replace(',','\n').replace('\n ', '\n'),
                 'x':db_annot_x, 'y':db_annot_y},
-        **kwargs)
+            label_reg=label_reg,
+            **kwargs)
     return
+
 
 
 

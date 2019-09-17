@@ -10,7 +10,7 @@ import pickle
 from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
-from sklearn.svm import LinearSVC
+import tensorflow as tf
 import warnings
 from xgboost.sklearn import XGBClassifier
 
@@ -18,7 +18,6 @@ from xgboost.sklearn import XGBClassifier
 import NonlinearML.lib.cross_validation as cv
 import NonlinearML.lib.utils as utils
 import NonlinearML.lib.stats as stats
-import NonlinearML.lib.io as io
 import NonlinearML.lib.summary as summary
 
 import NonlinearML.plot.plot as plot
@@ -26,25 +25,70 @@ import NonlinearML.plot.decision_boundary as plot_db
 import NonlinearML.plot.backtest as plot_backtest
 import NonlinearML.plot.cross_validation as plot_cv
 
+import NonlinearML.tf.model as tfmodel
+import NonlinearML.model.linearRank as linearRank
 import NonlinearML.interprete.classification as classification
 
+# Supress warnings
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+warnings.simplefilter(action='ignore', category=FutureWarning)
+warnings.filterwarnings('once')  # 'error', 'always', 'ignore'
+pd.options.mode.chained_assignment = None 
 
 #-------------------------------------------------------------------------------
 # Set configuration
 #-------------------------------------------------------------------------------
 # Set input and output path
-INPUT_PATH = '/mnt/mainblob/nonlinearML/EnhancedDividend/data/Data_EM_extended.csv'
+#INPUT_PATH = '/mnt/mainblob/nonlinearML/EnhancedDividend/data/Data_EM_extended.csv'
+INPUT_PATH = '../EnhancedDividend/data/Data_EM_extended.csv'
 
 # Set features of interest
 feature_x = 'DividendYield'
 feature_y = 'Payout_E'
+# Set limits of decision boundary
+db_xlim = (0, 0.2)
+db_ylim = (-1, 1.5)
+db_res = 0.0005
+
+
+# Set features of interest
+#feature_x = 'DY_dmed'
+#feature_y = 'PO_dmed'
+# Set limits of decision boundary
+#db_xlim = (-3, 3)
+#db_ylim = (-3, 3)
+#db_res = 0.01
+
+
+# Set features of interest
+#feature_x = 'DividendYield'
+#feature_y = 'EG'
+# Set limits of decision boundary
+#db_xlim = (0, 0.2)
+#db_ylim = (-0.5, 0.5)
+#db_res = 0.0005
+
+
+# Set features of interest
+#feature_x = 'DY_dmed'
+#feature_y = 'EG_dmed'
+# Set limits of decision boundary
+#db_xlim = (-3, 3)
+#db_ylim = (-3, 3)
+#db_res = 0.01
+
+
+
+
 
 # Set path to save output figures
 output_path = 'output/%s_%s/' % (feature_x, feature_y)
+tfboard_path='tf_log/%s_%s/' % (feature_x, feature_y)
 
 # Set labels
 n_classes=10
 class_label={x+1:'D'+str(x+1) for x in range(10)}
+class_order = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1] # High return to low return
 
 # Set output label classes
 label_reg = 'fqRet' # continuous target label
@@ -54,13 +98,16 @@ label_fm = 'fmRet' # monthly return used for calculating cum. return
 # Set data column
 date_column = "smDate"
 
+# Set security ID column
+security_id = 'SecurityID'
+
 # Set train and test period
 test_begin = "2012-01-01"
 test_end = "2019-05-01"
 
 # Set cross-validation configuration
-k = 10           # Must be > 1
-n_epoch = 20
+k = 5             # Must be > 1
+n_epoch = 1
 subsample = 0.5
 purge_length = 3
 
@@ -71,16 +118,24 @@ p_thres = 0.05
 cv_metric = ['f1-score', 'precision', 'recall', 'accuracy']
 
 # Set color scheme for decision boundary plot
-#db_colors = ["#3DC66D", "#F3F2F2", "#DF4A3A"]
 cmap = matplotlib.cm.get_cmap('Spectral', 10)
 db_colors = [matplotlib.colors.rgb2hex(cmap(i)) for i in range(cmap.N)]
 
+# Set decision boundary plotting options
+db_figsize= (8, 8)
+db_annot_x=0.02
+db_annot_y=0.98
+db_nbins=50
+
 # Set algorithms to run
-run_lr = True
-run_xgb = True
-run_knn = True
+run_lr = False
+run_lr_rank = False
+run_xgb = False
+run_knn = False
 run_svm = False
-run_comparison = True
+run_nn = False
+run_comparison = False
+save_prediction = False
 
 # Set default warning
 warnings.filterwarnings('once')  # 'error', 'always', 'ignore'
@@ -90,12 +145,14 @@ warnings.filterwarnings('once')  # 'error', 'always', 'ignore'
 #-------------------------------------------------------------------------------
 config = {
     'feature_x':feature_x, 'feature_y':feature_y,
-    'output_path':output_path,
-    'n_classes':n_classes, 'class_label':class_label,
+    'output_path':output_path, 'security_id':security_id,
+    'n_classes':n_classes, 'class_label':class_label, 'class_order':class_order,
     'label_reg':label_reg, 'label_cla':label_cla, 'label_fm':label_fm,
     'date_column':date_column, 'test_begin':test_begin, 'test_end':test_end,
     'k':k, 'n_epoch':n_epoch, 'subsample':subsample,
     'purge_length':purge_length,
+    'db_xlim':db_xlim, 'db_ylim':db_ylim, 'db_res' :db_res, 'db_nbins':db_nbins,
+    'db_figsize':db_figsize, 'db_annot_x':db_annot_x, 'db_annot_y':db_annot_y,
     'p_thres':p_thres, 'cv_metric':cv_metric, 'db_colors':db_colors}
 
 
@@ -127,7 +184,8 @@ if __name__ == "__main__":
             "max_iter":[50],
             "tol": [1e-2],
             "n_jobs":[-1],
-            "C": np.logspace(-4, 4, 15)} # note: C <= 1e-5 doesn't converge
+            "C": [1] + np.logspace(-4, 4, 10)} # C <= 1e-5 doesn't converge
+            #"C": [1]}
 
         # Set model
         model_lr = LogisticRegression()
@@ -139,11 +197,33 @@ if __name__ == "__main__":
             model_lr, model_lr_str, param_grid_lr, best_params={},
             read_last=False,
             cv_study=True,
-            calculate_return=True,
+            run_backtest=True,
             plot_decision_boundary=True,
             save_csv=True,
-            db_xlim=(0,0.2), db_ylim=(-1,1.5), db_res=0.001,
             return_train_ylim=(-1,20), return_test_ylim=(-1,5))
+
+    #---------------------------------------------------------------------------
+    # Linear regression + ranking
+    #---------------------------------------------------------------------------
+    if run_lr_rank:
+        # Set parameters to search
+        param_grid_lr = {
+            "alpha": [1] + np.logspace(-4, 4, 10)} # note: C <= 1e-5 doesn't converge
+
+        # Set model
+        model_lr_rank = linearRank.LinearRank(
+            n_classes=config['n_classes'],
+            class_names=sorted(config['class_order'], reverse=True))
+        model_lr_rank_str = 'lr_rank'
+
+        # Run analysis on 2D decision boundary
+        db_lr = classification.decision_boundary2D(
+            config, df_train, df_test,
+            model_lr_rank, model_lr_rank_str, param_grid_lr, best_params={},
+            read_last=False, cv_study=True, run_backtest=True,
+            plot_decision_boundary=True, save_csv=True,
+            return_train_ylim=(-1,20), return_test_ylim=(-1,5),
+            label_reg=config['label_reg'])
 
     #---------------------------------------------------------------------------
     # Xgboost
@@ -151,20 +231,22 @@ if __name__ == "__main__":
     if run_xgb:
         # Set parameters to search
         param_grid_xgb = {
-            'min_child_weight': [1000, 500],
-            'max_depth': [5, 7, 10],
-            'learning_rate': [0.1],
-            'n_estimators': [50],
+            'min_child_weight': [1000], #[1000, 500], #[1000], 
+            'max_depth': [5, 10],
+            'eta': [0.3, 0.01, 0.1, 0.5], #[0.3]
+            'n_estimators': [50, 100], # [50, 100, 200],
             'objective': ['multi:softmax'],
-            'gamma': [0, 5, 10], #np.logspace(-2, 1, 1), # Min loss reduction
-            'lambda': [1], #np.logspace(0, 2, 2) # L2 regularization
+            'gamma': [0], #[0, 5, 10],
+            'lambda': [1], #np.logspace(0, 2, 3), #[1], # L2 regularization
             'n_jobs':[-1],
-            'subsample':[1],
+            'subsample': [1],#[1, 0.8, 0.5], # [1]
             'num_class': [n_classes]}
+
+
 
         # Set model
         model_xgb = XGBClassifier()
-        model_xgb_str = 'xgb'
+        model_xgb_str = 'xgb_eta'
 
         # Run analysis on 2D decision boundary
         db_xgb = classification.decision_boundary2D(
@@ -172,11 +254,11 @@ if __name__ == "__main__":
             model_xgb, model_xgb_str, param_grid_xgb, best_params={},
             read_last=False,
             cv_study=True,
-            calculate_return=True,
+            run_backtest=True,
             plot_decision_boundary=True,
             save_csv=True,
-            db_xlim=(0,0.2), db_ylim=(-1,1.5), db_res=0.001,
             return_train_ylim=(-1,20), return_test_ylim=(-1,5))
+
 
     #---------------------------------------------------------------------------
     # kNN
@@ -197,10 +279,9 @@ if __name__ == "__main__":
             model_knn, model_knn_str, param_grid_knn, best_params={},
             read_last=False,
             cv_study=True,
-            calculate_return=True,
+            run_backtest=True,
             plot_decision_boundary=True,
             save_csv=True,
-            db_xlim=(0,0.2), db_ylim=(-1,1.5), db_res=0.001,
             return_train_ylim=(-1,20), return_test_ylim=(-1,5))
 
 
@@ -227,22 +308,95 @@ if __name__ == "__main__":
             model_svm, model_svm_str, param_grid_svm, best_params={},
             read_last=False,
             cv_study=True,
-            calculate_return=True,
+            run_backtest=True,
             plot_decision_boundary=True,
             save_csv=True,
-            db_xlim=(0,0.2), db_ylim=(-1,1.5), db_res=0.001,
             return_train_ylim=(-1,20), return_test_ylim=(-1,5))
+
+
+    #---------------------------------------------------------------------------
+    # Neural net
+    #---------------------------------------------------------------------------
+    if run_nn:
+        # Define ensemble of weak leaners
+        ensemble = []
+        input_layer = tf.keras.Input(shape=(2,))
+        for i in range(100):
+            weak_learner = tf.keras.layers.Dense(units=128, activation='relu',
+                kernel_initializer=tf.initializers.GlorotUniform())(input_layer)
+            weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
+            weak_learner = tf.keras.layers.Dense(units=128, activation='relu',
+                kernel_initializer=tf.initializers.GlorotUniform())(weak_learner)
+            weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
+            ensemble.append(tf.keras.layers.Dense(units=128, activation='relu',
+                kernel_initializer=tf.initializers.GlorotUniform())(weak_learner))
+        output_layer = tf.keras.layers.Average()(ensemble)
+        ensemble_model = tf.keras.Model(input_layer, output_layer)
+
+        param_grid = {
+            'learning_rate': [5e-4], #np.logspace(-4,-2,6),
+            'metrics': [
+                tf.keras.metrics.SparseCategoricalCrossentropy()],
+                #tf.keras.metrics.SparseCategoricalAccuracy()],
+            'patience': [3, 5, 20], # 3,4,5
+            #'patience': [5], # 3,4,5
+            'epochs': [1000],
+            'validation_split': [0.2],
+            'batch_size': [32],
+            'model': [
+                #tf.keras.Sequential([
+                #    tf.keras.layers.Dense(128, activation='relu'),
+                #    tf.keras.layers.Dropout(0.5),
+                #    tf.keras.layers.Dense(128, activation='relu'),
+                #    tf.keras.layers.Dropout(0.5),
+                #    tf.keras.layers.Dense(128, activation='relu'),
+                #    tf.keras.layers.Dense(n_classes, activation='softmax')]),
+                ensemble_model
+                ]
+            }
+
+        # Build model and evaluate
+        model = tfmodel.TensorflowModel(
+            model=None, params={}, log_path=tfboard_path)
+        model_str = 'nn'
+
+        # Run analysis on 2D decision boundary
+        db = classification.decision_boundary2D(
+            config, df_train, df_test,
+            model, model_str, param_grid, best_params={},
+            read_last=False, cv_study=True, run_backtest=True,
+            plot_decision_boundary=True, save_csv=True,
+            return_train_ylim=(-1,20), return_test_ylim=(-1,5))
+
+
+
 
     #---------------------------------------------------------------------------
     # Compare model results
     #---------------------------------------------------------------------------
     if run_comparison:
-        summary.model_comparison(
-            models=['lr', 'xgb', 'knn'], output_path=output_path,
+        summary = summary.model_comparison(
+            models=['lr', 'lr_rank', 'knn', 'xgb'],
+            output_path=output_path,
             label_reg=config['label_reg'],
-            class_label=sorted(
-                list(config['class_label'].keys()), reverse=True),
+            class_label=config['class_order'],
+            date_column=config['date_column'],
+            ylim=(-0.25,1))
+
+
+    #---------------------------------------------------------------------------
+    # Concatenate predictions to original date
+    #---------------------------------------------------------------------------
+    if save_prediction:
+        predictions = summary.save_prediction(
+            models=['lr', 'lr_rank', 'knn', 'xgb'],
+            feature_x=config['feature_x'],
+            feature_y=config['feature_y'],
+            df_input=df,
+            output_path=output_path,
             date_column=config['date_column'])
+
+
 
 
 

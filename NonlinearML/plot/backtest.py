@@ -2,7 +2,7 @@ import pandas as pd
 
 import NonlinearML.lib.io as io
 
-from NonlinearML.lib.backtest import *
+import NonlinearML.lib.backtest as backtest
 from NonlinearML.lib.utils import create_folder
 from NonlinearML.plot.plot import *
 from NonlinearML.plot.style import load_matplotlib
@@ -72,17 +72,10 @@ def plot_cumulative_return_diff(
     """
     # Calculate difference in return and concatenate
     df_diff = pd.concat([
-        calculate_diff_return(
+        backtest.calculate_diff_return(
             cum_return, return_label=return_label,
             output_col=label, time=date_column)
-            for cum_return, label in zip(list_cum_returns, list_labels)])
-
-    df_diff = pd.concat(
-        [
-            calculate_diff_return(
-                cum_return, return_label=return_label,output_col=label,
-                time=date_column)\
-            for cum_return, label in zip(list_cum_returns, list_labels)])
+        for cum_return, label in zip(list_cum_returns, list_labels)])
 
     # Sort by dates
     df_diff = df_diff.sort_values(date_column)

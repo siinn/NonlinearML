@@ -46,7 +46,8 @@ def model_comparison(
     Args:
         models: List of models. Ex. ['lr', 'xgb']
         output_path: Parent path to saved model results
-        label_reg: Regression label. Ex. 'fqTotalReturn'
+        label_reg: Regression label. Ex. 'fmTotalReturn'.
+            Used to label y axis
         class_label: List of return labels in order of [high, medium, low]
         date_column: Ex. 'eom' or 'smDate'
         others: Plotting options
@@ -99,6 +100,70 @@ def model_comparison(
 
 
 
+
+
+def save_prediction(
+    models, feature_x, feature_y, df_input, output_path, date_column):
+    """ Add predictions to origianl input data and save as a new csv.
+    This function reads predictions from csv.
+    Args:
+        models: List of models. Ex. ['lr', 'xgb']
+        feature_x, feature_y: Features used in making predictions.
+            Used to label prediction columns.
+        df_input: Input dataframe
+        output_path: Parent path to saved model results
+        date_column: Ex. 'eom' or 'smDate'
+    Return:
+        csvs loaded into dataframe
+    """
+    # Initialize logger
+    io.setConfig(path=output_path+"model_comparison/", filename="log")
+    io.title("Save prediction") 
+
+    # Read results from all models
+    pred_test = {}
+    pred_train = {}
+
+    # Read csv
+    for model in models:
+        io.message("Reading predictions from model: %s" % model)
+        try:
+            path = "/".join([output_path.strip("/"), model, "csv/"])
+            io.message(" > %spred_test.csv" % path)
+            pred_test[model] = pd.read_csv(
+                path+"pred_test.csv",
+                parse_dates=[date_column], infer_datetime_format=True)
+            io.message(" > %spred_train.csv" % path)
+            pred_train[model] = pd.read_csv(
+                path+"pred_train.csv",
+                parse_dates=[date_column], infer_datetime_format=True)
+        except:
+            io.error("Cannot find model prediction.")
+        
+    # Reset index. Assumes that order isn't changed.
+    """ NEED TO UPDATE THIS SO THAT WE CAN USE SECURITY ID TO JOIN"""
+    df_output = df_input.reset_index()
+
+    # Append model predictions to output dataframe
+    for model in models:
+        # Concatenate train and test prediction
+        df_pred = pd.concat(
+            [pred_train[model], pred_test[model]])
+        # Append prediction to output
+        df_output["_".join(["Pred", feature_x, feature_y, model])] = \
+            df_pred.reset_index()['pred']
+
+    # Save prediction
+    io.message("Saving predictions as")
+    output_file = output_path+"model_comparison/prediction.csv"
+    io.message(" > %s" % output_file)
+    utils.create_folder(output_file)
+    df_output.to_csv(output_file)
+
+    return {
+        'pred_train': pred_train,
+        'pred_test': pred_test,
+        'df_output': df_output}
 
 
 

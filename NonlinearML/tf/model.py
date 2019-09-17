@@ -80,21 +80,11 @@ class TensorflowModel:
 
     def predict(self, x):
         """ Make prediction."""
-        return self.model.predict_classes(
-            x=x, verbose=0, batch_size=self.params['batch_size'])
-
-    #def evaluate(self, train_x, train_y, test_x, test_y):
-    #    """ Make prediction and evaluate model with classification metrics."""
-    #    y_pred_train = self.model.predict_classes(
-    #        x=train_x.values, verbose=1, batch_size=params['batch_size'])
-    #    y_pred_test = self.model.predict_classes(
-    #        x=test_x.values, verbose=1, batch_size=params['batch_size'])
-    #    # Calculate classification metrics
-    #    cr_train = classification_report(
-    #        train_y.values, y_pred_train, output_dict=True)
-    #    cr_test = classification_report(
-    #        test_y.values, y_pred_test, output_dict=True)
-    #    return cr_train, cr_test
+        y_prob = self.model.predict(x, batch_size=self.params['batch_size'])
+        y_classes = y_prob.argmax(axis=-1)
+        return y_classes
+        #return self.model.predict_classes(
+        #    x=x, verbose=0, batch_size=self.params['batch_size'])
 
 
 def extract_metrics(class_report, num_class):
