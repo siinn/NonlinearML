@@ -155,9 +155,6 @@ def calculate_diff_IR(df, return_label, class_reg, time):
     df_diff = df_diff.sort_values(time).reset_index()
     # Calculate std of difference in returns
     std = []
-    #import pdb;pdb.set_trace
-    #import code
-    #code.interact(local=vars())
     for i in df_diff.index.values:
         std.append(
                 df_diff[class_reg+"_diff"].iloc[:int(i+1)]\

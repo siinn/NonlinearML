@@ -36,14 +36,14 @@ class TensorflowModel:
             str(datetime.now()).replace(' ', '_')]).strip('\'')
         return tf.keras.callbacks.TensorBoard(
             log_dir=path,
-            histogram_freq=True, update_freq='epoch')
+            histogram_freq=False, update_freq='epoch')
 
     def get_earlystop(self):
         """ Add early stopping and tfboard to callback"""
         return tf.keras.callbacks.EarlyStopping(
             monitor=self.params['metrics'].name,
             patience=self.params["patience"],
-            mode='max')
+            mode='auto')
 
     def set_params(self, **params):
         """ Set model parameters. """
@@ -73,18 +73,19 @@ class TensorflowModel:
                 batch_size=self.params['batch_size'],
                 validation_split=self.params["validation_split"],
                 callbacks=[self.get_earlystop(), self.get_tfboard()],
-                verbose=0)
+                verbose=1)
         else:
             print("Set hyperparameters first by .set_params method")
         return self
 
     def predict(self, x):
         """ Make prediction."""
-        y_prob = self.model.predict(x, batch_size=self.params['batch_size'])
+        #y_prob = self.model.predict(x.values, batch_size=self.params['batch_size'])
+        y_prob = self.model.predict_on_batch(x.values)
+        if 'numpy' in dir(y_prob):
+            y_prob = y_prob.numpy() # Convert to numpy if trained on GPU
         y_classes = y_prob.argmax(axis=-1)
         return y_classes
-        #return self.model.predict_classes(
-        #    x=x, verbose=0, batch_size=self.params['batch_size'])
 
 
 def extract_metrics(class_report, num_class):

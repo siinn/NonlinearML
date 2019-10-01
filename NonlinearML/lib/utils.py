@@ -136,8 +136,6 @@ def discretize_variables_by_month(
     # Loop over each variable
     for var in variables:
         # Assign classes
-        #df["_".join([var, suffix])] = df.groupby([month])[var]\
-        #    .transform(lambda x: pd.qcut(x, n_classes, class_names))
         df["_".join([var, suffix])] = df.groupby([month])[var]\
             .transform(
                 lambda x: pd.qcut(x.rank(method='first'), n_classes, class_names))
@@ -183,7 +181,7 @@ def last_cum_return(df, time="eom"):
 
 
 def predict(
-    model, df_train, df_test, features, label_cla, date_column, cols, label_reg=False):
+    model, df_train, df_test, features, label, date_column, cols, rank=False):
     ''' Train model using best params and make prediction using trained model
     on both train and test dataset. label_fm which represent continuous target
     variable is joined to the prediction.
@@ -191,19 +189,17 @@ def predict(
         model: ML Model that supports .fit and .predict method
         df_train, df_test: train and test dataframe
         features: list of features
-        label_cla: name of column that represent classification label
+        label: target label
         cols: Other columns to include in output dataframe
-        label_reg: If specified, model is triained on this regression label.
-            Label_cla is ignored
+        rank: If True, prediction is made by ranking the regression output.
     Return:
         pred_train, pred_test: prediction of train and test dataset
         model: trained model
     '''
     io.message("Making prediction:\n%s" % model)
-    if label_reg:
-        # Fit model
-        model.fit(df_train[features], df_train[label_reg])
-
+    # Fit model
+    model.fit(df_train[features], df_train[label])
+    if rank:
         # Make prediction and concatenate prediction and true label
         pred_train  = concat_pred_label(
             df=df_train,
@@ -214,9 +210,6 @@ def predict(
             prediction=model.predict(df_test[features], df_test[date_column]),
             columns=[date_column]+features+cols)
     else:
-        # Fit model
-        model.fit(df_train[features], df_train[label_cla])
-
         # Make prediction and concatenate prediction and true label
         pred_train  = concat_pred_label(
             df=df_train,

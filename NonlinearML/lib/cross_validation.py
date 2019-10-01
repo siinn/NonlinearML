@@ -127,8 +127,7 @@ def get_val_dates(df, k, date_column, verbose=False):
     # Convert them back to timestamp.
     if verbose:
         io.message(
-            '\nDataset will be splitted into K-folds with the',
-            ' following dates:')
+            'Dataset will be splitted into K-folds with the following dates:')
     for i in range(k):
         # Calculate validation begin and end dates
         val_begin = date_begin + i * fold_length
@@ -151,8 +150,8 @@ def get_val_dates(df, k, date_column, verbose=False):
 
 
 def purged_k_fold_cv(
-    df_train, model, features, label, k, purge_length, embargo_length,
-    n_epoch=1, date_column='eom', subsample=1, verbose=False, label_reg=False):
+    df_train, model, model_type, features, label, k, purge_length, embargo_length,
+    n_epoch=1, date_column='eom', subsample=1, verbose=False, rank=False, label_cla=False):
     """ Perform purged k-fold cross-validation. Assumes that data is uniformly
         distributed over the time period.
             i.e. Data is splitted by dates instead of size.
@@ -170,7 +169,8 @@ def purged_k_fold_cv(
         date_column: Datetime column
         subsample: fraction of training samples to use.
         verbose: Print debugging information if True
-        label_reg: If specified, model is triained on this regression label.
+        rank: If True, prediction is made by ranking the regression output.
+        label_cla: classification label. Ignored when model_type is 'reg'.
     Return:
         results[mean]: Dictionary containing average performance across
             k folds for each metric. ex. {'accuracy':0.3, 'f1-score':0.5, etc.}
@@ -186,7 +186,7 @@ def purged_k_fold_cv(
     val_dates = get_val_dates(
         df=df_train, k=k, date_column=date_column, verbose=verbose)
     # Get list of classes
-    classes = sorted([str(x) for x in df_train[label].unique()])
+    classes = sorted([str(x) for x in df_train[label_cla].unique()])
     # Dictionary to hold results
     results = {'accuracy':[], 'f1-score':[], 'precision':[], 'recall':[]}
     for cls in classes:
@@ -214,15 +214,13 @@ def purged_k_fold_cv(
                 date_column=date_column,
                 subsample=subsample)
             # Fit and make prediction
-            if label_reg:
-                model.fit(X=df_k_train[features], y=df_k_train[label_reg])
+            model.fit(X=df_k_train[features], y=df_k_train[label])
+            if rank:
                 y_pred = model.predict(df_k_val[features], df_k_val[date_column])
             else:
-                model.fit(X=df_k_train[features], y=df_k_train[label])
                 y_pred = model.predict(df_k_val[features])
-            # Return classification report
             report = classification_report(
-                df_k_val[label], y_pred, output_dict=True)
+                df_k_val[label_cla], y_pred, output_dict=True)
             # Append results
             for cls in classes:
                 results['%s_f1-score' %cls].append(report[cls]['f1-score'])
@@ -246,13 +244,15 @@ def purged_k_fold_cv(
     return {'mean':results_mean, 'std':results_std, 'values':results}
 
 def grid_search(
-    df_train, model, param_grid, features, label, k, purge_length,
+    df_train, model, model_type, param_grid, features, label, k, purge_length,
     output_path, n_epoch=1, embargo_length=0, date_column='eom', subsample=1,
-    verbose=False, label_reg=False):
+    verbose=False, label_cla=False, rank=False):
     ''' Perform grid search using purged cross-validation method. 
     Args:
         df_train: training set given in Pandas dataframe
         model: Model with .fit(X, y) and .predict(X) method.
+        model_type: either 'reg' or 'cla' for regression or claassification,
+            respectively.
         params_grid: Hyperparamater grid to search.
         features, label: List of features and target label
         k: k for k-fold CV.
@@ -267,18 +267,24 @@ def grid_search(
         subsample: fraction of training samples to use.
         verbose: Print debugging information if True
         output_path: Path to save results as csv
-        label_reg: If specified, model is triained on this regression label.
+        label_cla: classification label. Ignored when model_type is 'reg'.
+        rank: If True, prediction is made by ranking the regression output.
     Return:
         cv_results: Dataframe summarizing cross-validation results
     '''
     io.title('Grid search with k-fold CV: k = %s, epoch = %s' % (k, n_epoch))
-    # Get list of classes
-    classes = sorted([str(x) for x in df_train[label].unique()])
-    # List of all available metrics
-    metrics = ['accuracy', 'precision', 'recall', 'f1-score']
-    for cls in classes:
-        metrics = metrics + [
-            '%s_precision' %cls, '%s_recall' %cls, '%s_f1-score' %cls]
+    if model_type=='cla':
+        # Get list of classes
+        classes = sorted([str(x) for x in df_train[label_cla].unique()])
+        # List of all available metrics
+        metrics = ['accuracy', 'precision', 'recall', 'f1-score']
+        for cls in classes:
+            metrics = metrics + [
+                '%s_precision' %cls, '%s_recall' %cls, '%s_f1-score' %cls]
+    elif model_type=='reg':
+        pass
+    else:
+        io.error("Incorrect model type. Choose either 'reg' or 'cla'.")
     # Get all possible combination of parameters
     keys, values = zip(*param_grid.items())
     experiments = [dict(zip(keys, v)) for v in itertools.product(*values)]
@@ -296,13 +302,14 @@ def grid_search(
         single_model_result = purged_k_fold_cv(
             df_train=df_train,
             model=model.set_params(**params),
+            model_type=model_type,
             features=features, label=label,
             date_column=date_column,
             k=k, verbose=verbose, n_epoch=n_epoch,
             purge_length=purge_length,
             embargo_length=embargo_length,
             subsample=subsample,
-            label_reg=label_reg)
+            label_cla=label_cla, rank=rank)
         # Save evaluation result of all metrics, not just one that is used.
         for m in metrics:
             cv_results.at[i, m] = single_model_result['mean'][m]

@@ -305,7 +305,7 @@ def plot_scatter(
     '''
     # create figure and axes
     fig, ax = plt.subplots(1, 1, figsize=figsize, squeeze=False)
-    # plot heatmap
+    # make scatter plot
     ax = sns.scatterplot(data=df, x=x, y=y, **kwargs)
     # customize plot
     ax.set_ylabel(y_label)

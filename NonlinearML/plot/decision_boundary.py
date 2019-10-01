@@ -34,11 +34,11 @@ def setup_axes(fig, rect, rotation, axisScale, axisLimits, doShift):
     return ax, aux_ax
 
 def decision_boundary(
-    model, df, features, label_reg=False,
+    model, df, features, rank=False,
     h=0.01, x_label="", y_label="", xlim=False, ylim=False,
     title=False, title_loc='center', annot=False, vlines=[], hlines=[],
-    scatter=False, subsample=0.01, label_cla=None, scatter_legend=False,
-    dist=False, nbins=20,
+    scatter=False, subsample=0.01, scatter_legend=False,
+    label_cla=None, dist=False, nbins=20,
     colors=["#BA2832", "#F3F2F2", "#2A71B2"], figsize=(8,4), ticks=[],
     filename=""):
     ''' Plot decision boundary of trained model.
@@ -60,9 +60,12 @@ def decision_boundary(
         subsample: subsampling rate used for scatter plot.
             ex. subsampling=0.1 means only 10% of data will be plotted.
             Used for scatter plot.
+            
+            If a dataframe is given, scatter plot is created using all samples
+            in the dataframe.
         dist: Plot distribution of two features.
         n_bins: Number of bins in histogram.
-        label_reg: If specified, model is triained on this regression label.
+        rank: If True, prediction is made by ranking the regression output.
         others: plotting option
     Returns:
         None
@@ -85,7 +88,7 @@ def decision_boundary(
     df_mesh = pd.DataFrame(np.c_[xx.ravel(), yy.ravel()])\
                 .rename({i:features[i] for i in range(len(features))}, axis=1)
     # Make prediction for each point on grid
-    if label_reg:
+    if rank:
         z = model.predict(df_mesh, None)
     else:
         z = model.predict(df_mesh)
@@ -113,11 +116,14 @@ def decision_boundary(
     im = ax.pcolormesh(xx, yy, z, cmap=cmap)
     # Add scatter plot
     if scatter:
-        df_sub = df.sample(frac=subsample)
+        if type(subsample)==float:
+            df_sub = df.sample(frac=subsample)
+        elif type(subsample)==pd.DataFrame:
+            df_sub = subsample
         for i, cls in enumerate(sorted(df_sub[label_cla].unique())):
             _df = df_sub.loc[df_sub[label_cla]==cls]
             ax.scatter(
-                x=_df[features[0]], y=_df[features[1]], s=25,
+                x=_df[features[0]], y=_df[features[1]], s=50,
                 edgecolors='black', c=colors[i], label=cls)
             if scatter_legend==True:
                 ax.legend(loc='lower right')
@@ -157,15 +163,14 @@ def decision_boundary(
 
 
 
-def decision_boundary_multiple_hparmas(param_grid, label, db_annot_x, db_annot_y, label_reg=False, **kwargs):
+def decision_boundary_multiple_hparmas(param_grid, label, db_annot_x, db_annot_y, rank=False, **kwargs):
     ''' Plot decision boundary for each hyperparameter set. This is a wrapper
         of 'decision_boundary' function.
     Args:
         param_grid: Hyperparamater grid to search.
         label: classification label
         db_annot_x, db_annot_y: Location of annotation that displays parameters.
-        label_reg: If specified, model is triained on this regression label.
-                   Label is ignored.
+        rank: If True, prediction is made by ranking the regression output.
         **kwargs:
             Arguments for 'decision_boundary'. Only difference is
             that df must be training data.
@@ -193,10 +198,7 @@ def decision_boundary_multiple_hparmas(param_grid, label, db_annot_x, db_annot_y
         io.message(["\t - "+x+"="+str(params[x]) for x in params])
         # Train model with given hyperparameter set
         model=model.set_params(**params)
-        if label_reg:
-            model.fit(df_train[features], df_train[label_reg])
-        else:
-            model.fit(df_train[features], df_train[label])
+        model.fit(df_train[features], df_train[label])
         # Assign trained model back to kwargs
         kwargs['model'] = model
         # Add counter to filename
@@ -207,7 +209,7 @@ def decision_boundary_multiple_hparmas(param_grid, label, db_annot_x, db_annot_y
                 'text':get_param_string(params).strip('{}')\
                     .replace('\'','').replace(',','\n').replace('\n ', '\n'),
                 'x':db_annot_x, 'y':db_annot_y},
-            label_reg=label_reg,
+            rank=rank,
             **kwargs)
     return
 
