@@ -16,7 +16,7 @@ plt = load_matplotlib()
 #-------------------------------------------------------------------------------
 def plot_cumulative_return(
     df_cum_train, df_cum_test, label_reg, filename, figsize=(15,6),
-    group_label={0:"Q1", 1:"Q2", 2:"Q3"}, date_column="eom",
+    group_label={0:"Q1", 1:"Q2", 2:"Q3"}, date_column="eom", col_pred="pred",
     train_ylim=(-1,7), test_ylim=(-1,5),
     kwargs_train={}, kwargs_test={}):
     ''' Wrapper of plotting functions. Create cumulative return plot for train
@@ -26,7 +26,8 @@ def plot_cumulative_return(
         df_cum_test: cumulative return obtained from test set
         label_reg: name of target label. Only used as axis label.
         group_label: dictionary to map between label and recognizable string
-        time: time column
+        date_column: time column
+        col_pred: Column representing predicted class
         filename: filename
         others: kwargs for plotting options
     Returns:
@@ -38,7 +39,7 @@ def plot_cumulative_return(
     plot_line_groupby(
         df=df_cum_train.sort_values(date_column),
         x=date_column, y="cumulative_return",
-        groupby="pred",
+        groupby=col_pred,
         group_label = {key:group_label[key]+" (Train)" for key in group_label}, 
         x_label="Time", y_label="Cumulative %s" %label_reg, ylog=False,
         ylim=train_ylim,
@@ -48,7 +49,7 @@ def plot_cumulative_return(
     plot_line_groupby(
         df=df_cum_test.sort_values(date_column),
         x=date_column, y="cumulative_return",
-        groupby="pred",
+        groupby=col_pred,
         group_label = {key:group_label[key]+" (Test)" for key in group_label},\
         x_label="Time", y_label="Cumulative %s" %label_reg, ylog=False,
         ylim=test_ylim,
@@ -59,7 +60,7 @@ def plot_cumulative_return(
 def plot_cumulative_return_diff(
     list_cum_returns, list_labels, label_reg, return_label=['Q1', 'Q2', 'Q3'],
     figsize=(15,6), filename="", date_column='eom', ylim=(-1,7),
-    legend_order=None, **kwargs):
+    legend_order=None, col_pred="pred", **kwargs):
     """ Wrapper of plotting function. This function plots difference in
     cumulative return between top and bottom classes.
     Args:
@@ -69,12 +70,13 @@ def plot_cumulative_return_diff(
         label_reg: Regression label. Ex. 'fqTotalReturn'
         return_label: Classification label in descending order.
             Ex. ['high', 'medium', 'low']
+        col_pred: Column representing predicted class
     """
     # Calculate difference in return and concatenate
     df_diff = pd.concat([
         backtest.calculate_diff_return(
             cum_return, return_label=return_label,
-            output_col=label, time=date_column)
+            output_col=label, time=date_column, col_pred=col_pred)
         for cum_return, label in zip(list_cum_returns, list_labels)])
 
     # Sort by dates
@@ -86,8 +88,8 @@ def plot_cumulative_return_diff(
         plot_line_groupby(
             df=df_diff, legend_order=legend_order,
             x="index", y="cumulative_return",
-            groupby="pred",
-            group_label = {key:key for key in df_diff["pred"].unique()},
+            groupby=col_pred,
+            group_label = {key:key for key in df_diff[col_pred].unique()},
             x_label="Time",
             y_label="Cumulative %s\nTop - bottom" %label_reg,
             ylog=False, figsize=figsize, ylim=ylim,
@@ -96,8 +98,8 @@ def plot_cumulative_return_diff(
         # plot test dataset
         plot_line_groupby(
             df=df_diff,
-            x="index", y="cumulative_return", groupby="pred",
-            group_label = {key:key for key in df_diff["pred"].unique()},
+            x="index", y="cumulative_return", groupby=col_pred,
+            group_label = {key:key for key in df_diff[col_pred].unique()},
             x_label="Time",
             y_label="Cumulative %s\nTop - bottom" %label_reg,
             ylog=False, figsize=figsize, ylim=ylim,

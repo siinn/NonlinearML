@@ -74,30 +74,10 @@ def calculate_return(
             pow(cum_asset*(1+df_curr[month_return]), (12/(t+1))) - 1
     return df_avg.reset_index()
 
-#def diff_cumulative_return_q5q1(df, var, var_quintile, time="eom"):
-#    ''' calculate difference in cumulative return between fifth and first quintile (Q5 - Q1)
-#    Args:
-#        df: Output of cumulative_return function. Pandas dataframe
-#        var: variable of interest (ex. AG)
-#        var_quintile: column name representing quintile of the variable of interest (ex. AG_quintile)
-#        time: name of column representing time
-#    Return:
-#        df_join: dataframe containing the difference in cumulative return between top and bottom quintile
-#    '''
-#    # filter by quintile
-#    df_q1 = df.loc[df[var_quintile]==var+" high"]
-#    df_q5 = df.loc[df[var_quintile]==var+" low"]
-#    # sort by time
-#    df_q1 = df_q1.sort_values(time).set_index(time).add_prefix('q1_')
-#    df_q5 = df_q5.sort_values(time).set_index(time).add_prefix('q5_')
-#    # join two dataframes
-#    df_join = pd.concat([df_q1, df_q5], axis=1, join='inner')
-#    df_join["q5q1"] = df_join["q5_cumulative_return"] - df_join["q1_cumulative_return"] 
-#    return df_join
 
 
-
-def calculate_diff_return(df_cum_return, return_label, output_col, time="eom"):
+def calculate_diff_return(df_cum_return, return_label, output_col,
+    time="eom", col_pred="pred"):
     ''' Calculate difference in return between top and bottom classes.
         Example. Q1 - Q3 or D1 - D10 where 1 is high return.
     Args:
@@ -108,7 +88,7 @@ def calculate_diff_return(df_cum_return, return_label, output_col, time="eom"):
         time: name of time column
     Return:
         df_diff: dataframe containing month, difference in return and
-            "pred" label for plotting
+            "col_pred" label for plotting
     '''
     # TEMPORARY HACK. ONLY WORKS WHEN return label is in ascending order.
     #return_label = sorted(df_cum_return['pred'].unique())
@@ -121,15 +101,15 @@ def calculate_diff_return(df_cum_return, return_label, output_col, time="eom"):
 
     df_diff = pd.DataFrame(
         df_cum_return.loc[
-            df_cum_return["pred"]==return_label[0]]["cumulative_return"]\
+            df_cum_return[col_pred]==return_label[0]]["cumulative_return"]\
         - df_cum_return.loc[
-            df_cum_return["pred"]==return_label[-1]]["cumulative_return"])
+            df_cum_return[col_pred]==return_label[-1]]["cumulative_return"])
     # Assign "Q1+Q2-Q3" as pred value for plotting
-    df_diff["pred"] = output_col
+    df_diff[col_pred] = output_col
     return df_diff
 
 
-def calculate_diff_IR(df, return_label, class_reg, time):
+def calculate_diff_IR(df, return_label, class_reg, time, col_pred="pred"):
     ''' Calculate difference in IR between top and bottom classes.
         Example. Q1 - Q3 or D1 - D10 where 1 is high return.
     Args:
@@ -146,8 +126,8 @@ def calculate_diff_IR(df, return_label, class_reg, time):
     # Set time as index
     df = df.set_index(time)
     # Calculate difference
-    df_top = df.loc[df["pred"]==return_label[0]]
-    df_bot = df.loc[df["pred"]==return_label[-1]]
+    df_top = df.loc[df[col_pred]==return_label[0]]
+    df_bot = df.loc[df[col_pred]==return_label[-1]]
     # Calculate top - bottom
     df_diff = df_top - df_bot
     df_diff = df_diff.rename({col:col+"_diff" for col in df_diff.columns}, axis=1)
@@ -171,7 +151,7 @@ def calculate_diff_IR(df, return_label, class_reg, time):
 
 
 
-def perform_backtest(pred_train, pred_test, list_class, label_fm, time):
+def perform_backtest(pred_train, pred_test, list_class, label_fm, time, col_pred="pred"):
     ''' Wrapper of calculate_return function.
     Calculate cumulative return using the prediction.
     Args:
@@ -180,6 +160,7 @@ def perform_backtest(pred_train, pred_test, list_class, label_fm, time):
         list_class: list of classes. Ex. [0, 1, 2]
         label_fm: monthly return used for calculating cumulative return
         time: column name representing time
+        col_class: column name representing predicted class
     Return:
         df_backtest_train: cumulative return calculated from train dataset
         df_backtest_test: cumulative return calculated from test dataset
@@ -190,12 +171,12 @@ def perform_backtest(pred_train, pred_test, list_class, label_fm, time):
     io.message(" > Calculating cumulative return of train dataset..")
     df_backtest_train = calculate_return(
         df=pred_train, list_class=list_class,
-        col_class="pred",
+        col_class=col_pred,
         month_return=label_fm, time=time)
     io.message(" > Calculating cumulative return of train dataset..")
     df_backtest_test = calculate_return(
         df=pred_test, 
-        col_class="pred", list_class=list_class,
+        col_class=col_pred, list_class=list_class,
         month_return=label_fm, time=time)
     return df_backtest_train, df_backtest_test
 

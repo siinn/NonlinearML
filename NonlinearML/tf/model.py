@@ -55,7 +55,8 @@ class TensorflowModel:
         """ Compile model."""
         if not None:
             self.model.compile(
-                loss=tf.losses.SparseCategoricalCrossentropy(),
+                #loss=tf.losses.SparseCategoricalCrossentropy(),
+                loss=self.params["loss"],
                 optimizer=tf.keras.optimizers.Adam(
                     learning_rate=self.params["learning_rate"]),
                 metrics=[self.params['metrics']])

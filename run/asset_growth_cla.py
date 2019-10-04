@@ -52,8 +52,8 @@ feature_x = 'AG'
 feature_y = 'FCFA'
 
 # Set path to save output figures
-output_path = 'output/%s_%s/' % (feature_x, feature_y)
-tfboard_path='tf_log/%s_%s/' % (feature_x, feature_y)
+output_path = 'output/%s_%s/cla/' % (feature_x, feature_y)
+tfboard_path='tf_log/%s_%s/cla/' % (feature_x, feature_y)
 
 # Set labels
 n_classes=3
@@ -314,7 +314,7 @@ if __name__ == "__main__":
                 'patience': [5], # 3,4,5
                 'epochs': [1000],
                 'validation_split': [0.2],
-                'batch_size': [32],
+                'batch_size': [1024],
                 'model': [
                     ensemble_model
                     ]
@@ -340,44 +340,38 @@ if __name__ == "__main__":
     #---------------------------------------------------------------------------
     if run_comparison:
         model_comparison = summary.model_comparison(
-            #models=['lr', 'knn'], output_path=output_path,
-            #models=['xgb', 'lr', 'lr_rank', 'knn', 'nn'], output_path=output_path,
-            models=['nn_best', 'xgb', 'lr_rank', 'knn', 'lr' ], output_path=output_path,
-            label_reg=config['label_fm'],
+            models=['lr', 'lr_rank', 'knn', 'xgb'],
+            output_path=output_path,
+            label_reg=config['label_reg'],
             class_label=config['class_order'],
             date_column=config['date_column'],
-            ylim=(0,1.5))
-
+            ylim=(-0.25,1))
 
     #---------------------------------------------------------------------------
     # Concatenate predictions to original date
     #---------------------------------------------------------------------------
     if save_prediction:
         predictions = summary.save_prediction(
-            models=['lr', 'lr_rank', 'knn', 'xgb', 'nn_best'],
+            models=['lr', 'lr_rank', 'knn', 'xgb'],
             feature_x=config['feature_x'],
             feature_y=config['feature_y'],
             df_input=df,
             output_path=output_path,
             date_column=config['date_column'])
 
-
-
-
-        for model in ['lr', 'lr_rank', 'knn', 'xgb', 'nn_best']:
+        for model in models:
             predictions['pred_train'][model]
             print(model)
             _sum = predictions['pred_train'][model]['pred'].value_counts().sum()
-            top = predictions['pred_train'][model]['pred'].value_counts()[0.0]
-            mid = predictions['pred_train'][model]['pred'].value_counts()[1.0]
-            bot = predictions['pred_train'][model]['pred'].value_counts()[2.0]
-            print(str(top)+","+str(mid)+","+str(bot))
+            top = predictions['pred_train'][model]['pred'].value_counts()[10]
+            bot = predictions['pred_train'][model]['pred'].value_counts()[1]
+            print(str(top)+","+str(bot))
             print(_sum)
             print('Top %% = %s' % str(top / _sum))
-            print('Mid %% = %s' % str(mid / _sum))
             print('Bottom %% = %s' % str(bot / _sum))
 
-    
+        
+
 
 
 

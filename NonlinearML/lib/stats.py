@@ -27,6 +27,7 @@ def anova_test(df_data, verbose=False):
     # Calculate degrees of freedom
     dof1 = df_data.shape[0] - 1 # K-1 where K is number of models
     dof2 = df_data.shape[1] - df_data.shape[0] # K-N
+
     # Print results
     if verbose:
         io.message(" >> F-statistics = %s, p-value = %s" % (f_stat, p_value))
@@ -126,6 +127,7 @@ def select_best_model_by_anova(cv_results, cv_metric, param_grid, p_thres):
         # Perform one way ANOVA
         f_stats[metric], p_values[metric] = anova_test(model_perf)
         io.message("\t> %s: p-value = %s" % (metric, p_values[metric]))
+
         # If p-value is less than the threshold, perform post hoc test.
         if p_values[metric] < p_thres:
             post_hoc_results[metric] = post_hoc_test(model_perf, p_thres)

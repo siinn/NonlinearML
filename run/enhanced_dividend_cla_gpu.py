@@ -83,8 +83,8 @@ db_res = 0.01
 
 
 # Set path to save output figures
-output_path = 'output/nn/%s_%s/' % (feature_x, feature_y)
-tfboard_path='tf_log/%s_%s/' % (feature_x, feature_y)
+output_path = 'output/%s_%s/cla/' % (feature_x, feature_y)
+tfboard_path='tf_log/%s_%s/cla/' % (feature_x, feature_y)
 
 # Set labels
 n_classes=10
@@ -138,9 +138,6 @@ run_svm = False
 run_nn = True
 run_comparison = False
 save_prediction = False
-
-# Set default warning
-warnings.filterwarnings('once')  # 'error', 'always', 'ignore'
 
 #-------------------------------------------------------------------------------
 # Convert configuration as a dictionary
@@ -362,11 +359,12 @@ if __name__ == "__main__":
                 'metrics': [
                     tf.keras.metrics.SparseCategoricalCrossentropy()],
                     #tf.keras.metrics.SparseCategoricalAccuracy()],
+                'loss': [tf.losses.SparseCategoricalCrossentropy()],
                 #'patience': [5, 20, 200], # 3,4,5
                 'patience': [1, 3, 5], # 3,4,5
                 'epochs': [1000],
                 'validation_split': [0.2],
-                'batch_size': [64],
+                'batch_size': [1024],
                 'model': [
                     #tf.keras.Sequential([
                     #    tf.keras.layers.Dense(128, activation='relu'),
@@ -397,27 +395,36 @@ if __name__ == "__main__":
     #---------------------------------------------------------------------------
     # Compare model results
     #---------------------------------------------------------------------------
+    models = ['lr', 'lr_rank', 'knn', 'xgb']
     if run_comparison:
-        model_comparison = summary.model_comparison(
-            models=['lr', 'lr_rank', 'knn', 'xgb', 'nn'],
+        model_summary = summary.model_comparison(
+            models=models,
             output_path=output_path,
             label_reg=config['label_reg'],
             class_label=config['class_order'],
             date_column=config['date_column'],
-            ylim=(-0.25,1))
+            col_pred='pred_rank',
+            ylim=(-0.3,1.0))
 
-
-    #---------------------------------------------------------------------------
-    # Concatenate predictions to original date
-    #---------------------------------------------------------------------------
     if save_prediction:
         predictions = summary.save_prediction(
-            models=['lr', 'lr_rank', 'knn', 'xgb', 'nn'],
+            models=models,
             feature_x=config['feature_x'],
             feature_y=config['feature_y'],
             df_input=df,
             output_path=output_path,
             date_column=config['date_column'])
+
+        for model in models:
+            predictions['pred_train'][model]
+            print(model)
+            _sum = predictions['pred_train'][model]['pred'].value_counts().sum()
+            top = predictions['pred_train'][model]['pred'].value_counts()[10]
+            bot = predictions['pred_train'][model]['pred'].value_counts()[1]
+            print(str(top)+","+str(bot))
+            print(_sum)
+            print('Top %% = %s' % str(top / _sum))
+            print('Bottom %% = %s' % str(bot / _sum))
 
 
 

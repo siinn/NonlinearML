@@ -386,3 +386,28 @@ def expand_column(df, col):
 
 
 
+def rank_prediction_monthly(pred_train, pred_test, config, col_pred="pred"):
+    """ Rank prediction within each month.
+    Args:
+	pred_train, pred_test: Dataframe containing prediction column
+	config: Dictionary containing n_classes, class_order,
+	    and date_column
+    Return:
+	pred_train, pred_test: Dataframe with additional column
+	    representing ranks
+    """
+    pred_train = discretize_variables_by_month(
+	df=pred_train,
+	variables=[col_pred],
+	n_classes=config['n_classes'],
+	class_names=config['class_order'][::-1],
+	suffix="rank", month=config['date_column'])
+
+    pred_test = discretize_variables_by_month(
+	df=pred_test,
+	variables=[col_pred],
+	n_classes=config['n_classes'],
+	class_names=config['class_order'][::-1],
+	suffix="rank", month=config['date_column'])
+    return pred_train, pred_test
+

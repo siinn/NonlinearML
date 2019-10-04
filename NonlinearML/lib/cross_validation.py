@@ -5,6 +5,7 @@ import numpy as np
 import os
 import pandas as pd
 from sklearn.metrics import classification_report
+from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
 
 import NonlinearML.lib.io as io
 
@@ -149,23 +150,68 @@ def get_val_dates(df, k, date_column, verbose=False):
     return val_dates
 
 
+
+
+
+def evaluate_classifier(df, label_cla, y_pred, results):
+    """ Evaluate classification model by calculating metrics.
+    Args:
+        df: Pandas dataframe containing prediction
+        label_cla: Column name representing prediction
+        y_pred: Prediction given in sequence
+        results: Dictionary holding the evaluation results
+    Return:
+        results: updated results
+    """
+    # Get list of classes
+    classes = sorted([str(x) for x in df[label_cla].unique()])
+    report = classification_report(
+        df[label_cla], y_pred, output_dict=True)
+    # Append results
+    for cls in classes:
+        results['%s_f1-score' %cls].append(report[cls]['f1-score'])
+        results['%s_precision' %cls].append(report[cls]['precision'])
+        results['%s_recall' %cls].append(report[cls]['recall'])
+    results['accuracy'].append(report['accuracy'])
+    results['f1-score'].append(report['macro avg']['f1-score'])
+    results['precision'].append(report['macro avg']['precision'])
+    results['recall'].append(report['macro avg']['recall'])
+    return results
+
+def evaluate_regressor(y_true, y_pred, results):
+    """ Calculate and return regression metrics, r2, MSE, and MAE."""
+    results['r2'].append(r2_score(y_true, y_pred))
+    results['mse'].append(mean_squared_error(y_true, y_pred))
+    results['mae'].append(mean_absolute_error(y_true, y_pred))
+    return results
+
+
+
 def purged_k_fold_cv(
-    df_train, model, model_type, features, label, k, purge_length, embargo_length,
+    df_train, model, model_type, features, label, metrics, k, purge_length, embargo_length,
     n_epoch=1, date_column='eom', subsample=1, verbose=False, rank=False, label_cla=False):
     """ Perform purged k-fold cross-validation. Assumes that data is uniformly
         distributed over the time period.
             i.e. Data is splitted by dates instead of size.
     Args:
+        df_train: input Pandas dataframe
         model: Model with .fit(X, y) and .predict(X) method.
                 features, label: List of features and target label
+        model_type: either 'reg' or 'cla' for regression or claassification,
+            respectively.
+        features: List of features
+        label: target label
+        metrics: metric used to evaluate models such as ['r2'] for regression
+            or ['f1-score'] for classification.
         k: k for k-fold CV.
         purge_length: Overlapping window size to be removed 
-        from training samples given in months.
+            from training samples given in months.
             i.e. the overlap between train and validation dataset
             of size (purge_length) will be removed from training samples.
         embargo_length: Training samples within the window of size
             (embargo_length) which follow the overlap between validation and
             train set will be removed. Embargo length is given in months.
+        n_epoch: Number of times to repeat cross-validation.
         date_column: Datetime column
         subsample: fraction of training samples to use.
         verbose: Print debugging information if True
@@ -185,14 +231,8 @@ def purged_k_fold_cv(
     # Find dates to be used to split data into k folds.
     val_dates = get_val_dates(
         df=df_train, k=k, date_column=date_column, verbose=verbose)
-    # Get list of classes
-    classes = sorted([str(x) for x in df_train[label_cla].unique()])
     # Dictionary to hold results
-    results = {'accuracy':[], 'f1-score':[], 'precision':[], 'recall':[]}
-    for cls in classes:
-        results['%s_f1-score' %cls] = []
-        results['%s_precision' %cls] = []
-        results['%s_recall' %cls] = []
+    results = {metric:[] for metric in metrics}
     # Loop over k folds, n_epoch times
     i = 0
     while i < n_epoch:
@@ -219,17 +259,13 @@ def purged_k_fold_cv(
                 y_pred = model.predict(df_k_val[features], df_k_val[date_column])
             else:
                 y_pred = model.predict(df_k_val[features])
-            report = classification_report(
-                df_k_val[label_cla], y_pred, output_dict=True)
-            # Append results
-            for cls in classes:
-                results['%s_f1-score' %cls].append(report[cls]['f1-score'])
-                results['%s_precision' %cls].append(report[cls]['precision'])
-                results['%s_recall' %cls].append(report[cls]['recall'])
-            results['accuracy'].append(report['accuracy'])
-            results['f1-score'].append(report['macro avg']['f1-score'])
-            results['precision'].append(report['macro avg']['precision'])
-            results['recall'].append(report['macro avg']['recall'])
+
+            # Evaluate model
+            if model_type=='cla':
+                results = evaluate_classifier(df_k_val, label_cla, y_pred, results)
+            if model_type=='reg':
+                results = evaluate_regressor(df_k_val[label].values, y_pred, results)
+
     # Return results averaged over k folds
     results_mean = {metric:np.array(results[metric]).mean()
         for metric in results}
@@ -242,6 +278,22 @@ def purged_k_fold_cv(
         for key in results_std:
             io.message("\t\t>> std %s = %s" % (key, results_std[key]))
     return {'mean':results_mean, 'std':results_std, 'values':results}
+
+
+
+
+def get_classification_metrics(df, label_cla):
+    """ Return classification metrics given dataframe and target label."""
+    # Get list of classes
+    classes = sorted([str(x) for x in df[label_cla].unique()])
+    # List of all available metrics
+    metrics = ['accuracy', 'precision', 'recall', 'f1-score']
+    for cls in classes:
+        metrics = metrics + [
+            '%s_precision' %cls, '%s_recall' %cls, '%s_f1-score' %cls]
+    return metrics
+
+
 
 def grid_search(
     df_train, model, model_type, param_grid, features, label, k, purge_length,
@@ -274,15 +326,9 @@ def grid_search(
     '''
     io.title('Grid search with k-fold CV: k = %s, epoch = %s' % (k, n_epoch))
     if model_type=='cla':
-        # Get list of classes
-        classes = sorted([str(x) for x in df_train[label_cla].unique()])
-        # List of all available metrics
-        metrics = ['accuracy', 'precision', 'recall', 'f1-score']
-        for cls in classes:
-            metrics = metrics + [
-                '%s_precision' %cls, '%s_recall' %cls, '%s_f1-score' %cls]
+        metrics = get_classification_metrics(df_train, label_cla)
     elif model_type=='reg':
-        pass
+        metrics = ['r2', 'mse', 'mae']
     else:
         io.error("Incorrect model type. Choose either 'reg' or 'cla'.")
     # Get all possible combination of parameters
@@ -303,7 +349,7 @@ def grid_search(
             df_train=df_train,
             model=model.set_params(**params),
             model_type=model_type,
-            features=features, label=label,
+            features=features, label=label, metrics=metrics,
             date_column=date_column,
             k=k, verbose=verbose, n_epoch=n_epoch,
             purge_length=purge_length,

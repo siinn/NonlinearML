@@ -39,7 +39,7 @@ def save_summary(output_path, cv_results, id_selected):
 
 
 def model_comparison(
-    models, output_path, label_reg, class_label,
+    models, output_path, label_reg, class_label, col_pred,
     date_column, ylim=(-1,5), figsize=(8,6)):
     """ Compare cumulative return of all models. This function reads
     models results from csv.
@@ -81,7 +81,7 @@ def model_comparison(
     plot_backtest.plot_cumulative_return_diff(
         list_cum_returns=list(cum_return_test.values()),
         list_labels=list(cum_return_test.keys()),
-        label_reg=label_reg,
+        label_reg=label_reg, col_pred=col_pred,
         date_column=date_column,
         figsize=figsize, ylim=ylim,
         return_label=class_label,
