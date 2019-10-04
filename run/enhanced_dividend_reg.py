@@ -126,10 +126,10 @@ db_annot_y=0.98
 db_nbins=50
 
 # Set algorithms to run
-run_lr = False
+run_lr = True
 run_xgb = False
 run_knn = False
-run_nn = True
+run_nn = False
 run_comparison = False
 save_prediction = False
 
@@ -309,7 +309,7 @@ if __name__ == "__main__":
                 #'learning_rate': [1e-3], #np.logspace(-4,-2,6),
                 'metrics': [tf.keras.metrics.MeanSquaredError()],
                 'loss': ['mse'],
-                'patience': [1, 3, 5], # 3,4,5
+                'patience': [1, 3], # 3,4,5
                 #'patience': [1], # 3,4,5
                 'epochs': [1000],
                 'validation_split': [0.2],
@@ -341,7 +341,7 @@ if __name__ == "__main__":
     #---------------------------------------------------------------------------
     if run_comparison:
         model_comparison = summary.model_comparison(
-            models=['lr', 'xgb'],
+            models=['lr', 'xgb', 'nn'],
             output_path=output_path,
             label_reg=config['label_reg'],
             class_label=config['class_order'],
@@ -355,7 +355,7 @@ if __name__ == "__main__":
     #---------------------------------------------------------------------------
     if save_prediction:
         predictions = summary.save_prediction(
-            models=['lr', 'xgb'],
+            models=['lr', 'xgb', 'nn'],
             feature_x=config['feature_x'],
             feature_y=config['feature_y'],
             df_input=df,
