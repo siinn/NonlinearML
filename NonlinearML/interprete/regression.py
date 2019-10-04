@@ -103,23 +103,6 @@ def regression_surface2D(
             output_path=output_path+"cross_validation/",
             verbose=False)
 
-    """
-        1. Update cv.grid_search
-            implement calculation of r2, rms, etc. (DONE)
-        2. Write function for creating regression surface
-
-
-
-
-    """
-
-
-
-
-
-
-
-
 
     #---------------------------------------------------------------------------
     # Perform ANOVA to select best model
