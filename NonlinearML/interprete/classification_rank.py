@@ -66,7 +66,7 @@ def decision_boundary2D(
 
     # Set logging configuration
     io.setConfig(path=output_path, filename="log")
-    io.title('Running two factor classification with factors:')
+    io.title('Running two factor regression with factors:')
     io.message(' > feature x: %s' % config['feature_x'])
     io.message(' > feature y: %s' % config['feature_y'])
     io.message(" > Running %s" % model_str)
@@ -103,6 +103,7 @@ def decision_boundary2D(
             output_path=output_path+"cross_validation/",
             verbose=False)
 
+
     #---------------------------------------------------------------------------
     # Perform ANOVA to select best model
     #---------------------------------------------------------------------------
@@ -114,6 +115,7 @@ def decision_boundary2D(
     # Override best parameters with the specified set.
     if not best_params:
         best_params = anova_results['best_params']
+
     
     #---------------------------------------------------------------------------
     # Cross-validation study
@@ -130,7 +132,7 @@ def decision_boundary2D(
             cv_results,
             filename=output_path+"cross_validation/cv_box",
             figsize=cv_box_figsize, color=cv_box_color)
-        
+
         # Plot decision boundaries of all hyperparameter sets
         plot_db.decision_boundary_multiple_hparmas(
             param_grid=param_grid,
@@ -142,7 +144,8 @@ def decision_boundary2D(
             x_label=config['feature_x'], y_label=config['feature_y'],
             colors=config['db_colors'],
             xlim=config['db_xlim'], ylim=config['db_ylim'],
-            colorbar=False, ticks=None,
+            #ticks=sorted(list(config['rank_label'].keys())),
+            colorbar=True, ticks=None,
             scatter=True, subsample=0.01,
             scatter_legend=False,
             dist=True, nbins=config['db_nbins'],
@@ -168,44 +171,58 @@ def decision_boundary2D(
         pred_train = pred_test = model = None
 
     #---------------------------------------------------------------------------
+    # Rank prediction by each month
+    #---------------------------------------------------------------------------
+    pred_train, pred_test = utils.rank_prediction_monthly(
+        pred_train=pred_train, pred_test=pred_test,
+        config=config, col_pred="pred")
+
+
+    #---------------------------------------------------------------------------
     # Cumulative return
     #---------------------------------------------------------------------------
     if run_backtest:
         # Calculate cumulative return using trained model
         df_backtest_train, df_backtest_test = backtest.perform_backtest(
                 pred_train=pred_train, pred_test=pred_test, 
-                list_class=list(config['class_label'].keys()),
+                col_pred='pred_rank',
+                list_class=list(config['rank_label'].keys()),
                 label_fm=config['label_fm'], time=config['date_column'])
 
         # Calculate diff. in cumulative return, annual return, and IR
         df_diff_train = backtest.calculate_diff_IR(
             df=df_backtest_train, 
-            return_label=config['class_order'],
+            return_label=config['rank_order'],
             class_reg=config['label_fm'],
-            time=config['date_column'])
+            time=config['date_column'],
+            col_pred='pred_rank')
         df_diff_test = backtest.calculate_diff_IR(
             df=df_backtest_test, 
-            return_label=config['class_order'],
+            return_label=config['rank_order'],
             class_reg=config['label_fm'],
-            time=config['date_column'])
+            time=config['date_column'],
+            col_pred='pred_rank')
         
+
         # Make cumulative return plot
         plot_backtest.plot_cumulative_return(
             df_backtest_train, df_backtest_test, config['label_fm'],
-            group_label=config['class_label'],
+            group_label=config['rank_label'],
             figsize=return_figsize,
             filename=output_path+"cum_return/return_by_group",
             date_column=config['date_column'],
             train_ylim=return_train_ylim,
-            test_ylim=return_test_ylim)
+            test_ylim=return_test_ylim,
+            col_pred='pred_rank')
         plot_backtest.plot_cumulative_return_diff(
             list_cum_returns=[df_backtest_test],
-            return_label=config['class_order'],
+            return_label=config['rank_order'],
             list_labels=[model_str], label_reg=config['label_fm'],
             figsize=return_figsize,
             date_column=config['date_column'],
             filename=output_path+"cum_return/return_diff_group",
-            ylim=return_diff_test_ylim)
+            ylim=return_diff_test_ylim,
+            col_pred='pred_rank')
     else:
         # If cumulative returns are not calculated, create dummy results
         df_backtest_train = None
@@ -218,13 +235,15 @@ def decision_boundary2D(
     # Decision boundary
     #---------------------------------------------------------------------------
     if plot_decision_boundary:
+
         # Plot decision boundary of the best model.
         plot_db.decision_boundary(
             model=model, df=df_train, features=features, h=config['db_res'],
             x_label=config['feature_x'], y_label=config['feature_y'],
             colors=config['db_colors'],
-            xlim=config['db_xlim'], ylim=config['db_ylim'], figsize=config['db_figsize'],
-            colorbar=False, ticks=None,
+            xlim=config['db_xlim'], ylim=config['db_ylim'],
+            figsize=config['db_figsize'],
+            colorbar=True, ticks=None,
             annot={
                 'text':utils.get_param_string(best_params).strip('{}')\
                     .replace('\'','').replace(',','\n').replace('\n ', '\n'),
@@ -232,8 +251,7 @@ def decision_boundary2D(
             scatter=True, subsample=0.01, label_cla=config['label_cla'],
             scatter_legend=False,
             dist=True, nbins=config['db_nbins'],
-            filename=output_path+"decision_boundary/overlay_db_best_model",
-            rank=rank)
+            filename=output_path+"decision_boundary/overlay_db_best_model")
 
 
     #---------------------------------------------------------------------------

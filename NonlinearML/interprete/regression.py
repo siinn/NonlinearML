@@ -47,7 +47,6 @@ def regression_surface2D(
         run_backtest: Calculate cumulative return, annual return, and IR if True
         plot_decision_boundary: Plot decision boundary of the best model if True
         save_csv: Save all results as csv
-        rank: If True, prediction is made by ranking the regression output.
         Others: parameters for nested functions.
 
     Returns: Dictionary containing the following results
@@ -140,12 +139,11 @@ def regression_surface2D(
             label_cla=config['label_cla'],
             db_annot_x=config['db_annot_x'],
             db_annot_y=config['db_annot_y'],
-            rank=rank,
             h=config['db_res'], figsize=config['db_figsize'],
             x_label=config['feature_x'], y_label=config['feature_y'],
             colors=config['db_colors'],
             xlim=config['db_xlim'], ylim=config['db_ylim'],
-            #ticks=sorted(list(config['class_label'].keys())),
+            #ticks=sorted(list(config['rank_label'].keys())),
             colorbar=True, ticks=None,
             scatter=True, subsample=0.01,
             scatter_legend=False, colors_scatter=config['db_colors_scatter'],
@@ -164,7 +162,7 @@ def regression_surface2D(
                 model=model.set_params(**best_params),
                 df_train=df_train, df_test=df_test, features=features,
                 date_column=config['date_column'],
-                label=label, rank=rank,
+                label=label,
                 cols=[
                     config['label_fm'],
                     config['security_id']])
@@ -186,19 +184,19 @@ def regression_surface2D(
         df_backtest_train, df_backtest_test = backtest.perform_backtest(
                 pred_train=pred_train, pred_test=pred_test, 
                 col_pred='pred_rank',
-                list_class=list(config['class_label'].keys()),
+                list_class=list(config['rank_label'].keys()),
                 label_fm=config['label_fm'], time=config['date_column'])
 
         # Calculate diff. in cumulative return, annual return, and IR
         df_diff_train = backtest.calculate_diff_IR(
             df=df_backtest_train, 
-            return_label=config['class_order'],
+            return_label=config['rank_order'],
             class_reg=config['label_fm'],
             time=config['date_column'],
             col_pred='pred_rank')
         df_diff_test = backtest.calculate_diff_IR(
             df=df_backtest_test, 
-            return_label=config['class_order'],
+            return_label=config['rank_order'],
             class_reg=config['label_fm'],
             time=config['date_column'],
             col_pred='pred_rank')
@@ -207,7 +205,7 @@ def regression_surface2D(
         # Make cumulative return plot
         plot_backtest.plot_cumulative_return(
             df_backtest_train, df_backtest_test, config['label_fm'],
-            group_label=config['class_label'],
+            group_label=config['rank_label'],
             figsize=return_figsize,
             filename=output_path+"cum_return/return_by_group",
             date_column=config['date_column'],
@@ -216,7 +214,7 @@ def regression_surface2D(
             col_pred='pred_rank')
         plot_backtest.plot_cumulative_return_diff(
             list_cum_returns=[df_backtest_test],
-            return_label=config['class_order'],
+            return_label=config['rank_order'],
             list_labels=[model_str], label_reg=config['label_fm'],
             figsize=return_figsize,
             date_column=config['date_column'],
@@ -251,8 +249,7 @@ def regression_surface2D(
             scatter=True, subsample=0.01, label_cla=config['label_cla'],
             scatter_legend=False, colors_scatter=config['db_colors_scatter'],
             dist=True, nbins=config['db_nbins'],
-            filename=output_path+"decision_boundary/overlay_db_best_model",
-            rank=rank)
+            filename=output_path+"decision_boundary/overlay_db_best_model")
 
 
     #---------------------------------------------------------------------------

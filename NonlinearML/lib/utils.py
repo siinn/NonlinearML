@@ -399,15 +399,15 @@ def rank_prediction_monthly(pred_train, pred_test, config, col_pred="pred"):
     pred_train = discretize_variables_by_month(
 	df=pred_train,
 	variables=[col_pred],
-	n_classes=config['n_classes'],
-	class_names=config['class_order'][::-1],
+	n_classes=config['rank_n_bins'],
+	class_names=config['rank_order'][::-1],
 	suffix="rank", month=config['date_column'])
 
     pred_test = discretize_variables_by_month(
 	df=pred_test,
 	variables=[col_pred],
-	n_classes=config['n_classes'],
-	class_names=config['class_order'][::-1],
+	n_classes=config['rank_n_bins'],
+	class_names=config['rank_order'][::-1],
 	suffix="rank", month=config['date_column'])
     return pred_train, pred_test
 

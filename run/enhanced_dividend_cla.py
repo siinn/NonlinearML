@@ -73,8 +73,8 @@ db_res = 0.0005
 #feature_x = 'DY_dmed'
 #feature_y = 'EG_dmed'
 ## Set limits of decision boundary
-#db_xlim = (-3, 3)
-#db_ylim = (-3, 3)
+#db_xlim = (-1.5, 4)
+#db_ylim = (-4, 3)
 #db_res = 0.01
 
 
@@ -85,14 +85,15 @@ db_res = 0.0005
 output_path = 'output/%s_%s/cla/' % (feature_x, feature_y)
 tfboard_path='tf_log/%s_%s/cla/' % (feature_x, feature_y)
 
-# Set labels
+# Set labels for clasification
 n_classes=10
-class_label={x+1:'D'+str(x+1) for x in range(10)}
-class_order = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1] # High return to low return
+class_label={x:'D'+str(x) for x in range(n_classes)}
+class_order = [x for x in range(n_classes-1, -1, -1)] # High return to low return
 
 # Set output label classes
 label_reg = 'fqRet' # continuous target label
-label_cla = 'QntfqRet' # discretized target label
+#label_cla = 'QntfqRet' # discretized target label
+label_cla = 'fqRet_discrete' # discretized target label
 label_fm = 'fmRet' # monthly return used for calculating cum. return
 
 # Set data column
@@ -119,18 +120,18 @@ cv_metric = ['f1-score', 'precision', 'recall', 'accuracy']
 
 # Set color scheme for decision boundary plot
 #cmap = matplotlib.cm.get_cmap('Spectral', 10)
-cmap = matplotlib.cm.get_cmap('RdYlGn', 10)
+cmap = matplotlib.cm.get_cmap('RdYlGn', n_classes)
 db_colors = [matplotlib.colors.rgb2hex(cmap(i)) for i in range(cmap.N)]
 
 # Set decision boundary plotting options
-db_figsize= (8, 8)
+db_figsize= (10, 8)
 db_annot_x=0.02
 db_annot_y=0.98
 db_nbins=50
 
 # Set algorithms to run
-run_lr = False
-run_lr_rank = True
+run_lr = True
+run_lr_rank = False
 run_xgb = False
 run_knn = False
 run_nn = False
@@ -164,6 +165,12 @@ if __name__ == "__main__":
     #---------------------------------------------------------------------------
     # Read input csv
     df = pd.read_csv(INPUT_PATH, index_col=None, parse_dates=[date_column])
+
+    # Discretize target
+    df = utils.discretize_variables_by_month(
+        df, variables=[config['label_reg']], n_classes=config['n_classes'],
+        class_names=config['class_label'], suffix="discrete",
+        month=config['date_column'])
 
     # Split dataset into train and test dataset
     df_train, df_test = cv.train_test_split_by_date(

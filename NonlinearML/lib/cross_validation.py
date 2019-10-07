@@ -189,7 +189,7 @@ def evaluate_regressor(y_true, y_pred, results):
 
 def purged_k_fold_cv(
     df_train, model, model_type, features, label, metrics, k, purge_length, embargo_length,
-    n_epoch=1, date_column='eom', subsample=1, verbose=False, rank=False, label_cla=False):
+    n_epoch=1, date_column='eom', subsample=1, verbose=False):
     """ Perform purged k-fold cross-validation. Assumes that data is uniformly
         distributed over the time period.
             i.e. Data is splitted by dates instead of size.
@@ -215,8 +215,6 @@ def purged_k_fold_cv(
         date_column: Datetime column
         subsample: fraction of training samples to use.
         verbose: Print debugging information if True
-        rank: If True, prediction is made by ranking the regression output.
-        label_cla: classification label. Ignored when model_type is 'reg'.
     Return:
         results[mean]: Dictionary containing average performance across
             k folds for each metric. ex. {'accuracy':0.3, 'f1-score':0.5, etc.}
@@ -255,14 +253,11 @@ def purged_k_fold_cv(
                 subsample=subsample)
             # Fit and make prediction
             model.fit(X=df_k_train[features], y=df_k_train[label])
-            if rank:
-                y_pred = model.predict(df_k_val[features], df_k_val[date_column])
-            else:
-                y_pred = model.predict(df_k_val[features])
+            y_pred = model.predict(df_k_val[features])
 
             # Evaluate model
             if model_type=='cla':
-                results = evaluate_classifier(df_k_val, label_cla, y_pred, results)
+                results = evaluate_classifier(df_k_val, label, y_pred, results)
             if model_type=='reg':
                 results = evaluate_regressor(df_k_val[label].values, y_pred, results)
 
@@ -282,10 +277,10 @@ def purged_k_fold_cv(
 
 
 
-def get_classification_metrics(df, label_cla):
+def get_classification_metrics(df, label):
     """ Return classification metrics given dataframe and target label."""
     # Get list of classes
-    classes = sorted([str(x) for x in df[label_cla].unique()])
+    classes = sorted([str(x) for x in df[label].unique()])
     # List of all available metrics
     metrics = ['accuracy', 'precision', 'recall', 'f1-score']
     for cls in classes:
@@ -298,7 +293,7 @@ def get_classification_metrics(df, label_cla):
 def grid_search(
     df_train, model, model_type, param_grid, features, label, k, purge_length,
     output_path, n_epoch=1, embargo_length=0, date_column='eom', subsample=1,
-    verbose=False, label_cla=False, rank=False):
+    verbose=False):
     ''' Perform grid search using purged cross-validation method. 
     Args:
         df_train: training set given in Pandas dataframe
@@ -319,14 +314,13 @@ def grid_search(
         subsample: fraction of training samples to use.
         verbose: Print debugging information if True
         output_path: Path to save results as csv
-        label_cla: classification label. Ignored when model_type is 'reg'.
         rank: If True, prediction is made by ranking the regression output.
     Return:
         cv_results: Dataframe summarizing cross-validation results
     '''
     io.title('Grid search with k-fold CV: k = %s, epoch = %s' % (k, n_epoch))
     if model_type=='cla':
-        metrics = get_classification_metrics(df_train, label_cla)
+        metrics = get_classification_metrics(df_train, label)
     elif model_type=='reg':
         metrics = ['r2', 'mse', 'mae']
     else:
@@ -354,8 +348,7 @@ def grid_search(
             k=k, verbose=verbose, n_epoch=n_epoch,
             purge_length=purge_length,
             embargo_length=embargo_length,
-            subsample=subsample,
-            label_cla=label_cla, rank=rank)
+            subsample=subsample)
         # Save evaluation result of all metrics, not just one that is used.
         for m in metrics:
             cv_results.at[i, m] = single_model_result['mean'][m]

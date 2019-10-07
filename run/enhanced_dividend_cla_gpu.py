@@ -74,8 +74,8 @@ INPUT_PATH = '../EnhancedDividend/data/Data_EM_extended.csv'
 feature_x = 'DY_dmed'
 feature_y = 'EG_dmed'
 # Set limits of decision boundary
-db_xlim = (-3, 3)
-db_ylim = (-3, 3)
+db_xlim = (-1.5, 4)
+db_ylim = (-4, 3)
 db_res = 0.01
 
 
