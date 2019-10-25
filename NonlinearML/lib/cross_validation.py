@@ -5,7 +5,8 @@ import numpy as np
 import os
 import pandas as pd
 from sklearn.metrics import classification_report
-from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
+from sklearn.metrics import r2_score
+
 
 import NonlinearML.lib.io as io
 
@@ -178,11 +179,17 @@ def evaluate_classifier(df, label_cla, y_pred, results):
     results['recall'].append(report['macro avg']['recall'])
     return results
 
-def evaluate_regressor(y_true, y_pred, results):
-    """ Calculate and return regression metrics, r2, MSE, and MAE."""
+
+def evaluate_regressor(y_true, y_pred, results, epsilon=1e-7):
+    """ Calculate and return regression metrics, r2, MSE, MAE, MAPE, and MLSE.
+    Model is selected by the highest score. i.e. These metrics should have higher
+    score for better performing model.
+    """
     results['r2'].append(r2_score(y_true, y_pred))
-    results['mse'].append(mean_squared_error(y_true, y_pred))
-    results['mae'].append(mean_absolute_error(y_true, y_pred))
+    results['mse'].append(-1*pow((y_true-y_pred),2).mean())
+    results['mae'].append(-1*abs(y_true - y_pred).mean())
+    results['mape'].append(-1*(100 * abs(y_true - y_pred) / np.maximum(abs(y_true), epsilon)).mean())
+    results['mlse'].append(-1*np.log1p(pow(y_pred-y_true,2)).mean())
     return results
 
 
@@ -272,6 +279,11 @@ def purged_k_fold_cv(
             io.message("\t\t>> mean %s = %s" % (key, results_mean[key]))
         for key in results_std:
             io.message("\t\t>> std %s = %s" % (key, results_std[key]))
+
+    ## Remove tf model to clear memory
+    #if 'clear' in dir(model):
+    #    io.message('Clearning TF model ..')
+    #    model.clear()
     return {'mean':results_mean, 'std':results_std, 'values':results}
 
 
@@ -289,6 +301,44 @@ def get_classification_metrics(df, label):
     return metrics
 
 
+def _paramsToString(params, param_grid):
+    """ Convert dictionary of params to string.
+    Args:
+        params: current parameter set
+        param_grid: dictionary containing entire parameter space. Used
+            to get describtion if parameter if exists.
+    """
+    # Convert to list of key=val
+    #param_str = [x+"="+str(params[x]) for x in params if type(param_grid[x])==str else x+'='+param_grid[x][params[x]]]
+    param_str = []
+    for p in params:
+        # If parameter is given as string, append them to output
+        if type(param_grid[p]) == list:
+            param_str.append('='.join([p, str(params[p])]))
+        # If parameter is given as dictionary of {param:description},
+        # get description instead.
+        elif type(param_grid[p]) == dict:
+            param_str.append('='.join([p, param_grid[p][params[p]]]))
+    param_str = str(param_str).strip('[]').replace('\'','')
+    return param_str
+
+def _GetParamsDesc(params, param_grid):
+    """ Get dictionary of {param: value or description}
+    Args:
+        params: current parameter set
+        param_grid: dictionary containing entire parameter space. Used
+            to get describtion if parameter if exists.
+    """
+    output = {}
+    for p in params:
+        # If parameter is given as dictionary of {param:description},
+        # get description instead.
+        if type(param_grid[p]) == dict:
+            output[p] = '='.join([p, param_grid[p][params[p]]])
+        # If parameter is given as string, append them to output
+        else:
+            output[p] = '='.join([p, str(params[p])])
+    return output
 
 def grid_search(
     df_train, model, model_type, param_grid, features, label, k, purge_length,
@@ -322,22 +372,24 @@ def grid_search(
     if model_type=='cla':
         metrics = get_classification_metrics(df_train, label)
     elif model_type=='reg':
-        metrics = ['r2', 'mse', 'mae']
+        metrics = ['r2', 'mse', 'mae', 'mape', 'mlse']
     else:
         io.error("Incorrect model type. Choose either 'reg' or 'cla'.")
     # Get all possible combination of parameters
     keys, values = zip(*param_grid.items())
     experiments = [dict(zip(keys, v)) for v in itertools.product(*values)]
     # Define dataframe to hold results
-    cv_results = pd.DataFrame(experiments)
+    cv_results = pd.DataFrame()
     # Loop over different values of k
     n_experiments = len(experiments)
     count=0
+
     for i, params in enumerate(experiments):
         count = count + 1
         io.message("Experiment (%s/%s)" % (count, n_experiments))
         io.message("Parameters:")
         io.message(["\t - "+x+"="+str(params[x]) for x in params])
+        
         # Perform purged k-fold cross validation
         single_model_result = purged_k_fold_cv(
             df_train=df_train,
@@ -350,15 +402,15 @@ def grid_search(
             embargo_length=embargo_length,
             subsample=subsample)
         # Save evaluation result of all metrics, not just one that is used.
+        _params = _GetParamsDesc(params, param_grid)
+        cv_results = cv_results.append(_params, ignore_index=True)
         for m in metrics:
             cv_results.at[i, m] = single_model_result['mean'][m]
             cv_results.at[i, m+"_std"] = single_model_result['std'][m]
             cv_results.at[i, m+"_values"] = str(
                 single_model_result['values'][m])
         # Save parameters as one string
-        cv_results.at[i, 'params'] = str(
-            [x+"="+str(params[x]) for x in params])\
-            .strip('[]').replace('\'','')
+        cv_results.at[i, 'params'] = _paramsToString(params, param_grid)
     return cv_results
 
 

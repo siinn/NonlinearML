@@ -59,9 +59,8 @@ tfboard_path='tf_log/%s_%s/cla/' % (feature_x, feature_y)
 n_classes=3
 class_label={0:'T1', 1:'T2', 2:'T3'}
 class_order = [0, 1, 2] # High return to low return
-#n_classes=4
-#class_label={0:'Q1', 1:'Q2', 2:'Q3', 3:'Q4'}
-#class_order = [0, 1, 2, 3] # High return to low return
+class_top = 0
+class_bottom = 2
 suffix="descrite"
 
 # Set output label classes
@@ -124,6 +123,7 @@ config = {
     'feature_x':feature_x, 'feature_y':feature_y,
     'output_path':output_path,
     'n_classes':n_classes, 'class_label':class_label, 'class_order':class_order,
+    'class_top':class_top, 'class_bottom':class_bottom,
     'suffix':suffix, 'security_id':security_id,
     'label_reg':label_reg, 'label_cla':label_cla, 'label_fm':label_fm,
     'date_column':date_column, 'test_begin':test_begin, 'test_end':test_end,

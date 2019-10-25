@@ -58,7 +58,7 @@ def plot_cumulative_return(
 
 
 def plot_cumulative_return_diff(
-    list_cum_returns, list_labels, label_reg, return_label=['Q1', 'Q2', 'Q3'],
+    list_cum_returns, list_labels, label_reg, top, bottom, class_label,
     figsize=(15,6), filename="", date_column='eom', ylim=(-1,7),
     legend_order=None, col_pred="pred", **kwargs):
     """ Wrapper of plotting function. This function plots difference in
@@ -67,15 +67,15 @@ def plot_cumulative_return_diff(
         list_cum_Returns: list of dataframe representing cumulative returns
             (output of "calculate_cum_return")
         list_label: list of model names. Ex. ['xgb']
+        top, bottom: class name of top and bottom class
+        class_label: dictionary that maps class name to label
         label_reg: Regression label. Ex. 'fqTotalReturn'
-        return_label: Classification label in descending order.
-            Ex. ['high', 'medium', 'low']
         col_pred: Column representing predicted class
     """
     # Calculate difference in return and concatenate
     df_diff = pd.concat([
         backtest.calculate_diff_return(
-            cum_return, return_label=return_label,
+            cum_return, top=top, bottom=bottom, class_label=class_label,
             output_col=label, time=date_column, col_pred=col_pred)
         for cum_return, label in zip(list_cum_returns, list_labels)])
 

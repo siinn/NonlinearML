@@ -60,6 +60,33 @@ def standardize_df(df, features):
     return df
 
 
+def standardize_by_group(df, target, groupby, aggregate='mean', wl=0.01, wu=0.99):
+    """ This performs the following operations.
+        1. Winsorize the input column each month.
+        2. Standardize the input column each month by mean or median
+    Args:
+        df: Pandas dataframe
+        column: target column
+        groupby: column used for groupby (ex. month)
+        wl, wu: lower and upper limit of winsorization
+    Returns:
+        target: target series after the operations.
+    """
+    # Winsorize by month
+    df[target+'_std'] = df.groupby(groupby)[target].apply(winsorize_series, lower=wl, upper=wu)
+    # Standardize by month
+    if aggregate=='mean':
+        df[target+'_std'] = df.groupby(groupby)[target+'_std'].apply(lambda x:(x-x.mean())/x.std())
+    elif aggregate=='median':
+        df[target+'_std'] = df.groupby(groupby)[target+'_std'].apply(lambda x:(x-x.median())/x.std())
+    else:
+        io.error("Invalid aggregate. Standardization not peformed.")
+    return df[target+'_std']
+
+
+
+
+
 def remove_missing_targets(df, targets):
     '''the observations are removed if target variables are missing.
     The fraction of missing returns are printed.'''

@@ -89,12 +89,19 @@ tfboard_path='tf_log/%s_%s/cla/' % (feature_x, feature_y)
 n_classes=10
 class_label={x:'D'+str(x) for x in range(n_classes)}
 class_order = [x for x in range(n_classes-1, -1, -1)] # High return to low return
+class_top = 9
+class_bottom = 0
 
 # Set output label classes
 label_reg = 'fqRet' # continuous target label
 #label_cla = 'QntfqRet' # discretized target label
 label_cla = 'fqRet_discrete' # discretized target label
 label_fm = 'fmRet' # monthly return used for calculating cum. return
+
+# Winsorize label, followed by standardization with median in each month
+standardize_label = True
+winsorize_lower = 0.01
+winsorize_upper = 0.99
 
 # Set data column
 date_column = "smDate"
@@ -107,8 +114,8 @@ test_begin = "2012-01-01"
 test_end = "2019-05-01"
 
 # Set cross-validation configuration
-k = 3          # Must be > 1
-n_epoch = 1
+k = 10         # Must be > 1
+n_epoch = 5
 subsample = 0.5
 purge_length = 3
 
@@ -145,6 +152,7 @@ config = {
     'feature_x':feature_x, 'feature_y':feature_y,
     'output_path':output_path, 'security_id':security_id,
     'n_classes':n_classes, 'class_label':class_label, 'class_order':class_order,
+    'class_top':class_top, 'class_bottom':class_bottom,
     'label_reg':label_reg, 'label_cla':label_cla, 'label_fm':label_fm,
     'date_column':date_column, 'test_begin':test_begin, 'test_end':test_end,
     'k':k, 'n_epoch':n_epoch, 'subsample':subsample,
@@ -171,6 +179,12 @@ if __name__ == "__main__":
         df, variables=[config['label_reg']], n_classes=config['n_classes'],
         class_names=config['class_label'], suffix="discrete",
         month=config['date_column'])
+
+    if standardize_label:
+        df[config['label_reg']] = prep.standardize_by_group(
+            df, target=config['label_reg'], 
+            groupby=config['date_column'],
+            aggregate='median', wl=winsorize_lower, wu=winsorize_upper)
 
     # Split dataset into train and test dataset
     df_train, df_test = cv.train_test_split_by_date(
@@ -341,7 +355,7 @@ if __name__ == "__main__":
                 'patience': [1, 3, 5], # 3,4,5
                 'epochs': [1000],
                 'validation_split': [0.2],
-                'batch_size': [64],
+                'batch_size': [1024],
                 'model': [ensemble_model]
                 }
 

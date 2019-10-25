@@ -76,58 +76,56 @@ def calculate_return(
 
 
 
-def calculate_diff_return(df_cum_return, return_label, output_col,
+def calculate_diff_return(df_cum_return, top, bottom, class_label, output_col,
     time="eom", col_pred="pred"):
     ''' Calculate difference in return between top and bottom classes.
         Example. Q1 - Q3 or D1 - D10 where 1 is high return.
     Args:
         df_cum_return: cumulative returns calculated by
             "calculate_return".
-        return_label: List of return labels in order of [high, medium, low].
+        top, bottom: class name of top and bottom class
+        class_label: dictionary that maps class name to label
         output_col: name of column representing the difference in return
         time: name of time column
     Return:
         df_diff: dataframe containing month, difference in return and
             "col_pred" label for plotting
     '''
-    # TEMPORARY HACK. ONLY WORKS WHEN return label is in ascending order.
-    #return_label = sorted(df_cum_return['pred'].unique())
-
     # Set time as index
     df_cum_return = df_cum_return.set_index(time)
     # Calculate difference
     io.message("Calculating difference in return: top (%s) - bottom (%s)." \
-        % (str(return_label[0]), str(return_label[-1])))
+        % (str(class_label[top]), str(class_label[bottom])))
 
     df_diff = pd.DataFrame(
         df_cum_return.loc[
-            df_cum_return[col_pred]==return_label[0]]["cumulative_return"]\
+            df_cum_return[col_pred]==top]["cumulative_return"]\
         - df_cum_return.loc[
-            df_cum_return[col_pred]==return_label[-1]]["cumulative_return"])
+            df_cum_return[col_pred]==bottom]["cumulative_return"])
     # Assign "Q1+Q2-Q3" as pred value for plotting
     df_diff[col_pred] = output_col
     return df_diff
 
-
-def calculate_diff_IR(df, return_label, class_reg, time, col_pred="pred"):
+def calculate_diff_IR(
+    df, top, bottom, class_label, class_reg, time, col_pred="pred"):
     ''' Calculate difference in IR between top and bottom classes.
         Example. Q1 - Q3 or D1 - D10 where 1 is high return.
     Args:
-        df: cumulative returns calculated by
-            "calculate_return".
-        return_label: List of return labels in order of [high, medium, low].
+        df: cumulative returns calculated by function "calculate_return"
+        top, bottom: class name of top and bottom class
+        class_label: dictionary that maps class name to label
         time: name of time column
     Return:
         df_diff: dataframe containing month, difference in return and
             "pred" label for plotting
     '''
     io.message("Calculating difference in IR: top (%s) - bottom (%s)." \
-        % (str(return_label[0]), str(return_label[-1])))
+        % (str(class_label[top]), str(class_label[bottom])))
     # Set time as index
     df = df.set_index(time)
     # Calculate difference
-    df_top = df.loc[df[col_pred]==return_label[0]]
-    df_bot = df.loc[df[col_pred]==return_label[-1]]
+    df_top = df.loc[df[col_pred]==top]
+    df_bot = df.loc[df[col_pred]==bottom]
     # Calculate top - bottom
     df_diff = df_top - df_bot
     df_diff = df_diff.rename({col:col+"_diff" for col in df_diff.columns}, axis=1)

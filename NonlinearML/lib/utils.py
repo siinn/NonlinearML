@@ -127,7 +127,7 @@ def discretize_variables_by_month(
         variables: list of variables to discretize
         n_classes: number of classes
         class_name: class labels in ascending order.
-            Example. [2, 1, 0] -> class 0 is the top tercile
+            Example. [2, 1, 0] -> class 0 has highest values
         suffix: suffix added to newly created column
         month: column representing time
     Return:
@@ -411,3 +411,6 @@ def rank_prediction_monthly(pred_train, pred_test, config, col_pred="pred"):
 	suffix="rank", month=config['date_column'])
     return pred_train, pred_test
 
+def datenum_to_datetime(x, matlab_origin, date_origin):
+    """ Convert matlab timestamp to Timestamp."""
+    return date_origin + relativedelta(days=(x-matlab_origin))

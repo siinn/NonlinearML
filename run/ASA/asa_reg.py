@@ -14,10 +14,9 @@ from xgboost.sklearn import XGBRegressor
 
 # Import custom libraries
 import NonlinearML.lib.cross_validation as cv
-import NonlinearML.lib.preprocessing as prep
+import NonlinearML.lib.utils as utils
 import NonlinearML.lib.stats as stats
 import NonlinearML.lib.summary as summary
-import NonlinearML.lib.utils as utils
 
 import NonlinearML.plot.plot as plot
 import NonlinearML.plot.decision_boundary as plot_db
@@ -25,10 +24,6 @@ import NonlinearML.plot.backtest as plot_backtest
 import NonlinearML.plot.cross_validation as plot_cv
 
 import NonlinearML.tf.model as tfmodel
-import NonlinearML.tf.losses as tfloss
-import NonlinearML.tf.metrics as tfmetric
-import NonlinearML.xgb.objective as xgb_obj
-import NonlinearML.xgb.metric as xgb_metric
 import NonlinearML.interprete.regression as regression
 
 # Supress warnings
@@ -42,78 +37,47 @@ pd.options.mode.chained_assignment = None
 #-------------------------------------------------------------------------------
 # Set input and output path
 #INPUT_PATH = '/mnt/mainblob/nonlinearML/EnhancedDividend/data/Data_EM_extended.csv'
-INPUT_PATH = '../EnhancedDividend/data/Data_EM_extended.csv'
+INPUT_PATH = '../data/ASA/csv/ASA_G2_data.r2.p1.csv'
 
 # Set features of interest
-feature_x = 'DividendYield'
-feature_y = 'Payout_E'
+feature_x = 'PM'
+feature_y = 'DIFF'
 # Set limits of decision boundary
-db_xlim = (0, 0.2)
-db_ylim = (-1, 1.5)
-db_res = 0.0005
-
-
-## Set features of interest
-#feature_x = 'DY_dmed'
-#feature_y = 'PO_dmed'
-## Set limits of decision boundary
-#db_xlim = (-1.5, 4)
-#db_ylim = (-3, 4)
-#db_res = 0.01
-
-
-## Set features of interest
-#feature_x = 'DividendYield'
-#feature_y = 'EG'
-## Set limits of decision boundary
-#db_xlim = (0, 0.2)
-#db_ylim = (-0.5, 0.5)
-#db_res = 0.0005
-
-
-## Set features of interest
-#feature_x = 'DY_dmed'
-#feature_y = 'EG_dmed'
-## Set limits of decision boundary
-#db_xlim = (-1.5, 4)
-#db_ylim = (-4, 3)
-#db_res = 0.01
+db_xlim = (-3, 3)
+db_ylim = (-3, 3)
+db_res = 0.01
 
 # Set number of bins for ranking
-rank_n_bins=10
-rank_label={x:'D'+str(x) for x in range(rank_n_bins)}
-rank_order = [x for x in range(rank_n_bins-1, -1,-1)] # High return to low return
-rank_top = 9
-rank_bottom = 0
+rank_n_bins=5
+rank_order = [0, 1, 2, 3, 4] # High residual to low residual
+rank_label={x:'Q'+str(x+1) for x in rank_order}
+rank_top = 0
+rank_bottom = 4
 
-# Set output label classes
-label_reg = 'fqRet' # continuous target label
-#label_cla = 'QntfqRet' # discretized target label
-label_cla = 'fqRet_discrete' # discretized target label
-label_fm = 'fmRet' # monthly return used for calculating cum. return
-
-# Winsorize label, followed by standardization with median in each month
-standardize_label = False
-winsorize_lower = 0.01
-winsorize_upper = 0.99
 
 # Set path to save output figures
-output_path = 'output/%s_%s/std_%s/reg_rank%s/' % (feature_x, feature_y, standardize_label, rank_n_bins)
-tfboard_path='tf_log/%s_%s/std_%s/reg_rank%s/' % (feature_x, feature_y, standardize_label, rank_n_bins)
+output_path = 'output/%s_%s/reg_rank%s/' % (feature_x, feature_y, rank_n_bins)
+#output_path = 'output/test'
+tfboard_path='tf_log/%s_%s/reg_rank%s/' % (feature_x, feature_y, rank_n_bins)
 
+# Set output label classes
+label_reg = 'Residual' # continuous target label
+label_cla = 'Residual_discrete' # discretized target label
+label_edge = 'Edge_Adj' # Expected monthly return will be Edge_adj + residual
+label_fm = 'fmRet'
 
 # Set data column
 date_column = "smDate"
 
 # Set security ID column
-security_id = 'SecurityID'
+security_id = 'SecID'
 
 # Set train and test period
-test_begin = "2012-01-01"
-test_end = "2019-05-01"
+test_begin = "2011-01-01"
+test_end = "2018-01-01"
 
 # Set cross-validation configuration
-k = 10   # Must be > 1
+k = 10     # Must be > 1
 n_epoch = 1
 subsample = 0.5
 purge_length = 3
@@ -122,7 +86,7 @@ purge_length = 3
 p_thres = 0.05
 
 # Set metric for training
-cv_metric = ['mlse', 'mape', 'mae', 'r2', 'mse']
+cv_metric = ['r2', 'mape', 'mse', 'mae']
 
 # Set color scheme for decision boundary plot
 cmap = matplotlib.cm.get_cmap('RdYlGn')
@@ -130,7 +94,7 @@ db_colors = [matplotlib.colors.rgb2hex(cmap(i)) for i in range(cmap.N)]
 
 cmap_scatter = matplotlib.cm.get_cmap('RdYlGn', rank_n_bins)
 db_colors_scatter = [matplotlib.colors.rgb2hex(cmap_scatter(i)) 
-    for i in range(cmap_scatter.N)]
+    for i in range(cmap_scatter.N)][::-1]
 
 
 # Set decision boundary plotting options
@@ -138,13 +102,12 @@ db_figsize= (10, 8)
 db_annot_x=0.02
 db_annot_y=0.98
 db_nbins=50
-db_vmin=-0.15
-db_vmax=0.15
+db_vmin=-0.3
+db_vmax=0.3
 
 # Set algorithms to run
 run_lr = False
 run_xgb = False
-run_knn = False
 run_nn = True
 run_comparison = False
 save_prediction = False
@@ -157,7 +120,8 @@ config = {
     'output_path':output_path, 'security_id':security_id,
     'rank_n_bins':rank_n_bins, 'rank_label':rank_label, 'rank_order':rank_order,
     'rank_top':rank_top, 'rank_bottom':rank_bottom,
-    'label_reg':label_reg, 'label_cla':label_cla, 'label_fm':label_fm,
+    'label_reg':label_reg, 'label_fm':label_fm,
+    'label_cla':label_cla, 'label_edge':label_edge,
     'date_column':date_column, 'test_begin':test_begin, 'test_end':test_end,
     'k':k, 'n_epoch':n_epoch, 'subsample':subsample,
     'purge_length':purge_length,
@@ -186,12 +150,6 @@ if __name__ == "__main__":
         class_names=config['rank_label'], suffix="discrete",
         month=config['date_column'])
 
-    if standardize_label:
-        df[config['label_reg']] = prep.standardize_by_group(
-            df, target=config['label_reg'], 
-            groupby=config['date_column'],
-            aggregate='median', wl=winsorize_lower, wu=winsorize_upper)
-
     # Split dataset into train and test dataset
     df_train, df_test = cv.train_test_split_by_date(
         df, date_column, test_begin, test_end)
@@ -202,16 +160,16 @@ if __name__ == "__main__":
     if run_lr:
         # Set parameters to search
         param_grid_lr = {
-            #"alpha": [1] + np.logspace(-4, 4, 10), # C <= 1e-5 doesn't converge
             "alpha": [1] + np.logspace(-4, 4, 10), # C <= 1e-5 doesn't converge
-            "fit_intercept": [True]}
+            #"alpha": [1] + np.logspace(-4, 4, 2), # C <= 1e-5 doesn't converge
+            "fit_intercept": [True, False]}
 
         # Set model
         model_lr = Ridge()
         model_lr_str = 'lr'
 
         # Run analysis on 2D decision boundary
-        rs_lr = regression.regression_surface2D(
+        rs_lr = regression.regression_surface2D_residual(
             config, df_train, df_test,
             model_lr, model_lr_str, param_grid_lr, best_params={},
             read_last=False,
@@ -244,29 +202,37 @@ if __name__ == "__main__":
 
         # Set parameters to search
         param_grid_xgb = {
-            #'min_child_weight': [1000, 750, 500], #[1000, 500], #[1000], 
-            'min_child_weight': [1500, 1000, 500], #[1000, 500], #[1000], 
-            #'min_child_weight': [1500], #[1000, 500], #[1000], 
-            'max_depth': [3, 5, 7],
-            #'max_depth': [3],
-            'eta': [0.3, 0.01], #[0.3]
+            'min_child_weight': [1000, 750, 500], #[1000, 500], #[1000], 
+            'max_depth': [5, 7, 10],
+            'eta': [0.3], #[0.3]
             'n_estimators': [50], # [50, 100, 200],
-            'gamma': [5, 3, 0], #[0, 5, 10],
+            'gamma': [0], #[0, 5, 10],
             'lambda': [1], #np.logspace(0, 2, 3), #[1], # L2 regularization
             'n_jobs':[-1],
-            'objective':[
-                #'reg:squarederror',
-                xgb_obj.log_square_error],
-            'feval':[xgb_metric.log_square_error],
-            'subsample': [1],#[1, 0.8, 0.5], # [1]
+            'objective':['reg:squarederror'],
+            'subsample': [1, 0.8],#[1, 0.8, 0.5], # [1]
             }
+
+        ## Set parameters to search
+        #param_grid_xgb = {
+        #    'min_child_weight': [1000], #[1000, 500], #[1000], 
+        #    'max_depth': [5],
+        #    'eta': [0.3], #[0.3]
+        #    'n_estimators': [10], # [50, 100, 200],
+        #    'objective': ['multi:softmax'],
+        #    'gamma': [0], #[0, 5, 10],
+        #    'lambda': [1], #np.logspace(0, 2, 3), #[1], # L2 regularization
+        #    'n_jobs':[-1],
+        #    'subsample': [1, 0.8],#[1, 0.8, 0.5], # [1]
+        #    'num_class': [n_classes]}
 
         # Set model
         model_xgb = XGBRegressor()
         model_xgb_str = 'xgb'
 
+
         # Run analysis on 2D decision boundary
-        rs_xgb = regression.regression_surface2D(
+        rs_xgb = regression.regression_surface2D_residual(
             config, df_train, df_test,
             model_xgb, model_xgb_str, param_grid_xgb, best_params={},
             read_last=False,
@@ -277,46 +243,16 @@ if __name__ == "__main__":
             return_train_ylim=(-1,20), return_test_ylim=(-1,1))
 
 
-
-    #---------------------------------------------------------------------------
-    # kNN
-    #---------------------------------------------------------------------------
-    if run_knn:
-        # Set parameters to search
-        param_grid_knn = {
-            'n_neighbors':
-                sorted([int(x) for x in np.logspace(2, 3, 10)], reverse=True)}
-
-        # Set model
-        model_knn = KNeighborsRegressor()
-        model_knn_str = 'knn'
-
-        # Run analysis on 2D decision boundary
-        rs_knn = regression.regression_surface2D(
-            config, df_train, df_test,
-            model_knn, model_knn_str, param_grid_knn, best_params={},
-            read_last=False,
-            cv_study=True,
-            run_backtest=True,
-            plot_decision_boundary=True,
-            save_csv=True,
-            return_train_ylim=(-1,20), return_test_ylim=(-1,1))
-
-
-
-
     #---------------------------------------------------------------------------
     # Neural net
     #---------------------------------------------------------------------------
     if run_nn:
         strategy = tf.distribute.MirroredStrategy()
         with strategy.scope():
-            #-------------------------------------------------------------------
             # Define ensemble of weak leaners
-            #-------------------------------------------------------------------
             ensemble = []
             input_layer = tf.keras.Input(shape=(2,))
-            for i in range(200):
+            for i in range(100):
                 weak_learner = tf.keras.layers.Dense(units=32, activation='relu',
                     kernel_initializer=tf.initializers.GlorotUniform())(input_layer)
                 weak_learner = tf.keras.layers.Dense(units=32, activation='relu',
@@ -328,7 +264,7 @@ if __name__ == "__main__":
 
             ensemble = []
             input_layer = tf.keras.Input(shape=(2,))
-            for i in range(200):
+            for i in range(100):
                 weak_learner = tf.keras.layers.Dense(units=32, activation='relu',
                     kernel_initializer=tf.initializers.GlorotUniform())(input_layer)
                 weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
@@ -342,7 +278,7 @@ if __name__ == "__main__":
 
             ensemble = []
             input_layer = tf.keras.Input(shape=(2,))
-            for i in range(200):
+            for i in range(100):
                 weak_learner = tf.keras.layers.Dense(units=32, activation='relu',
                     kernel_initializer=tf.initializers.GlorotUniform())(input_layer)
                 weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
@@ -359,7 +295,7 @@ if __name__ == "__main__":
 
             ensemble = []
             input_layer = tf.keras.Input(shape=(2,))
-            for i in range(200):
+            for i in range(100):
                 weak_learner = tf.keras.layers.Dense(units=64, activation='relu',
                     kernel_initializer=tf.initializers.GlorotUniform())(input_layer)
                 weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
@@ -373,7 +309,7 @@ if __name__ == "__main__":
 
             ensemble = []
             input_layer = tf.keras.Input(shape=(2,))
-            for i in range(200):
+            for i in range(100):
                 weak_learner = tf.keras.layers.Dense(units=64, activation='relu',
                     kernel_initializer=tf.initializers.GlorotUniform())(input_layer)
                 weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
@@ -390,7 +326,7 @@ if __name__ == "__main__":
 
             ensemble = []
             input_layer = tf.keras.Input(shape=(2,))
-            for i in range(200):
+            for i in range(100):
                 weak_learner = tf.keras.layers.Dense(units=128, activation='relu',
                     kernel_initializer=tf.initializers.GlorotUniform())(input_layer)
                 weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
@@ -405,16 +341,10 @@ if __name__ == "__main__":
             #-------------------------------------------------------------------
 
             param_grid = {
-                'learning_rate': [5e-5, 1e-4, 5e-4, 1e-3], #np.logspace(-4,-2,6),
-                #'learning_rate': [1e-4], #np.logspace(-4,-2,6),
-                'metrics': {
-                    #tfmetric.MeanLogSquaredError():'MLSE',
-                    tf.keras.metrics.MeanAbsolutePercentageError():'mape'},
-                'loss': {
-                    tfloss.MeanLogSquaredError():'MLSE',
-                    #tf.keras.losses.Huber():'Huber',
-                    #tf.keras.losses.MeanAbsolutePercentageError():'mape'
-                    },
+                'learning_rate': [1e-4, 5e-4, 1e-3], #np.logspace(-4,-2,6),
+                #'learning_rate': [1e-3], #np.logspace(-4,-2,6),
+                'metrics': {tf.keras.metrics.MeanAbsolutePercentageError():'mape'},
+                'loss': {tf.keras.losses.MeanAbsolutePercentageError():'mape'},
                 'patience': [1, 3, 10], # 3,4,5
                 #'patience': [1], # 3,4,5
                 'epochs': [1000],
@@ -426,7 +356,7 @@ if __name__ == "__main__":
                     ensemble_model2:'[32-0.5-32-0.5-32-0.5-1]*100',
                     ensemble_model3:'[64-0.5-64-0.5-1]*100',
                     ensemble_model4:'[64-0.5-64-0.5-64-0.5-1]*100',
-                    #ensemble_model5:'[128-0.5-128-0.5-1]*100',
+                    ensemble_model5:'[128-0.5-128-0.5-1]*100',
                     },
                 }
 
@@ -436,7 +366,7 @@ if __name__ == "__main__":
             model_str = 'nn'
 
             # Run analysis on 2D decision boundary
-            rs_nn = regression.regression_surface2D(
+            rs_nn = regression.regression_surface2D_residual(
                 config, df_train, df_test,
                 model, model_str, param_grid, best_params={},
                 read_last=False,
@@ -444,9 +374,7 @@ if __name__ == "__main__":
                 run_backtest=True,
                 plot_decision_boundary=True,
                 save_csv=True,
-                return_train_ylim=(-1,20), return_test_ylim=(-1,1),
-                cv_hist_figsize=(40, 10)
-                )
+                return_train_ylim=(-1,20), return_test_ylim=(-1,1))
 
 
 

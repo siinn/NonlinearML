@@ -16,6 +16,7 @@ from xgboost.sklearn import XGBClassifier
 
 # Import custom libraries
 import NonlinearML.lib.cross_validation as cv
+import NonlinearML.lib.preprocessing as prep
 import NonlinearML.lib.utils as utils
 import NonlinearML.lib.stats as stats
 import NonlinearML.lib.summary as summary
@@ -79,7 +80,7 @@ db_res = 0.0005
 
 
 # Set labels for clasification
-n_classes=100
+n_classes=10
 class_label={x:'D'+str(x) for x in range(n_classes)}
 class_order = [x for x in range(n_classes-1, -1, -1)] # High return to low return
 
@@ -87,17 +88,24 @@ class_order = [x for x in range(n_classes-1, -1, -1)] # High return to low retur
 rank_n_bins=10
 rank_label={x:'D'+str(x) for x in range(rank_n_bins)}
 rank_order = [x for x in range(rank_n_bins-1, -1,-1)] # High return to low return
-
-# Set path to save output figures
-output_path = 'output/%s_%s/cla%s_rank%s/' % (feature_x, feature_y, n_classes, rank_n_bins)
-tfboard_path='tf_log/%s_%s/cla%s_rank%s/' % (feature_x, feature_y, n_classes, rank_n_bins)
-
+rank_top = 9
+rank_bottom = 0
 
 # Set output label classes
 label_reg = 'fqRet' # continuous target label
 #label_cla = 'QntfqRet' # discretized target label
 label_cla = 'fqRet_discrete' # discretized target label
 label_fm = 'fmRet' # monthly return used for calculating cum. return
+
+# Winsorize label, followed by standardization with median in each month
+standardize_label = False
+winsorize_lower = 0.01
+winsorize_upper = 0.99
+
+# Set path to save output figures
+output_path = 'output/%s_%s/test/std_%s/cla%s_rank%s/' % (feature_x, feature_y, standardize_label, n_classes, rank_n_bins)
+tfboard_path='tf_log/%s_%s/test/std_%s/cla%s_rank%s/' % (feature_x, feature_y, standardize_label, n_classes, rank_n_bins)
+
 
 # Set data column
 date_column = "smDate"
@@ -110,8 +118,8 @@ test_begin = "2012-01-01"
 test_end = "2019-05-01"
 
 # Set cross-validation configuration
-k = 10          # Must be > 1
-n_epoch = 10
+k = 5     # Must be > 1
+n_epoch = 1
 subsample = 0.5
 purge_length = 3
 
@@ -131,12 +139,14 @@ db_figsize= (10, 8)
 db_annot_x=0.02
 db_annot_y=0.98
 db_nbins=50
+db_vmin=-0.3
+db_vmax=0.3
 
 # Set algorithms to run
 run_lr = False
-run_xgb = True
+run_xgb = False
 run_knn = False
-run_nn = False
+run_nn = True
 run_comparison = False
 save_prediction = False
 
@@ -148,10 +158,12 @@ config = {
     'output_path':output_path, 'security_id':security_id,
     'n_classes':n_classes, 'class_label':class_label, 'class_order':class_order,
     'rank_n_bins':rank_n_bins, 'rank_label':rank_label, 'rank_order':rank_order,
+    'rank_top':rank_top, 'rank_bottom':rank_bottom,
     'label_reg':label_reg, 'label_cla':label_cla, 'label_fm':label_fm,
     'date_column':date_column, 'test_begin':test_begin, 'test_end':test_end,
     'k':k, 'n_epoch':n_epoch, 'subsample':subsample,
     'purge_length':purge_length,
+    'db_vmin':db_vmin, 'db_vmax':db_vmax,
     'db_xlim':db_xlim, 'db_ylim':db_ylim, 'db_res' :db_res, 'db_nbins':db_nbins,
     'db_figsize':db_figsize, 'db_annot_x':db_annot_x, 'db_annot_y':db_annot_y,
     'p_thres':p_thres, 'cv_metric':cv_metric, 'db_colors':db_colors}
@@ -174,6 +186,12 @@ if __name__ == "__main__":
         df, variables=[config['label_reg']], n_classes=config['n_classes'],
         class_names=config['class_label'], suffix="discrete",
         month=config['date_column'])
+
+    if standardize_label:
+        df[config['label_reg']] = prep.standardize_by_group(
+            df, target=config['label_reg'], 
+            groupby=config['date_column'],
+            aggregate='median', wl=winsorize_lower, wu=winsorize_upper)
 
     # Split dataset into train and test dataset
     df_train, df_test = cv.train_test_split_by_date(
@@ -209,7 +227,7 @@ if __name__ == "__main__":
             run_backtest=True,
             plot_decision_boundary=True,
             save_csv=True,
-            return_train_ylim=(-1,20), return_test_ylim=(-1,5))
+            return_train_ylim=(-1,20), return_test_ylim=(-1,1))
 
 
     #---------------------------------------------------------------------------
@@ -243,7 +261,7 @@ if __name__ == "__main__":
             'gamma': [0], #[0, 5, 10],
             'lambda': [1], #np.logspace(0, 2, 3), #[1], # L2 regularization
             'n_jobs':[-1],
-            'subsample': [1, 0.8],#[1, 0.8, 0.5], # [1]
+            'subsample': [1],#[1, 0.8, 0.5], # [1]
             'num_class': [n_classes]}
         ## Set parameters to search
         #param_grid_xgb = {
@@ -268,11 +286,11 @@ if __name__ == "__main__":
             config, df_train, df_test,
             model_xgb, model_xgb_str, param_grid_xgb, best_params={},
             read_last=False,
-            cv_study=False,
+            cv_study=True,
             run_backtest=True,
             plot_decision_boundary=True,
             save_csv=True,
-            return_train_ylim=(-1,20), return_test_ylim=(-1,3))
+            return_train_ylim=(-1,20), return_test_ylim=(-1,1))
 
 
 
@@ -298,7 +316,7 @@ if __name__ == "__main__":
             run_backtest=True,
             plot_decision_boundary=True,
             save_csv=True,
-            return_train_ylim=(-1,20), return_test_ylim=(-1,5))
+            return_train_ylim=(-1,20), return_test_ylim=(-1,1))
 
 
 
@@ -309,33 +327,116 @@ if __name__ == "__main__":
     if run_nn:
         strategy = tf.distribute.MirroredStrategy()
         with strategy.scope():
+            #-------------------------------------------------------------------
             # Define ensemble of weak leaners
+            #-------------------------------------------------------------------
+            #ensemble = []
+            #input_layer = tf.keras.Input(shape=(2,))
+            #for i in range(100):
+            #    weak_learner = tf.keras.layers.Dense(units=32, activation='relu',
+            #        kernel_initializer=tf.initializers.GlorotUniform())(input_layer)
+            #    weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
+            #    weak_learner = tf.keras.layers.Dense(units=32, activation='relu',
+            #        kernel_initializer=tf.initializers.GlorotUniform())(weak_learner)
+            #    weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
+            #    ensemble.append(tf.keras.layers.Dense(units=config['n_classes'], activation='softmax',
+            #        kernel_initializer=tf.initializers.GlorotUniform())(weak_learner))
+            #output_layer = tf.keras.layers.Average()(ensemble)
+            #ensemble_model0 = tf.keras.Model(inputs=input_layer, outputs=output_layer)
+
+            #ensemble = []
+            #input_layer = tf.keras.Input(shape=(2,))
+            #for i in range(100):
+            #    weak_learner = tf.keras.layers.Dense(units=64, activation='relu',
+            #        kernel_initializer=tf.initializers.GlorotUniform())(input_layer)
+            #    weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
+            #    weak_learner = tf.keras.layers.Dense(units=64, activation='relu',
+            #        kernel_initializer=tf.initializers.GlorotUniform())(weak_learner)
+            #    weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
+            #    ensemble.append(tf.keras.layers.Dense(units=config['n_classes'], activation='softmax',
+            #        kernel_initializer=tf.initializers.GlorotUniform())(weak_learner))
+            #output_layer = tf.keras.layers.Average()(ensemble)
+            #ensemble_model1 = tf.keras.Model(inputs=input_layer, outputs=output_layer)
+
+
+            #ensemble = []
+            #input_layer = tf.keras.Input(shape=(2,))
+            #for i in range(100):
+            #    weak_learner = tf.keras.layers.Dense(units=128, activation='relu',
+            #        kernel_initializer=tf.initializers.GlorotUniform())(input_layer)
+            #    weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
+            #    weak_learner = tf.keras.layers.Dense(units=128, activation='relu',
+            #        kernel_initializer=tf.initializers.GlorotUniform())(weak_learner)
+            #    weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
+            #    ensemble.append(tf.keras.layers.Dense(units=config['n_classes'], activation='softmax',
+            #        kernel_initializer=tf.initializers.GlorotUniform())(weak_learner))
+            #output_layer = tf.keras.layers.Average()(ensemble)
+            #ensemble_model2 = tf.keras.Model(inputs=input_layer, outputs=output_layer)
+
             ensemble = []
             input_layer = tf.keras.Input(shape=(2,))
-            for i in range(50):
-                weak_learner = tf.keras.layers.Dense(units=32, activation='relu',
+            for i in range(100):
+                weak_learner = tf.keras.layers.Dense(units=64, activation='relu',
                     kernel_initializer=tf.initializers.GlorotUniform())(input_layer)
                 weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
                 weak_learner = tf.keras.layers.Dense(units=32, activation='relu',
                     kernel_initializer=tf.initializers.GlorotUniform())(weak_learner)
                 weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
-                ensemble.append(tf.keras.layers.Dense(units=10, activation='softmax',
+                weak_learner = tf.keras.layers.Dense(units=16, activation='relu',
+                    kernel_initializer=tf.initializers.GlorotUniform())(weak_learner)
+                weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
+                ensemble.append(tf.keras.layers.Dense(units=config['n_classes'], activation='softmax',
                     kernel_initializer=tf.initializers.GlorotUniform())(weak_learner))
             output_layer = tf.keras.layers.Average()(ensemble)
-            ensemble_model = tf.keras.Model(inputs=input_layer, outputs=output_layer)
+            ensemble_model0 = tf.keras.Model(inputs=input_layer, outputs=output_layer)
+
+            ensemble = []
+            input_layer = tf.keras.Input(shape=(2,))
+            for i in range(100):
+                weak_learner = tf.keras.layers.Dense(units=32, activation='relu',
+                    kernel_initializer=tf.initializers.GlorotUniform())(input_layer)
+                weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
+                weak_learner = tf.keras.layers.Dense(units=16, activation='relu',
+                    kernel_initializer=tf.initializers.GlorotUniform())(weak_learner)
+                weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
+                ensemble.append(tf.keras.layers.Dense(units=config['n_classes'], activation='softmax',
+                    kernel_initializer=tf.initializers.GlorotUniform())(weak_learner))
+            output_layer = tf.keras.layers.Average()(ensemble)
+            ensemble_model1 = tf.keras.Model(inputs=input_layer, outputs=output_layer)
+
+
+            ensemble = []
+            input_layer = tf.keras.Input(shape=(2,))
+            for i in range(100):
+                weak_learner = tf.keras.layers.Dense(units=16, activation='relu',
+                    kernel_initializer=tf.initializers.GlorotUniform())(input_layer)
+                weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
+                weak_learner = tf.keras.layers.Dense(units=16, activation='relu',
+                    kernel_initializer=tf.initializers.GlorotUniform())(weak_learner)
+                weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
+                ensemble.append(tf.keras.layers.Dense(units=config['n_classes'], activation='softmax',
+                    kernel_initializer=tf.initializers.GlorotUniform())(weak_learner))
+            output_layer = tf.keras.layers.Average()(ensemble)
+            ensemble_model2 = tf.keras.Model(inputs=input_layer, outputs=output_layer)
+            #-------------------------------------------------------------------
 
             param_grid = {
-                'learning_rate': [1e-3, 5e-4], #np.logspace(-4,-2,6),
-                'metrics': [
-                    tf.keras.metrics.SparseCategoricalCrossentropy()],
-                    #tf.keras.metrics.SparseCategoricalAccuracy()],
+                #'learning_rate': [5e-5, 1e-4, 5e-4, 1e-3], #np.logspace(-4,-2,6),
+                'learning_rate': [1e-4, 5e-4, 1e-3], #np.logspace(-4,-2,6),
+                #'learning_rate': [1e-3, 1e-4], #np.logspace(-4,-2,6),
+                'metrics': [tf.keras.metrics.SparseCategoricalCrossentropy()],
                 'loss': [tf.losses.SparseCategoricalCrossentropy()],
-                #'patience': [5, 20, 200], # 3,4,5
-                'patience': [1, 3, 5], # 3,4,5
+                #'patience': [1, 3, 10], # 3,4,5
+                'patience': [3, 10], # 3,4,5
+                #'patience': [10], # 3,4,5
                 'epochs': [1000],
                 'validation_split': [0.2],
-                'batch_size': [64],
-                'model': [ensemble_model]
+                'batch_size': [1024],
+                'model': [
+                    ensemble_model0,
+                    ensemble_model1,
+                    ensemble_model2,
+                    ]
                 }
 
             # Build model and evaluate
@@ -352,7 +453,7 @@ if __name__ == "__main__":
                 run_backtest=True,
                 plot_decision_boundary=True,
                 save_csv=True,
-                return_train_ylim=(-1,20), return_test_ylim=(-1,5))
+                return_train_ylim=(-1,20), return_test_ylim=(-1,1))
 
 
     #---------------------------------------------------------------------------

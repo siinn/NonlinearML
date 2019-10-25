@@ -144,6 +144,7 @@ def decision_boundary2D(
             x_label=config['feature_x'], y_label=config['feature_y'],
             colors=config['db_colors'],
             xlim=config['db_xlim'], ylim=config['db_ylim'],
+            vmin=config['db_vmin'], vmax=config['db_vmax'],
             #ticks=sorted(list(config['rank_label'].keys())),
             colorbar=True, ticks=None,
             scatter=True, subsample=0.01,
@@ -192,13 +193,15 @@ def decision_boundary2D(
         # Calculate diff. in cumulative return, annual return, and IR
         df_diff_train = backtest.calculate_diff_IR(
             df=df_backtest_train, 
-            return_label=config['rank_order'],
+            top=config['rank_top'], bottom=config['rank_bottom'],
+            class_label=config['rank_label'],
             class_reg=config['label_fm'],
             time=config['date_column'],
             col_pred='pred_rank')
         df_diff_test = backtest.calculate_diff_IR(
             df=df_backtest_test, 
-            return_label=config['rank_order'],
+            top=config['rank_top'], bottom=config['rank_bottom'],
+            class_label=config['rank_label'],
             class_reg=config['label_fm'],
             time=config['date_column'],
             col_pred='pred_rank')
@@ -216,7 +219,8 @@ def decision_boundary2D(
             col_pred='pred_rank')
         plot_backtest.plot_cumulative_return_diff(
             list_cum_returns=[df_backtest_test],
-            return_label=config['rank_order'],
+            top=config['rank_top'], bottom=config['rank_bottom'],
+            class_label=config['rank_label'],
             list_labels=[model_str], label_reg=config['label_fm'],
             figsize=return_figsize,
             date_column=config['date_column'],
@@ -242,6 +246,7 @@ def decision_boundary2D(
             x_label=config['feature_x'], y_label=config['feature_y'],
             colors=config['db_colors'],
             xlim=config['db_xlim'], ylim=config['db_ylim'],
+            vmin=config['db_vmin'], vmax=config['db_vmax'],
             figsize=config['db_figsize'],
             colorbar=True, ticks=None,
             annot={
@@ -252,6 +257,24 @@ def decision_boundary2D(
             scatter_legend=False,
             dist=True, nbins=config['db_nbins'],
             filename=output_path+"decision_boundary/overlay_db_best_model")
+
+        # Plot decision boundary of the best model.
+        plot_db.decision_boundary(
+            model=model, df=df_train, features=features, h=config['db_res'],
+            x_label=config['feature_x'], y_label=config['feature_y'],
+            colors=config['db_colors'],
+            xlim=config['db_xlim'], ylim=config['db_ylim'],
+            vmin=config['db_vmin'], vmax=config['db_vmax'],
+            figsize=config['db_figsize'],
+            colorbar=True, ticks=None,
+            annot={
+                'text':utils.get_param_string(best_params).strip('{}')\
+                    .replace('\'','').replace(',','\n').replace('\n ', '\n'),
+                'x':config['db_annot_x'], 'y':config['db_annot_y']},
+            scatter=False, subsample=0.01, label_cla=config['label_cla'],
+            scatter_legend=False,
+            dist=True, nbins=config['db_nbins'],
+            filename=output_path+"decision_boundary/db_best_model")
 
 
     #---------------------------------------------------------------------------

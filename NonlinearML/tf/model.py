@@ -10,13 +10,14 @@ class TensorflowModel:
         model: tf.keras.Sequential model
         params: MOdel parameters given in dictionary.
     """
-    def __init__(self, model, params, log_path):
+    def __init__(self, model, params, log_path, model_type='cla'):
         """ Initialize variables."""
         print("Building model..")
         # parameter set
         self.model = model
         self.params = params
         self.log_path = log_path
+        self.model_type = model_type
 
     def get_param_string(self):
         """ Get name as a string."""
@@ -81,12 +82,19 @@ class TensorflowModel:
 
     def predict(self, x):
         """ Make prediction."""
-        #y_prob = self.model.predict(x.values, batch_size=self.params['batch_size'])
-        y_prob = self.model.predict_on_batch(x.values)
+        y_prob = self.model.predict(x.values, batch_size=self.params['batch_size'])
+        #y_prob = self.model.predict_on_batch(x.values)
         if 'numpy' in dir(y_prob):
             y_prob = y_prob.numpy() # Convert to numpy if trained on GPU
-        y_classes = y_prob.argmax(axis=-1)
-        return y_classes
+        if self.model_type == 'cla':
+            return y_prob.argmax(axis=-1)
+        else:
+            return y_prob
+
+    def clear(self):
+        """ Clear keras session and delete model."""
+        tf.keras.backend.clear_session()
+        #del self.model
 
 
 def extract_metrics(class_report, num_class):
