@@ -2,8 +2,8 @@ import six
 import tensorflow as tf
 from tensorflow.python.framework import ops
 from tensorflow.python.ops import math_ops
-from tensorflow.python.keras.utils import metrics_utils
 from tensorflow.python.keras import backend as K
+from tensorflow.python.keras.utils import metrics_utils
 from tensorflow.python.ops.losses import util as tf_losses_utils
 
 class MeanMetricWrapper(tf.keras.metrics.Mean):
