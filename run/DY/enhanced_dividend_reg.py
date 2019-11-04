@@ -44,13 +44,13 @@ pd.options.mode.chained_assignment = None
 #INPUT_PATH = '/mnt/mainblob/nonlinearML/EnhancedDividend/data/Data_EM_extended.csv'
 INPUT_PATH = '../EnhancedDividend/data/Data_EM_extended.csv'
 
-# Set features of interest
-feature_x = 'DividendYield'
-feature_y = 'Payout_E'
-# Set limits of decision boundary
-db_xlim = (0, 0.2)
-db_ylim = (-1, 1.5)
-db_res = 0.0005
+## Set features of interest
+#feature_x = 'DividendYield'
+#feature_y = 'Payout_E'
+## Set limits of decision boundary
+#db_xlim = (0, 0.2)
+#db_ylim = (-1, 1.5)
+#db_res = 0.0005
 
 
 ## Set features of interest
@@ -71,13 +71,13 @@ db_res = 0.0005
 #db_res = 0.0005
 
 
-## Set features of interest
-#feature_x = 'DY_dmed'
-#feature_y = 'EG_dmed'
-## Set limits of decision boundary
-#db_xlim = (-1.5, 4)
-#db_ylim = (-4, 3)
-#db_res = 0.01
+# Set features of interest
+feature_x = 'DY_dmed'
+feature_y = 'EG_dmed'
+# Set limits of decision boundary
+db_xlim = (-1.5, 4)
+db_ylim = (-4, 3)
+db_res = 0.01
 
 # Set number of bins for ranking
 rank_n_bins=10
@@ -113,7 +113,7 @@ test_begin = "2012-01-01"
 test_end = "2019-05-01"
 
 # Set cross-validation configuration
-k = 10   # Must be > 1
+k = 5   # Must be > 1
 n_epoch = 1
 subsample = 0.5
 purge_length = 3
