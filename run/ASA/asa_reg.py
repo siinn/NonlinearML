@@ -24,7 +24,7 @@ import NonlinearML.plot.backtest as plot_backtest
 import NonlinearML.plot.cross_validation as plot_cv
 
 import NonlinearML.tf.model as tfmodel
-import NonlinearML.interprete.regression as regression
+import NonlinearML.interpret.regression as regression
 
 # Supress warnings
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)

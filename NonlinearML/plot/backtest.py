@@ -133,11 +133,11 @@ def plot_partial_dependence_1D(
     io.message("Plotting partial dependence plot with filename:")
     io.message("\t"+filename)
     # Create figures for partial dependence plot using Skater
-    interpreter = Interpretation(
+    interpretr = Interpretation(
         examples, feature_names=list(examples.columns))
     im_model = InMemoryModel(
         model.predict_proba, examples=examples, target_names=target_names)
-    axes_list = interpreter.partial_dependence.plot_partial_dependence(
+    axes_list = interpretr.partial_dependence.plot_partial_dependence(
         feature_ids=[feature_interest],
         modelinstance=im_model, 
         grid_resolution=grid_resolution, 
@@ -215,11 +215,11 @@ def plot_partial_dependence_2D(
     '''
     io.message("Plotting 2D partial dependence plot with filename: \n >%s" %filename)
     # Create figures for partial dependence plot using Skater
-    interpreter = Interpretation(
+    interpretr = Interpretation(
         examples, feature_names=list(examples.columns))
     im_model = InMemoryModel(
         model.predict_proba, examples=examples, target_names=target_names)
-    axes_list = interpreter.partial_dependence.plot_partial_dependence(
+    axes_list = interpretr.partial_dependence.plot_partial_dependence(
         feature_ids=[
             # Pass feature_ids as list of tuples. ex. [('AG', 'FCFA')]
             tuple([feature_interest, feature_other])], 

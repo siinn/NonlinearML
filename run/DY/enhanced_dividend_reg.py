@@ -29,7 +29,7 @@ import NonlinearML.tf.losses as tfloss
 import NonlinearML.tf.metrics as tfmetric
 import NonlinearML.xgb.objective as xgb_obj
 import NonlinearML.xgb.metric as xgb_metric
-import NonlinearML.interprete.regression as regression
+import NonlinearML.interpret.regression as regression
 
 # Supress warnings
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)

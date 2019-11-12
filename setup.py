@@ -24,7 +24,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name="NonlinearML",
-    version="0.0.1",
+    version="1.0",
     author="Siinn Che",
     author_email="siinn.che@alliancebernstein.com",
     description="AB Nonlinear factors ML project",

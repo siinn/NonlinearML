@@ -255,11 +255,11 @@ def decision_boundary_pdp(
     io.message("\nPlotting decision boundary plot using partial dependence plot."\
            + " Filename: \n >%s" %filename)
     # Create figures for partial dependence plot using Skater
-    interpreter = Interpretation(
+    interpretr = Interpretation(
         examples, feature_names=list(examples.columns))
     im_model = InMemoryModel(
         model.predict_proba, examples=examples, target_names=target_names)
-    df_pd = interpreter.partial_dependence.partial_dependence(
+    df_pd = interpretr.partial_dependence.partial_dependence(
         # Pass feature_ids as list of tuples. ex. [('AG', 'FCFA')]
         feature_ids=[feature_interest, feature_other], 
         modelinstance=im_model, 

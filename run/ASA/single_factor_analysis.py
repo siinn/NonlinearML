@@ -84,8 +84,8 @@ if __name__ == "__main__":
             df=df, variables=features,
             n_classes=n_classes, suffix="n%s" %n_classes,
             class_names=\
-                ["Low 0"]\
-                +[str(x) for x in range(1,n_classes-1)]\
+                ["Low 1"]\
+                +[str(x+1) for x in range(1,n_classes-1)]\
                 +["High %s" %n_classes], month=time)
 
         # Calculate average return by each bin
@@ -153,57 +153,4 @@ if __name__ == "__main__":
             filename=plot_path+"mean_%s_%s" % ('Residual', n_classes))
 
 
-
-
-
-
-#    #---------------------------------------------------------------------------
-#    # AG, FCFA, sector
-#    #---------------------------------------------------------------------------
-#
-#    if run_ag_fc == True:
-#
-#        # plot return by AG and FCFA
-#        plot.plot_box(df=df, x=var_tertile, y=total_return, title="", color="white", linewidth=1, showmeans=True, ylim=(-0.5,2),
-#                 hue="FCFA_discrete", #ylim=(0.7, 1.3),
-#                 x_label="AG", y_label=total_return, figsize=(10,6), filename="./output/singlefactor/%s_by_AG_FCFA" %total_return)
-#
-#
-#        # plot heatmap of number of samples within FCFA and return tertile groups for given AG group
-#        for i_ag in df[var_tertile].unique():
-#            plot.plot_heatmap(df=df.loc[df[var_tertile]==i_ag].groupby([return_tertile, "FCFA_discrete"]).count().iloc[:,0].unstack(level=-1),\
-#                         x_label="fq total return", y_label="FCFA",\
-#                         figsize=(10,7), filename="./output/singlefactor/%s_FCFA_AG%s" % (total_return, i_ag), fmt='.0f')
-#
-#
-#        # plot average return of AG and FCFA tertile group
-#        plot.plot_heatmap(df=df.groupby(["FCFA_discrete", var_tertile]).mean()[total_return].unstack(1).sort_index(ascending=False), square=True,\
-#            annot_kws={'fontsize':20},
-#            x_label="Asset growth", y_label="Free Cash Flow to Asset", annot=True,\
-#            figsize=(8,6), filename="./output/singlefactor/%s_FCFA_AG_tertile" % (total_return), fmt='.3f')
-#
-#
-#        # plot standard deviation of return for AG and FCFA tertile group by sector
-#        df_std_list = {}
-#        for i_industry in df[categories[0]].unique():
-#            df_std_list[i_industry]=df.loc[df[categories[0]]==i_industry]\
-#                                          .groupby([var_tertile, "FCFA_discrete"])\
-#                                          .std()[total_return].unstack(1)
-#        plot.plot_heatmap_group(df_list=df_std_list, n_subplot_columns=4,
-#                           x_label="FCFA", y_label="AG", group_map=sector_map, figsize=(25,20),
-#                           filename="./output/singlefactor/%s_std_FCFA_AG_sector_tertile" % (total_return), fmt='.3f', cmap=sns.light_palette("gray"))
-#
-#        # plot average return of AG and FCFA tertile group by sector
-#        df_mean_list = {}
-#        for i_industry in df[categories[0]].unique():
-#            df_mean_list[i_industry]=df.loc[df[categories[0]]==i_industry]\
-#                                          .groupby([var_tertile, "FCFA_discrete"])\
-#                                          .mean()[total_return].unstack(1)
-#        plot.plot_heatmap_group(df_list=df_mean_list, df_err_list=df_std_list, n_subplot_columns=4,
-#                           x_label="FCFA", y_label="AG", group_map=sector_map, figsize=(25,20), fmt="s", cmap=sns.color_palette("RdBu_r", 7),
-#                           filename="./output/singlefactor/%s_mean_FCFA_AG_sector_tertile" % (total_return))
-#
-#
-#
-#
-#    print("Successfully completed all tasks")
+    print("Successfully completed all tasks")

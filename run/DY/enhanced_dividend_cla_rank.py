@@ -28,7 +28,7 @@ import NonlinearML.plot.cross_validation as plot_cv
 
 import NonlinearML.tf.model as tfmodel
 import NonlinearML.model.linearRank as linearRank
-import NonlinearML.interprete.classification_rank as classification_rank
+import NonlinearML.interpret.classification_rank as classification_rank
 
 # Supress warnings
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
