@@ -162,9 +162,7 @@ def decision_boundary2D(
                 df_train=df_train, df_test=df_test, features=features,
                 date_column=config['date_column'],
                 label=label, rank=rank,
-                cols=[
-                    config['label_fm'],
-                    config['security_id']])
+                cols=[config['label_fm']])
     else:
         pred_train = pred_test = model = None
 

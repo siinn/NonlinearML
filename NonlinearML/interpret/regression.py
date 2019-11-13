@@ -164,9 +164,7 @@ def regression_surface2D(
                 df_train=df_train, df_test=df_test, features=features,
                 date_column=config['date_column'],
                 label=label,
-                cols=[
-                    config['label_fm'],
-                    config['security_id']])
+                cols=[config['label_fm']])
     else:
         pred_train = pred_test = model = None
 
@@ -484,8 +482,7 @@ def regression_surface2D_residual(
                 label=label,
                 cols=[
                     config['label_fm'],
-                    config['label_edge'],
-                    config['security_id']])
+                    config['label_edge']])
     else:
         pred_train = pred_test = model = None
 
