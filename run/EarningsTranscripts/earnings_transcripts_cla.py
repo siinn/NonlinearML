@@ -190,7 +190,7 @@ if __name__ == "__main__":
             model_lr, model_lr_str, param_grid_lr, best_params={},
             read_last=False,
             cv_study=True,
-            run_backtest=False,
+            run_backtest=True,
             plot_decision_boundary=True,
             save_csv=True,
             return_train_ylim=(-1,20), return_test_ylim=(-1,5))
