@@ -26,12 +26,14 @@ dependencies:
     - backcall==0.1.0
     - cycler==0.10.0
     - decorator==4.4.0
+    - et-xmlfile==1.0.1
     - gast==0.2.2
     - google-pasta==0.1.7
     - grpcio==1.23.0
     - h5py==2.9.0
     - ipython==7.7.0
     - ipython-genutils==0.2.0
+    - jdcal==1.4.1
     - jedi==0.15.1
     - joblib==0.13.2
     - keras-applications==1.0.8
@@ -40,6 +42,8 @@ dependencies:
     - markdown==3.1.1
     - matplotlib==3.1.0
     - numpy==1.17.0
+    - openpyxl==3.0.0
+    - opt-einsum==3.1.0
     - pandas==0.25.0
     - parso==0.5.1
     - patsy==0.5.1
@@ -59,7 +63,9 @@ dependencies:
     - sklearn==0.0
     - statsmodels==0.10.1
     - tb-nightly==1.14.0a20190603
-    - tensorflow==2.0.0b1
+    - tensorboard==2.0.0
+    - tensorflow==2.0.0
+    - tensorflow-estimator==2.0.0
     - termcolor==1.1.0
     - tf-estimator-nightly==1.14.0.dev2019060501
     - traitlets==4.3.2
@@ -67,5 +73,6 @@ dependencies:
     - werkzeug==0.15.5
     - wrapt==1.11.2
     - xgboost==0.90
+    - xlrd==1.2.0
 prefix: /anaconda/envs/nonlinear
 
