@@ -10,6 +10,7 @@ import NonlinearML.lib.io as io
 import NonlinearML.lib.stats as stats
 import NonlinearML.lib.utils as utils
 
+import NonlinearML.plot.plot as plot
 import NonlinearML.plot.decision_boundary as plot_db
 import NonlinearML.plot.backtest as plot_backtest
 import NonlinearML.plot.cross_validation as plot_cv

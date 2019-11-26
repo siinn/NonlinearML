@@ -10,6 +10,7 @@ import NonlinearML.lib.io as io
 import NonlinearML.lib.stats as stats
 import NonlinearML.lib.utils as utils
 
+import NonlinearML.plot.plot as plot
 import NonlinearML.plot.decision_boundary as plot_db
 import NonlinearML.plot.backtest as plot_backtest
 import NonlinearML.plot.cross_validation as plot_cv
@@ -20,7 +21,7 @@ def regression_surface2D(
     df_train, df_test,
     model, model_str, param_grid, best_params={},
     read_last=False, cv_study=None, run_backtest=True,
-    plot_decision_boundary=True, save_csv=True,
+    plot_decision_boundary=True, plot_residual=True, save_csv=True,
     cv_hist_n_bins=10, cv_hist_figsize=(18, 10), cv_hist_alpha=0.6,
     cv_box_figsize=(18,10), cv_box_color="#3399FF",
     return_figsize=(8,6), return_train_ylim=(-1,7), return_test_ylim=(-1,5),
@@ -164,7 +165,7 @@ def regression_surface2D(
                 df_train=df_train, df_test=df_test, features=features,
                 date_column=config['date_column'],
                 label=label,
-                cols=[config['label_fm']])
+                cols=[config['label_fm'], config['label_reg']])
     else:
         pred_train = pred_test = model = None
 
@@ -236,7 +237,7 @@ def regression_surface2D(
     #---------------------------------------------------------------------------
     if plot_decision_boundary:
 
-        # Plot decision boundary of the best model.
+        # Plot decision boundary of the best model with scattered plot.
         plot_db.decision_boundary(
             model=model, df=df_train, features=features, h=config['db_res'],
             x_label=config['feature_x'], y_label=config['feature_y'],
@@ -255,7 +256,7 @@ def regression_surface2D(
             filename=output_path+"decision_boundary/overlay_db_best_model")
 
 
-        # Plot decision boundary of the best model.
+        # Plot decision boundary of the best model without scattered plot.
         plot_db.decision_boundary(
             model=model, df=df_train, features=features, h=config['db_res'],
             x_label=config['feature_x'], y_label=config['feature_y'],
@@ -272,6 +273,41 @@ def regression_surface2D(
             scatter_legend=False, colors_scatter=config['db_colors_scatter'],
             dist=True, nbins=config['db_nbins'],
             filename=output_path+"decision_boundary/db_best_model")
+
+    #---------------------------------------------------------------------------
+    # Examine residual
+    #---------------------------------------------------------------------------
+    if plot_residual:
+        # Plot distribution of residual
+        plot.plot_dist_hue(
+            df=pred_train[[config['label_reg'], 'pred']].stack()\
+                .reset_index(level=-1).rename({0:config['label_reg']}, axis=1),
+            x=config['label_reg'], hue="level_1",
+            hue_str={config['label_reg']:'True', 'pred':'Prediction'},
+            hist_type='step', ylabel='Samples', norm=False, n_bins=config['residual_n_bins'],
+            figsize=(8,5), filename=output_path+'residual/res_train')
+
+        plot.plot_dist_hue(
+            df=pred_test[[config['label_reg'], 'pred']].stack()\
+                .reset_index(level=-1).rename({0:config['label_reg']}, axis=1),
+            x=config['label_reg'], hue="level_1",
+            hue_str={config['label_reg']:'True', 'pred':'Prediction'},
+            hist_type='step', ylabel='Samples', norm=False, n_bins=config['residual_n_bins'],
+            figsize=(8,5), filename=output_path+'residual/res_test')
+
+        # Plot prediction vs target
+        plot.plot_scatter(
+            df=pred_train, x=config['label_reg'], y='pred',
+            x_label=config['label_reg'], y_label='Prediction',
+            figsize=(10, 10), filename=output_path+'residual/res_scatter_train',
+            linewidth=1, s=10)
+
+        plot.plot_scatter(
+            df=pred_test, x=config['label_reg'], y='pred',
+            x_label=config['label_reg'], y_label='Prediction',
+            figsize=(10, 10), filename=output_path+'residual/res_scatter_test',
+            linewidth=1, s=10, color='red')
+
 
 
     #---------------------------------------------------------------------------
@@ -336,7 +372,7 @@ def regression_surface2D_residual(
     df_train, df_test,
     model, model_str, param_grid, best_params={},
     read_last=False, cv_study=None, run_backtest=True,
-    plot_decision_boundary=True, save_csv=True,
+    plot_decision_boundary=True, plot_residual=True, save_csv=True,
     cv_hist_n_bins=10, cv_hist_figsize=(18, 10), cv_hist_alpha=0.6,
     cv_box_figsize=(18,10), cv_box_color="#3399FF",
     return_figsize=(8,6), return_train_ylim=(-1,7), return_test_ylim=(-1,5),
@@ -481,6 +517,7 @@ def regression_surface2D_residual(
                 date_column=config['date_column'],
                 label=label,
                 cols=[
+                    config['label_reg'],
                     config['label_fm'],
                     config['label_edge']])
     else:
@@ -494,11 +531,11 @@ def regression_surface2D_residual(
         pred_train=pred_train, pred_test=pred_test,
         config=config, col_pred="pred")
 
-    # Rank predicted Edge - Residual
+    # Rank predicted Edge + Residual
     pred_train['pred_return'] = \
-        pred_train[config['label_edge']] - pred_train['pred']
+        pred_train[config['label_edge']] + pred_train['pred']
     pred_test['pred_return'] = \
-        pred_test[config['label_edge']] - pred_test['pred']
+        pred_test[config['label_edge']] + pred_test['pred']
     pred_train, pred_test = utils.rank_prediction_monthly(
         pred_train=pred_train, pred_test=pred_test,
         config=config, col_pred="pred_return")
@@ -564,7 +601,7 @@ def regression_surface2D_residual(
     #---------------------------------------------------------------------------
     if plot_decision_boundary:
 
-        # Plot decision boundary of the best model.
+        # Plot decision boundary of the best model with scattered plot.
         plot_db.decision_boundary(
             model=model, df=df_train, features=features, h=config['db_res'],
             x_label=config['feature_x'], y_label=config['feature_y'],
@@ -583,7 +620,7 @@ def regression_surface2D_residual(
             filename=output_path+"decision_boundary/overlay_db_best_model")
 
 
-        # Plot decision boundary of the best model.
+        # Plot decision boundary of the best model without scattered plot.
         plot_db.decision_boundary(
             model=model, df=df_train, features=features, h=config['db_res'],
             x_label=config['feature_x'], y_label=config['feature_y'],
@@ -600,6 +637,43 @@ def regression_surface2D_residual(
             scatter_legend=False, colors_scatter=config['db_colors_scatter'],
             dist=True, nbins=config['db_nbins'],
             filename=output_path+"decision_boundary/db_best_model")
+
+
+    #---------------------------------------------------------------------------
+    # Examine residual
+    #---------------------------------------------------------------------------
+    if plot_residual:
+        # Plot distribution of residual
+        plot.plot_dist_hue(
+            df=pred_train[[config['label_reg'], 'pred']].stack()\
+                .reset_index(level=-1).rename({0:config['label_reg']}, axis=1),
+            x=config['label_reg'], hue="level_1",
+            hue_str={'Residual':'True', 'pred':'Prediction'},
+            hist_type='step', ylabel='Samples', norm=False, n_bins=config['residual_n_bins'],
+            figsize=(8,5), filename=output_path+'residual/res_train')
+
+        plot.plot_dist_hue(
+            df=pred_test[[config['label_reg'], 'pred']].stack()\
+                .reset_index(level=-1).rename({0:config['label_reg']}, axis=1),
+            x=config['label_reg'], hue="level_1",
+            hue_str={'Residual':'True', 'pred':'Prediction'},
+            hist_type='step', ylabel='Samples', norm=False, n_bins=config['residual_n_bins'],
+            figsize=(8,5), filename=output_path+'residual/res_test')
+
+        # Plot prediction vs target
+        plot.plot_scatter(
+            df=pred_train, x=config['label_reg'], y='pred',
+            x_label=config['label_reg'], y_label='Prediction',
+            figsize=(10, 10), filename=output_path+'residual/res_scatter_train',
+            linewidth=1, s=10)
+
+        plot.plot_scatter(
+            df=pred_test, x=config['label_reg'], y='pred',
+            x_label=config['label_reg'], y_label='Prediction',
+            figsize=(10, 10), filename=output_path+'residual/res_scatter_test',
+            linewidth=1, s=10, color='red')
+
+            
 
 
     #---------------------------------------------------------------------------
