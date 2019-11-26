@@ -19,18 +19,14 @@ import NonlinearML.lib.utils as utils
 # Set user options
 #-------------------------------------------------------------------------------
 # Set input and output path
-input_path = '/mnt/mainblob/nonlinearML/data/ASA/xlsx/ASA_G2_data.r4.xlsx'
-plot_path = 'output/ASA/correlation/'
+input_path = '/mnt/mainblob/nonlinearML/data/ASA/csv/ASA_G2_data.r5.p1.csv'
+plot_path = 'output/ASA/EDA/correlation/'
 
 # Set available features and labels
-features = ['PM', 'DIFF']
+features = ['PM_Exp', 'Diff_Exp']
 feature1 = features[0]
 feature2 = features[1]
 labels = ['Residual']
-
-# Set train and test period
-test_begin = "2011-01-01"
-test_end = "2018-01-01"
 
 # Set
 time = 'smDate'
@@ -55,21 +51,7 @@ if __name__ == "__main__":
     # Read dataset
     #---------------------------------------------------------------------------
     # Read input csv
-    df = pd.read_excel(input_path)
-    df = df.drop(['Unnamed: 8', 'Unnamed: 9', 'Unnamed: 10'], axis=1)
-
-    # Read return data and append to data
-    df_return = pd.read_excel(
-        '/mnt/mainblob/nonlinearML/data/ASA/xlsx/ASA_G2_data.r2.append.xlsx')
-    df['fmRet'] = df_return['fmRet']
-
-    # Convert time into datetime format
-    df[time] = df[time].apply(
-        utils.datenum_to_datetime,
-        matlab_origin=729025,
-        date_origin=datetime(1996,1,1))
-
-
+    df = pd.read_csv(input_path)
 
     #-----------------------------------------------------------------------
     # 
@@ -134,13 +116,6 @@ if __name__ == "__main__":
             ylim=False, xlim=False, color='gray', s=100)
 
         
-
-
-
-
-
-
-
 
 
     print("Successfully completed all tasks")

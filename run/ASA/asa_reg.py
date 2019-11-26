@@ -14,6 +14,7 @@ from xgboost.sklearn import XGBRegressor
 
 # Import custom libraries
 import NonlinearML.lib.cross_validation as cv
+import NonlinearML.lib.preprocessing as prep
 import NonlinearML.lib.utils as utils
 import NonlinearML.lib.stats as stats
 import NonlinearML.lib.summary as summary
@@ -24,6 +25,10 @@ import NonlinearML.plot.backtest as plot_backtest
 import NonlinearML.plot.cross_validation as plot_cv
 
 import NonlinearML.tf.model as tfmodel
+import NonlinearML.tf.losses as tfloss
+import NonlinearML.tf.metrics as tfmetric
+import NonlinearML.xgb.objective as xgb_obj
+import NonlinearML.xgb.metric as xgb_metric
 import NonlinearML.interpret.regression as regression
 
 # Supress warnings
@@ -36,16 +41,24 @@ pd.options.mode.chained_assignment = None
 # Set configuration
 #-------------------------------------------------------------------------------
 # Set input and output path
-#INPUT_PATH = '/mnt/mainblob/nonlinearML/EnhancedDividend/data/Data_EM_extended.csv'
-INPUT_PATH = '../data/ASA/csv/ASA_G2_data.r2.p1.csv'
+INPUT_PATH = '../data/ASA/csv/ASA_G2_data.r5.p1.csv'
 
 # Set features of interest
-feature_x = 'PM'
-feature_y = 'DIFF'
+feature_x = 'PM_Exp'
+feature_y = 'Diff_Exp'
+
 # Set limits of decision boundary
 db_xlim = (-3, 3)
 db_ylim = (-3, 3)
 db_res = 0.01
+
+# Set decision boundary plotting options
+db_figsize= (10, 8)
+db_annot_x=0.02
+db_annot_y=0.98
+db_nbins=50
+db_vmin=-0.3
+db_vmax=0.3
 
 # Set number of bins for ranking
 rank_n_bins=5
@@ -56,15 +69,20 @@ rank_bottom = 4
 
 
 # Set path to save output figures
-output_path = 'output/%s_%s/reg_rank%s/' % (feature_x, feature_y, rank_n_bins)
+output_path = 'output/ASA/%s_%s/reg_rank%s/' % (feature_x, feature_y, rank_n_bins)
 #output_path = 'output/test'
-tfboard_path='tf_log/%s_%s/reg_rank%s/' % (feature_x, feature_y, rank_n_bins)
+tfboard_path='tf_log/ASA/%s_%s/reg_rank%s/' % (feature_x, feature_y, rank_n_bins)
 
 # Set output label classes
 label_reg = 'Residual' # continuous target label
 label_cla = 'Residual_discrete' # discretized target label
 label_edge = 'Edge_Adj' # Expected monthly return will be Edge_adj + residual
 label_fm = 'fmRet'
+
+# Winsorize label, followed by standardization with median in each month
+standardize_label = False
+winsorize_lower = 0.01
+winsorize_upper = 0.99
 
 # Set data column
 date_column = "smDate"
@@ -77,7 +95,7 @@ test_begin = "2011-01-01"
 test_end = "2018-01-01"
 
 # Set cross-validation configuration
-k = 10     # Must be > 1
+k = 2     # Must be > 1
 n_epoch = 1
 subsample = 0.5
 purge_length = 3
@@ -96,19 +114,10 @@ cmap_scatter = matplotlib.cm.get_cmap('RdYlGn', rank_n_bins)
 db_colors_scatter = [matplotlib.colors.rgb2hex(cmap_scatter(i)) 
     for i in range(cmap_scatter.N)][::-1]
 
-
-# Set decision boundary plotting options
-db_figsize= (10, 8)
-db_annot_x=0.02
-db_annot_y=0.98
-db_nbins=50
-db_vmin=-0.3
-db_vmax=0.3
-
 # Set algorithms to run
 run_lr = False
-run_xgb = False
-run_nn = True
+run_xgb = True
+run_nn = False
 run_comparison = False
 save_prediction = False
 
@@ -150,6 +159,39 @@ if __name__ == "__main__":
         class_names=config['rank_label'], suffix="discrete",
         month=config['date_column'])
 
+    # Temporary test
+    #import numpy as np
+    #df['Residual'] = np.random.normal(1, 0.1, len(df['Residual']))
+    #df['Residual'] = 3
+    #df['Residual'] = df[feature_x] + np.random.normal(0, 0.1, len(df['Residual']))
+
+    #df['fqRelRet_norm'] = df['fqRelRet']/ df['fqRelRet'].std()
+    #df['Total_Edge_norm'] = df['Total_Edge']/ df['Total_Edge'].std()
+    #df['Residual_norm'] = df['Residual']/ df['Residual'].std()
+
+    #plot.plot_dist_hue(
+    #df=df[['fqRelRet', 'Total_Edge', 'Residual']].stack().reset_index().drop('level_0', axis=1).rename({'level_1':'y', 0:'return'}, axis=1),
+    #x='return', hue='y',
+    #hue_str={'fqRelRet':'fqRelRet', 'Total_Edge':'Total_Edge', 'Residual':'Residual'},
+    #hist_type='step', ylabel='Samples', norm=False, n_bins=500,
+    #x_range=None, legend_loc=None, legend_box=(0,0), figsize=(10,8),
+    #filename=output_path+'test')
+
+
+    #plot.plot_dist_hue(
+    #df=df[['fqRelRet_norm', 'Total_Edge_norm', 'Residual_norm']].stack().reset_index().drop('level_0', axis=1).rename({'level_1':'y', 0:'return'}, axis=1),
+    #x='return', hue='y',
+    #hue_str={'fqRelRet_norm':'fqRelRet', 'Total_Edge_norm':'Total_Edge', 'Residual_norm':'Residual'},
+    #hist_type='step', ylabel='Samples', norm=False, n_bins=500,
+    #x_range=None, legend_loc=None, legend_box=(0,0), figsize=(10,8),
+    #filename=output_path+'test_norm')
+
+    if standardize_label:
+        df[config['label_reg']] = prep.standardize_by_group(
+            df, target=config['label_reg'], 
+            groupby=config['date_column'],
+            aggregate='median', wl=winsorize_lower, wu=winsorize_upper)
+
     # Split dataset into train and test dataset
     df_train, df_test = cv.train_test_split_by_date(
         df, date_column, test_begin, test_end)
@@ -176,6 +218,7 @@ if __name__ == "__main__":
             cv_study=True,
             run_backtest=True,
             plot_decision_boundary=True,
+            plot_residual=True,
             save_csv=True,
             return_train_ylim=(-1,20), return_test_ylim=(-1,1))
 
@@ -202,15 +245,26 @@ if __name__ == "__main__":
 
         # Set parameters to search
         param_grid_xgb = {
-            'min_child_weight': [1000, 750, 500], #[1000, 500], #[1000], 
-            'max_depth': [5, 7, 10],
+            #'min_child_weight': [1000, 750, 500], #[1000, 500], #[1000], 
+            #'max_depth': [5, 7, 10],
+            'min_child_weight': [10], #[1000, 500], #[1000], 
+            'max_depth': [5],
             'eta': [0.3], #[0.3]
+            #'eta': [1], #[0.3]
             'n_estimators': [50], # [50, 100, 200],
             'gamma': [0], #[0, 5, 10],
             'lambda': [1], #np.logspace(0, 2, 3), #[1], # L2 regularization
             'n_jobs':[-1],
-            'objective':['reg:squarederror'],
-            'subsample': [1, 0.8],#[1, 0.8, 0.5], # [1]
+            'objective':[
+                #'reg:squarederror', # Good
+                #'reg:gamma' # 2.91
+                #'reg:squaredlogerror'
+                #'reg:tweedie' # Good
+                xgb_obj.log_square_error
+                #xgb_obj.squared_log # 2.93
+                ],
+            #'feval':[xgb_metric.log_square_error],
+            'subsample': [1],#[1, 0.8, 0.5], # [1]
             }
 
         ## Set parameters to search
@@ -239,6 +293,7 @@ if __name__ == "__main__":
             cv_study=True,
             run_backtest=True,
             plot_decision_boundary=True,
+            plot_residual=True,
             save_csv=True,
             return_train_ylim=(-1,20), return_test_ylim=(-1,1))
 
@@ -341,22 +396,30 @@ if __name__ == "__main__":
             #-------------------------------------------------------------------
 
             param_grid = {
-                'learning_rate': [1e-4, 5e-4, 1e-3], #np.logspace(-4,-2,6),
-                #'learning_rate': [1e-3], #np.logspace(-4,-2,6),
-                'metrics': {tf.keras.metrics.MeanAbsolutePercentageError():'mape'},
-                'loss': {tf.keras.losses.MeanAbsolutePercentageError():'mape'},
-                'patience': [1, 3, 10], # 3,4,5
-                #'patience': [1], # 3,4,5
+                #'learning_rate': [1e-4, 5e-4, 1e-3], #np.logspace(-4,-2,6),
+                'learning_rate': [1e-3], #np.logspace(-4,-2,6),
+                #'patience': [1, 3, 10], # 3,4,5
+                #'patience': [3], # 3,4,5
+                'patience': [1], # 3,4,5
+                'metrics': {
+                    #tfmetric.MeanLogSquaredError():'MLSE',
+                    tf.keras.metrics.MeanAbsolutePercentageError():'mape'},
+                'loss': {
+                    tfloss.MeanLogSquaredError():'MLSE',
+                    #tf.keras.losses.Huber():'Huber',
+                    ##tf.keras.losses.MeanAbsolutePercentageError():'mape',
+                    #tf.keras.losses.MeanSquaredError():'MSE'
+                    },
                 'epochs': [1000],
                 'validation_split': [0.2],
                 'batch_size': [1024],
                 'model': {
-                    ensemble_model0:'[32-32-1]*100',
+                    #ensemble_model0:'[32-32-1]*100',
                     ensemble_model1:'[32-0.5-32-0.5-1]*100',
-                    ensemble_model2:'[32-0.5-32-0.5-32-0.5-1]*100',
-                    ensemble_model3:'[64-0.5-64-0.5-1]*100',
-                    ensemble_model4:'[64-0.5-64-0.5-64-0.5-1]*100',
-                    ensemble_model5:'[128-0.5-128-0.5-1]*100',
+                    #ensemble_model2:'[32-0.5-32-0.5-32-0.5-1]*100',
+                    #ensemble_model3:'[64-0.5-64-0.5-1]*100',
+                    #ensemble_model4:'[64-0.5-64-0.5-64-0.5-1]*100',
+                    #ensemble_model5:'[128-0.5-128-0.5-1]*100',
                     },
                 }
 
@@ -370,9 +433,10 @@ if __name__ == "__main__":
                 config, df_train, df_test,
                 model, model_str, param_grid, best_params={},
                 read_last=False,
-                cv_study=True,
+                cv_study=False,
                 run_backtest=True,
-                plot_decision_boundary=True,
+                plot_decision_boundary=False,
+                plot_residual=True,
                 save_csv=True,
                 return_train_ylim=(-1,20), return_test_ylim=(-1,1))
 

@@ -26,17 +26,18 @@ pd.options.mode.chained_assignment = None
 #-------------------------------------------------------------------------------
 
 # Set input and output path
-input_path = '/mnt/mainblob/nonlinearML/data/ASA/xlsx/ASA_G2_data.r2.xlsx'
-output_path = '/mnt/mainblob/nonlinearML/data/ASA/csv/ASA_G2_data.r2.p1.csv'
-plot_path = 'output/EDA/ASA/'
+input_path = '/mnt/mainblob/nonlinearML/data/ASA/xlsx/ASA_G2_data.r5.xlsx'
+output_path = '/mnt/mainblob/nonlinearML/data/ASA/csv/ASA_G2_data.r5.p1.csv'
+plot_path = 'output/ASA/EDA/dist/'
 
 # Select algorithm to run    
-run_eda                 = True
 impute_data             = True
-save_output             = True
+run_eda                 = False
+calculate_residual      = False
+save_output             = False
 
 # Set available features and labels
-features = ['PM', 'DIFF']
+features = ['PM_Exp', 'Diff_Exp']
 labels = ['Residual']
 
 # Set
@@ -179,7 +180,7 @@ def plot_null(df, columns, figsize=(15,5), filename=""):
     plt.savefig('%s.png' %filename)
     return
 
-def plot_null_vs_time(df, time, columns, n_rows=4, n_columns=4, figsize=(20,12), xticks_interval=20, filename="", ylim=(0,1)):
+def plot_null_vs_time(df, time, columns, n_rows=4, n_columns=4, figsize=(20,12), xticks_interval=20, filename="", ylim=None):
     '''
     Plots fraction of null data as a function of time for each column.
     Args:
@@ -193,6 +194,9 @@ def plot_null_vs_time(df, time, columns, n_rows=4, n_columns=4, figsize=(20,12),
     df_null = df.groupby(time).apply(lambda x: x.isnull().mean())\
                   .sort_index()\
                   .drop([time], axis=1)
+    df_inf = df.groupby(time).apply(lambda x: (x==float('inf')).mean())\
+                  .sort_index()\
+                  .drop([time], axis=1)
     # create figure and axes
     fig, ax = plt.subplots(n_rows, n_columns, figsize=figsize)
     ax = ax.flatten()
@@ -200,12 +204,15 @@ def plot_null_vs_time(df, time, columns, n_rows=4, n_columns=4, figsize=(20,12),
     columns = [x for x in columns if x != time] # remove time column
     for i, column in enumerate(columns):
         # plot fraction of null values
-        ax[i].plot(df_null.index, df_null[column])
+        ax[i].plot(df_null.index, df_null[column], label='null')
+        ax[i].plot(df_inf.index, df_inf[column], label='inf')
         # customize axes
         ax[i].xaxis.set_major_formatter(DateFormatter("%Y"))
         ax[i].set_xlabel(column)
-        ax[i].set_ylabel("Missing data (%)")
-        ax[i].set_ylim(ylim)
+        ax[i].set_ylabel("Fraction")
+        ax[i].legend()
+        if ylim:
+            ax[i].set_ylim(ylim)
     # remove extra subplots
     #for x in np.arange(len(columns),len(ax),1):
     #    fig.delaxes(ax[x])
@@ -223,12 +230,7 @@ if __name__ == "__main__":
     #---------------------------------------------------------------------------
     # Read input csv
     df = pd.read_excel(input_path)
-    df = df.drop(['Unnamed: 8', 'Unnamed: 9', 'Unnamed: 10'], axis=1)
-
-    # Read return data and append to data
-    df_return = pd.read_excel(
-        '/mnt/mainblob/nonlinearML/data/ASA/xlsx/ASA_G2_data.r2.append.xlsx')
-    df['fmRet'] = df_return['fmRet']
+    df = df.drop(['Unnamed: 1'], axis=1)
 
     # Convert time into datetime format
     df[time] = df[time].apply(
@@ -238,51 +240,93 @@ if __name__ == "__main__":
 
 
     #---------------------------------------------------------------------------
-    # Perform EDA using raw data
+    # Impute missing data
     #---------------------------------------------------------------------------
-    if run_eda:
-
-        # Plot feature and return distribution (linear)
-        n_plots=10
-        plot_distribution(
-            df, columns=[x for x in df.columns.to_list() if x != time],
-            n_rows=4, n_columns=3, 
-            bins=[100]*n_plots, ylog=[False]*n_plots,
-            xrange=[], ylim=[], title=[""]*n_plots,
-            x_label=[], y_label=["Samples"]*n_plots, figsize=(16,12),
-            filename=plot_path+"dist_linear")
-
-        plot_distribution(
-            df, columns=[x for x in df.columns.to_list() if x != time],
-            n_rows=4, n_columns=3, 
-            bins=[100]*n_plots, ylog=[True]*n_plots,
-            xrange=[], ylim=[], title=[""]*n_plots,
-            x_label=[], y_label=["Samples"]*n_plots, figsize=(16,12),
-            filename=plot_path+"dist_log")
-
+    if impute_data:
 
         # Plot percentage of null values
         plot_null(
             df, features, figsize=(15,8), filename=plot_path+"null_fraction")
     
         # plot fraction of null values as a function of time
-        n_rows=4
-        n_columns=3
+        n_rows=2
+        n_columns=4
         plot_null_vs_time(
             df, time=time, columns=df.columns,
             n_rows=n_rows, n_columns=n_columns,
-            figsize=(20,20), filename=plot_path+"null_fraction_time", ylim=(0,0.01))
+            figsize=(20,10), filename=plot_path+"null_fraction_time",
+            ylim=(0,0.1))
 
-    #---------------------------------------------------------------------------
-    # Impute missing data
-    #---------------------------------------------------------------------------
-    if impute_data:
+        print("Number of samples before removing samples: %s" % df.shape[0])
+
         # Replace missing values with 0 (monthly mean)
-        for col in ['PM', 'DIFF']:
+        for col in ['PM_Exp', 'Diff_Exp']:
             df[col] = df[col].apply(lambda x:0 if pd.isnull(x) else x)
 
+        # Drop samples with infinite values
+        for col in ['PM_Exp', 'Diff_Exp']:
+            df = df.drop(df.loc[df['PM_Exp']==float('inf')].index)
+
         # Drop samples with no return (< 0.003% of total data)
-        df = df.dropna(subset=['Residual'])
+        df = df.dropna(subset=['Total_Edge', 'PM_Cr', 'Diff_Cr', 'fqRelRet'])
+
+        print("Number of samples after removing samples: %s" %df.shape[0])
+        
+        if False:
+            p_null = {}
+            n_null = {}
+            for column in df.columns:
+                p_null[column] = df[column].isnull().mean()
+                n_null[column] = df[column].isnull().sum()
+    
+            p_inf = {}
+            n_inf = {}
+            for column in df.columns:
+                p_inf[column] = (df[column]==float('inf')).mean()
+                n_inf[column] = (df[column]==float('inf')).sum()
+
+    #---------------------------------------------------------------------------
+    # Calculate adjusted edge and residual
+    #---------------------------------------------------------------------------
+    if calculate_residual:
+        # Calculate adjusted edge
+        df['Edge_Adj'] =\
+            (df['Total_Edge'] - df['PM_Cr'] - df['Diff_Cr'])
+
+        # Calculate residual
+        df['Residual'] = df['fqRelRet'] - df['Edge_Adj']
+
+
+    #---------------------------------------------------------------------------
+    # Perform EDA using raw data
+    #---------------------------------------------------------------------------
+    if run_eda:
+
+        # Plot feature and return distribution (linear)
+        n_plots=9
+        plot_distribution(
+            df, columns=[x for x in df.columns.to_list() if x != time],
+            n_rows=3, n_columns=3, 
+            bins=[100]*n_plots, ylog=[False]*n_plots,
+            xrange=[], ylim=[], title=[""]*n_plots,
+            x_label=[], y_label=["Samples"]*n_plots, figsize=(20,12),
+            filename=plot_path+"dist_linear")
+
+        plot_distribution(
+            df, columns=[x for x in df.columns.to_list() if x != time],
+            n_rows=3, n_columns=3, 
+            bins=[100]*n_plots, ylog=[True]*n_plots,
+            xrange=[], ylim=[], title=[""]*n_plots,
+            x_label=[], y_label=["Samples"]*n_plots, figsize=(20,12),
+            filename=plot_path+"dist_log")
+
+        # Print number of zeros
+        for col in df.columns:
+            print("Column {0}: {1} ({2:.2f})".format(
+                col, 
+                df.loc[df[col]==0].shape[0],
+                df.loc[df[col]==0].shape[0]/df.shape[0]
+                ))
 
 
     #---------------------------------------------------------------------------
