@@ -218,6 +218,7 @@ if __name__ == "__main__":
             cv_study=True,
             run_backtest=True,
             plot_decision_boundary=True,
+            plot_residual=True,
             save_csv=True,
             return_train_ylim=(-1,20), return_test_ylim=(-1,5))
 
@@ -241,7 +242,7 @@ if __name__ == "__main__":
             config, df_train, df_test,
             model_lr_rank, model_lr_rank_str, param_grid_lr, best_params={},
             read_last=False, cv_study=True, run_backtest=True,
-            plot_decision_boundary=True, save_csv=True,
+            plot_decision_boundary=True, save_csv=True, plot_residual=True,
             return_train_ylim=(-1,20), return_test_ylim=(-1,5),
             rank=True)
 
@@ -292,6 +293,7 @@ if __name__ == "__main__":
             cv_study=True,
             run_backtest=True,
             plot_decision_boundary=True,
+            plot_residual=True,
             save_csv=True,
             return_train_ylim=(-1,20), return_test_ylim=(-1,5))
 
@@ -318,6 +320,7 @@ if __name__ == "__main__":
             cv_study=True,
             run_backtest=True,
             plot_decision_boundary=True,
+            plot_residual=True,
             save_csv=True,
             return_train_ylim=(-1,20), return_test_ylim=(-1,5))
 
@@ -372,6 +375,7 @@ if __name__ == "__main__":
                 cv_study=True,
                 run_backtest=True,
                 plot_decision_boundary=True,
+                plot_residual=True,
                 save_csv=True,
                 return_train_ylim=(-1,20), return_test_ylim=(-1,5))
 

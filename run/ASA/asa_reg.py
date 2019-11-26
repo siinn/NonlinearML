@@ -60,6 +60,9 @@ db_nbins=50
 db_vmin=-0.3
 db_vmax=0.3
 
+# Set residual plot 
+residual_n_bins = 100
+
 # Set number of bins for ranking
 rank_n_bins=5
 rank_order = [0, 1, 2, 3, 4] # High residual to low residual

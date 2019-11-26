@@ -112,6 +112,9 @@ db_nbins=50
 db_vmin=-0.15
 db_vmax=0.15
 
+# Set residual plot 
+residual_n_bins = 100
+
 # Set algorithms to run
 run_lr = True
 run_xgb = False
@@ -154,6 +157,9 @@ if __name__ == "__main__":
     # Remove columns
     df = df.drop(['Unnamed: 0', 'level_0', 'index'], axis=1)
 
+    # Set dates to 1
+    df['RebalDate'] = df['RebalDate'].apply(lambda x: x.replace(day=1))
+
     # Discretize target
     df = utils.discretize_variables_by_month(
         df, variables=[config['label_reg']], n_classes=config['rank_n_bins'],
@@ -176,7 +182,7 @@ if __name__ == "__main__":
         # Set parameters to search
         param_grid_lr = {
             #"alpha": [1] + np.logspace(-4, 4, 10), # C <= 1e-5 doesn't converge
-            "alpha": [1] + np.logspace(-4, 4, 10), # C <= 1e-5 doesn't converge
+            "alpha": [1], # C <= 1e-5 doesn't converge
             "fit_intercept": [True]}
 
         # Set model
@@ -191,6 +197,7 @@ if __name__ == "__main__":
             cv_study=True,
             run_backtest=True,
             plot_decision_boundary=True,
+            plot_residual=True,
             save_csv=True,
             return_train_ylim=(-1,20), return_test_ylim=(-1,1))
 
@@ -227,6 +234,7 @@ if __name__ == "__main__":
             cv_study=True,
             run_backtest=True,
             plot_decision_boundary=True,
+            plot_residual=True,
             save_csv=True,
             return_train_ylim=(-1,20), return_test_ylim=(-1,1))
 
@@ -253,6 +261,7 @@ if __name__ == "__main__":
             cv_study=True,
             run_backtest=True,
             plot_decision_boundary=True,
+            plot_residual=True,
             save_csv=True,
             return_train_ylim=(-1,20), return_test_ylim=(-1,1))
 
@@ -397,6 +406,7 @@ if __name__ == "__main__":
                 cv_study=True,
                 run_backtest=True,
                 plot_decision_boundary=True,
+                plot_residual=True,
                 save_csv=True,
                 return_train_ylim=(-1,20), return_test_ylim=(-1,1),
                 cv_hist_figsize=(40, 10)

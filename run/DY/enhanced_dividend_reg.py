@@ -44,13 +44,13 @@ pd.options.mode.chained_assignment = None
 #INPUT_PATH = '/mnt/mainblob/nonlinearML/EnhancedDividend/data/Data_EM_extended.csv'
 INPUT_PATH = '../EnhancedDividend/data/Data_EM_extended.csv'
 
-## Set features of interest
-#feature_x = 'DividendYield'
-#feature_y = 'Payout_E'
-## Set limits of decision boundary
-#db_xlim = (0, 0.2)
-#db_ylim = (-1, 1.5)
-#db_res = 0.0005
+# Set features of interest
+feature_x = 'DividendYield'
+feature_y = 'Payout_E'
+# Set limits of decision boundary
+db_xlim = (0, 0.2)
+db_ylim = (-1, 1.5)
+db_res = 0.0005
 
 
 ## Set features of interest
@@ -71,13 +71,13 @@ INPUT_PATH = '../EnhancedDividend/data/Data_EM_extended.csv'
 #db_res = 0.0005
 
 
-# Set features of interest
-feature_x = 'DY_dmed'
-feature_y = 'EG_dmed'
-# Set limits of decision boundary
-db_xlim = (-1.5, 4)
-db_ylim = (-4, 3)
-db_res = 0.01
+## Set features of interest
+#feature_x = 'DY_dmed'
+#feature_y = 'EG_dmed'
+## Set limits of decision boundary
+#db_xlim = (-1.5, 4)
+#db_ylim = (-4, 3)
+#db_res = 0.01
 
 # Set number of bins for ranking
 rank_n_bins=10
@@ -93,12 +93,12 @@ label_cla = 'fqRet_discrete' # discretized target label
 label_fm = 'fmRet' # monthly return used for calculating cum. return
 
 # Winsorize label, followed by standardization with median in each month
-standardize_label = False
+standardize_label = True
 winsorize_lower = 0.01
 winsorize_upper = 0.99
 
 # Set path to save output figures
-output_path = 'output/%s_%s/std_%s/reg_rank%s/' % (feature_x, feature_y, standardize_label, rank_n_bins)
+output_path = 'output/DY/%s_%s/std_%s/reg_rank%s/' % (feature_x, feature_y, standardize_label, rank_n_bins)
 tfboard_path='tf_log/%s_%s/std_%s/reg_rank%s/' % (feature_x, feature_y, standardize_label, rank_n_bins)
 
 
@@ -113,7 +113,7 @@ test_begin = "2012-01-01"
 test_end = "2019-05-01"
 
 # Set cross-validation configuration
-k = 5   # Must be > 1
+k = 2   # Must be > 1
 n_epoch = 1
 subsample = 0.5
 purge_length = 3
@@ -141,11 +141,14 @@ db_nbins=50
 db_vmin=-0.15
 db_vmax=0.15
 
+# Set residual plot 
+residual_n_bins = 100
+
 # Set algorithms to run
 run_lr = False
-run_xgb = False
+run_xgb = True
 run_knn = False
-run_nn = True
+run_nn = False
 run_comparison = False
 save_prediction = False
 
@@ -165,7 +168,7 @@ config = {
     'db_vmin':db_vmin, 'db_vmax':db_vmax,
     'db_figsize':db_figsize, 'db_annot_x':db_annot_x, 'db_annot_y':db_annot_y,
     'p_thres':p_thres, 'cv_metric':cv_metric, 'db_colors':db_colors,
-    'db_colors_scatter':db_colors_scatter}
+    'db_colors_scatter':db_colors_scatter, 'residual_n_bins':residual_n_bins}
 
 
 #-------------------------------------------------------------------------------
@@ -191,6 +194,8 @@ if __name__ == "__main__":
             df, target=config['label_reg'], 
             groupby=config['date_column'],
             aggregate='median', wl=winsorize_lower, wu=winsorize_upper)
+
+    
 
     # Split dataset into train and test dataset
     df_train, df_test = cv.train_test_split_by_date(
@@ -218,6 +223,7 @@ if __name__ == "__main__":
             cv_study=True,
             run_backtest=True,
             plot_decision_boundary=True,
+            plot_residual=True,
             save_csv=True,
             return_train_ylim=(-1,20), return_test_ylim=(-1,1))
 
@@ -245,18 +251,20 @@ if __name__ == "__main__":
         # Set parameters to search
         param_grid_xgb = {
             #'min_child_weight': [1000, 750, 500], #[1000, 500], #[1000], 
-            'min_child_weight': [1500, 1000, 500], #[1000, 500], #[1000], 
-            #'min_child_weight': [1500], #[1000, 500], #[1000], 
-            'max_depth': [3, 5, 7],
-            #'max_depth': [3],
-            'eta': [0.3, 0.01], #[0.3]
+            #'min_child_weight': [1500, 1000, 500], #[1000, 500], #[1000], 
+            'min_child_weight': [1000], #[1000, 500], #[1000], 
+            #'max_depth': [3, 5, 7],
+            'max_depth': [3],
+            #'eta': [0.3, 0.01], #[0.3]
+            'eta': [0.3], #[0.3]
             'n_estimators': [50], # [50, 100, 200],
-            'gamma': [5, 3, 0], #[0, 5, 10],
+            #'gamma': [5, 3, 0], #[0, 5, 10],
+            'gamma': [0], #[0, 5, 10],
             'lambda': [1], #np.logspace(0, 2, 3), #[1], # L2 regularization
             'n_jobs':[-1],
             'objective':[
-                #'reg:squarederror',
-                xgb_obj.log_square_error],
+                'reg:squarederror'],
+                #xgb_obj.log_square_error],
             'feval':[xgb_metric.log_square_error],
             'subsample': [1],#[1, 0.8, 0.5], # [1]
             }
@@ -273,6 +281,7 @@ if __name__ == "__main__":
             cv_study=True,
             run_backtest=True,
             plot_decision_boundary=True,
+            plot_residual=True,
             save_csv=True,
             return_train_ylim=(-1,20), return_test_ylim=(-1,1))
 
@@ -299,6 +308,7 @@ if __name__ == "__main__":
             cv_study=True,
             run_backtest=True,
             plot_decision_boundary=True,
+            plot_residual=True,
             save_csv=True,
             return_train_ylim=(-1,20), return_test_ylim=(-1,1))
 
@@ -443,6 +453,7 @@ if __name__ == "__main__":
                 cv_study=True,
                 run_backtest=True,
                 plot_decision_boundary=True,
+                plot_residual=True,
                 save_csv=True,
                 return_train_ylim=(-1,20), return_test_ylim=(-1,1),
                 cv_hist_figsize=(40, 10)
