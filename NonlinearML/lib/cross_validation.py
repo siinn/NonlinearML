@@ -9,11 +9,13 @@ from sklearn.metrics import r2_score
 
 
 import NonlinearML.lib.io as io
+import NonlinearML.lib.utils as utils
 
 
-
-def train_test_split_by_date(df, date_column, test_begin, test_end):
-    ''' create train and test dataset by dates.
+def train_test_split_by_date(
+    df, date_column, test_begin, test_end, date_format='%Y-%m-%d'):
+    ''' Create train and test dataset by dates. Test dataset includes test_begin
+    dates.
     Args:
         df: pandas dataframe
         date_column: date column in datetime format
@@ -25,18 +27,22 @@ def train_test_split_by_date(df, date_column, test_begin, test_end):
     '''
     # If dates are given in string, convert them into datetime
     if isinstance(test_begin, str):
-        test_begin = datetime.strptime(test_begin, '%Y-%m-%d')
+        test_begin = datetime.strptime(test_begin, date_format)
     if isinstance(test_end, str):
-        test_end = datetime.strptime(test_end, '%Y-%m-%d')
+        test_end = datetime.strptime(test_end, date_format)
     # Select train and test set
-    df_test = df.loc[(df[date_column] >= test_begin) & (df[date_column] <= test_end)]
-    df_train = df.loc[(df[date_column] < test_begin) | (df[date_column] > test_end)]
+    df_test = df.loc[\
+        (df[date_column] >= test_begin)\
+        & (df[date_column] <= test_end)]
+    df_train = df.loc[\
+        (df[date_column] < test_begin)\
+        | (df[date_column] > test_end)]
     return df_train, df_test
 
 
 def create_purged_fold(
     df, val_begin, val_end, date_column, purge_length,
-    embargo_length=0, subsample=1):
+    embargo_length=0, subsample=1, verbose=False):
     """ Create purged training set and validation set as a one instance
     of K-folds.
     Args:
@@ -64,12 +70,13 @@ def create_purged_fold(
         # Training samples before validation set to purge.
         # Given in tuple, (begin, end) dates
         overlap_before_val = (
-            val_begin - relativedelta(months=purge_length), val_begin)
+            val_begin - relativedelta(months=purge_length),
+            val_begin - relativedelta(months=1))
     
         # Training samples after validation set to purge.
         # Given in tuple, (begin, end) dates
         overlap_after_val = (
-            val_end,
+            val_end + relativedelta(months=1),
             val_end + relativedelta(months=purge_length)\
                     + relativedelta(months=embargo_length))
         # Get list of indices to drop
@@ -79,6 +86,18 @@ def create_purged_fold(
         index_after_val = df_train.loc[
             (df_train[date_column] >= overlap_after_val[0])\
             & (df_train[date_column] <= overlap_after_val[1])].index
+
+        if verbose:
+            def _to_date(timestamp):
+                """ Return string in YEAR-MONTH format"""
+                return "-".join([str(timestamp.year), str(timestamp.month)])
+            io.message('Purging the samples within the following time period (Inclusive)')
+            io.message('\t> Overlap before training set: %s - %s'
+                % (_to_date(overlap_before_val[0]),
+                    _to_date(overlap_before_val[1])))
+            io.message('\t> Overlap after training set: %s - %s'
+                % (_to_date(overlap_after_val[0]),
+                    _to_date(overlap_after_val[1])))
     
         # Return purged training set
         return df_train.drop(index_before_val.append(index_after_val))
@@ -122,7 +141,7 @@ def get_val_dates(df, k, date_column, verbose=False):
         fold_length = int(fold_length)
         if verbose:
             io.message('Warning: K-folds will not be of equal size.')
-            io.message('         K = %s, Fold size (month)= %s' %(k, fold_length))
+            io.message('         K = %s, Fold size (month)= %s'%(k,fold_length))
             io.message('         date_begin = %s, date_end = %s' 
                 %(date_begin, date_end))
     # Calculate begin and end dates of validation set.
@@ -133,7 +152,7 @@ def get_val_dates(df, k, date_column, verbose=False):
     for i in range(k):
         # Calculate validation begin and end dates
         val_begin = date_begin + i * fold_length
-        val_end = date_begin + (i+1) * fold_length
+        val_end = date_begin + (i+1) * fold_length - 1
         # Last fold will include the rest of dataset. Therefore,
         # use date_end instead of val_end
         if i+1 == k:
@@ -170,33 +189,120 @@ def evaluate_classifier(df, label_cla, y_pred, results):
         df[label_cla], y_pred, output_dict=True)
     # Append results
     for cls in classes:
-        results['%s_f1-score' %cls].append(report[cls]['f1-score'])
-        results['%s_precision' %cls].append(report[cls]['precision'])
-        results['%s_recall' %cls].append(report[cls]['recall'])
-    results['accuracy'].append(report['accuracy'])
-    results['f1-score'].append(report['macro avg']['f1-score'])
-    results['precision'].append(report['macro avg']['precision'])
-    results['recall'].append(report['macro avg']['recall'])
+        results['%s_f1-score' %cls] =\
+            results.get('%s_f1-score' %cls, []) + [report[cls]['f1-score']]
+        results['%s_precision' %cls] =\
+            results.get('%s_precision' %cls, []) + [report[cls]['precision']]
+        results['%s_recall' %cls] = \
+            results.get('%s_recall' %cls, []) + [report[cls]['recall']]
+    results['accuracy'] =\
+        results.get('accuracy', []) + [report['accuracy']]
+    results['f1-score'] =\
+        results.get('f1-score', []) + [report['macro avg']['f1-score']]
+    results['precision'] =\
+        results.get('precision', []) + [report['macro avg']['precision']]
+    results['recall'] = \
+        results.get('recall', []) + [report['macro avg']['recall']]
     return results
 
 
 def evaluate_regressor(y_true, y_pred, results, epsilon=1e-7):
     """ Calculate and return regression metrics, r2, MSE, MAE, MAPE, and MLSE.
-    Model is selected by the highest score. i.e. These metrics should have higher
-    score for better performing model.
+    Model is selected by the highest score.
+    i.e. These metrics should have higher score for better performing model.
     """
-    results['r2'].append(r2_score(y_true, y_pred))
-    results['mse'].append(-1*pow((y_true-y_pred),2).mean())
-    results['mae'].append(-1*abs(y_true - y_pred).mean())
-    results['mape'].append(-1*(100 * abs(y_true - y_pred) / np.maximum(abs(y_true), epsilon)).mean())
-    results['mlse'].append(-1*np.log1p(pow(y_pred-y_true,2)).mean())
+    results['r2'] = results.get('r2', []) + [r2_score(y_true, y_pred)]
+    results['mse'] = results.get('mse', []) + [-1*pow((y_true-y_pred),2).mean()]
+    results['mae'] = results.get('mae', []) + [-1*abs(y_true - y_pred).mean()]
+    results['mape'] = results.get('mape', []) + [-1*(100 * abs(y_true - y_pred)\
+            / np.maximum(abs(y_true), epsilon)).mean()]
+    results['mlse'] =\
+        results.get('mlse', []) + [-1*np.log1p(pow(y_pred-y_true,2)).mean()]
+    return results
+
+def evaluate_top_bottom_strategy(
+    df, date_column, label_fm, y_pred,
+    rank_n_bins, rank_label, rank_top, rank_bottom, results):
+    """ Evaluate prediction by Top - Bottom strategy. In this evaluation,
+    samples are ranked monthly, and average difference in target values
+    (such as return) between top and bottom classes is calculated.
+    Args:
+        df: Dataframe containing date and target variables of k-fold
+            validation set
+        date_column: Datetime column
+        label_fm: This represents return you wish to use for strategy.
+        y_pred: Prediction from model
+        rank_n_bins: Number of classes used in top-bottom strategy
+            ex. 10 for decile, 5 for quintile, etc.
+        rank_label: Dictionary containing labels of each class
+            ex. {0:'D1', ..., 9:'D10'}
+        rank_top, rank_bottom: Top and bottom class. Must match with rank_label
+            ex. rank_top = 0, rank_bottom = 9.
+    Return:
+        results: results including evaluation from top-bottom strategy
+        
+    """
+    # Append prediction to dataframe. Assume that they are aligned.
+    df['y_pred'] = y_pred
+    # Discretize prediction
+    df = utils.discretize_variables_by_month(
+        df, variables=['y_pred'], n_classes=rank_n_bins,
+        class_names=rank_label, suffix="discrete",
+        month=date_column)
+
+    # Calculate difference in top and bottom
+    results['Top-Bottom'] = results.get('Top-Bottom', []) + \
+        [df.groupby('y_pred_discrete').mean()[label_fm][rank_top]
+        - df.groupby('y_pred_discrete').mean()[label_fm][rank_bottom]]
     return results
 
 
+def evaluate_model(
+    model_type, df, label, label_fm, y_pred, results, date_column,
+    rank_n_bins, rank_label, rank_top, rank_bottom):
+    """ Evaluate trained model using pre-defined metrics and append it to
+        results. 
+            ex. {'r2':[0.01, 0.02], 'mse': [0.001, 0.003]}
+        Each entry in list represents performance of single k-fold.
+        i.e. Example above shows performance of k=2 cross-validation.
+    Args: 
+        model_type: either 'reg' or 'cla' for regression or claassification,
+            respectively.
+        df: Samples from which predictions are made.
+            ex. train or validation set.
+        label: target label
+        label_fm: Only used for top-bottom strategy evaluation. This represents
+            return you wish to use for strategy.
+        y_pred: Prediction made by mode
+        k: k for k-fold CV.
+        date_column: Datetime column
+        rank_n_bins, rank_label, rank_top, rank_bottom: If not None, 
+            cross-validation is also evaluated based on Top-Bottom strategy.
+    Return:
+        results: Dictionary containing evaluation results
+    """
+    # Evaluate model
+    if model_type=='cla':
+        results = evaluate_classifier(
+            df, label, y_pred, results)
+    if model_type=='reg':
+        results = evaluate_regressor(
+            df[label].values, y_pred, results)
+        # Evaluate regressor using Top-Bottom strategy
+        if rank_n_bins and rank_label:
+            results = evaluate_top_bottom_strategy(
+                df=df, date_column=date_column,
+                label_fm=label_fm, y_pred=y_pred, 
+                rank_n_bins=rank_n_bins, rank_label=rank_label,
+                rank_top=rank_top, rank_bottom=rank_bottom,
+                results=results)
+    return results
 
 def purged_k_fold_cv(
-    df_train, model, model_type, features, label, metrics, k, purge_length, embargo_length,
-    n_epoch=1, date_column='eom', subsample=1, verbose=False):
+    df_train, model, model_type, features, label, label_fm, k,
+    purge_length, embargo_length, n_epoch=1, date_column='eom', subsample=1,
+    rank_n_bins=None, rank_label=None, rank_top=None, rank_bottom=None,
+    verbose=False):
     """ Perform purged k-fold cross-validation. Assumes that data is uniformly
         distributed over the time period.
             i.e. Data is splitted by dates instead of size.
@@ -208,8 +314,8 @@ def purged_k_fold_cv(
             respectively.
         features: List of features
         label: target label
-        metrics: metric used to evaluate models such as ['r2'] for regression
-            or ['f1-score'] for classification.
+        label_fm: Only used for top-bottom strategy evaluation. This represents
+            return you wish to use for strategy.
         k: k for k-fold CV.
         purge_length: Overlapping window size to be removed 
             from training samples given in months.
@@ -221,6 +327,8 @@ def purged_k_fold_cv(
         n_epoch: Number of times to repeat cross-validation.
         date_column: Datetime column
         subsample: fraction of training samples to use.
+        rank_n_bins, rank_label, rank_top, rank_bottom: If not None, 
+            cross-validation is also evaluated based on Top-Bottom strategy.
         verbose: Print debugging information if True
     Return:
         results[mean]: Dictionary containing average performance across
@@ -237,7 +345,8 @@ def purged_k_fold_cv(
     val_dates = get_val_dates(
         df=df_train, k=k, date_column=date_column, verbose=verbose)
     # Dictionary to hold results
-    results = {metric:[] for metric in metrics}
+    results_val = {}
+    results_train = {}
     # Loop over k folds, n_epoch times
     i = 0
     while i < n_epoch:
@@ -257,34 +366,47 @@ def purged_k_fold_cv(
                 val_begin=val_begin,
                 val_end=val_end,
                 date_column=date_column,
-                subsample=subsample)
+                subsample=subsample,
+                verbose=verbose)
             # Fit and make prediction
             model.fit(X=df_k_train[features], y=df_k_train[label])
-            y_pred = model.predict(df_k_val[features])
+            y_pred_val = model.predict(df_k_val[features])
+            y_pred_train = model.predict(df_k_train[features])
 
             # Evaluate model
-            if model_type=='cla':
-                results = evaluate_classifier(df_k_val, label, y_pred, results)
-            if model_type=='reg':
-                results = evaluate_regressor(df_k_val[label].values, y_pred, results)
+            results_train = evaluate_model(
+                model_type, df_k_train, label, label_fm, y_pred_train, results_train,
+                date_column, rank_n_bins, rank_label, rank_top, rank_bottom)
+
+            results_val = evaluate_model(
+                model_type, df_k_val, label, label_fm, y_pred_val, results_val,
+                date_column, rank_n_bins, rank_label, rank_top, rank_bottom)
 
     # Return results averaged over k folds
-    results_mean = {metric:np.array(results[metric]).mean()
-        for metric in results}
-    results_std = {metric:np.array(results[metric]).std()
-        for metric in results}
-    if verbose==True:
-        io.message("\t>> Validation performance:")
-        for key in results_mean:
-            io.message("\t\t>> mean %s = %s" % (key, results_mean[key]))
-        for key in results_std:
-            io.message("\t\t>> std %s = %s" % (key, results_std[key]))
+    results_val_mean = {metric:np.array(results_val[metric]).mean()
+        for metric in results_val}
+    results_val_std = {metric:np.array(results_val[metric]).std()
+        for metric in results_val}
+    results_train_mean = {metric:np.array(results_train[metric]).mean()
+        for metric in results_train}
+    results_train_std = {metric:np.array(results_train[metric]).std()
+        for metric in results_train}
 
-    ## Remove tf model to clear memory
-    #if 'clear' in dir(model):
-    #    io.message('Clearning TF model ..')
-    #    model.clear()
-    return {'mean':results_mean, 'std':results_std, 'values':results}
+    if verbose==True:
+        io.message("\t>> Train performance:")
+        for key in results_train_mean:
+            io.message("\t\t>> mean %s = %s" % (key, results_train_mean[key]))
+        for key in results_val_std:
+            io.message("\t\t>> std %s = %s" % (key, results_val_std[key]))
+        io.message("\t>> Validation performance:")
+    return {
+        'train_mean':results_train_mean,
+        'train_std':results_train_std,
+        'train_values':results_train,
+        'val_mean':results_val_mean,
+        'val_std':results_val_std,
+        'val_values':results_val
+        }
 
 
 
@@ -309,7 +431,6 @@ def _paramsToString(params, param_grid):
             to get describtion if parameter if exists.
     """
     # Convert to list of key=val
-    #param_str = [x+"="+str(params[x]) for x in params if type(param_grid[x])==str else x+'='+param_grid[x][params[x]]]
     param_str = []
     for p in params:
         # If parameter is given as string, append them to output
@@ -341,8 +462,10 @@ def _GetParamsDesc(params, param_grid):
     return output
 
 def grid_search(
-    df_train, model, model_type, param_grid, features, label, k, purge_length,
+    df_train, model, model_type, param_grid, features, label, label_fm,
+    k, purge_length,
     output_path, n_epoch=1, embargo_length=0, date_column='eom', subsample=1,
+    rank_n_bins=None, rank_label=None, rank_top=None, rank_bottom=None,
     verbose=False):
     ''' Perform grid search using purged cross-validation method. 
     Args:
@@ -352,29 +475,36 @@ def grid_search(
             respectively.
         params_grid: Hyperparamater grid to search.
         features, label: List of features and target label
+        label_fm: Only used for top-bottom strategy evaluation. This represents
+            return you wish to use for strategy.
         k: k for k-fold CV.
         purge_length: Overlapping window size to be removed from training
             samples given in months.
             i.e. the overlap between train and validation dataset of size
             (purge_length) will be removed from training samples.
+        output_path: Path to save results as csv
+        n_epoch: Number of times to repeat CV
         embargo_length: Training samples within the window of size
             (embargo_length) which follow the overlap between validation
             and train set will be removed. Embargo length is given in months.
         date_column: Datetime column
         subsample: fraction of training samples to use.
+        rank_n_bins, rank_label, rank_top, rank_bottom: If not None, 
+            cross-validation is also evaluated based on Top-Bottom strategy.
         verbose: Print debugging information if True
-        output_path: Path to save results as csv
-        rank: If True, prediction is made by ranking the regression output.
     Return:
         cv_results: Dataframe summarizing cross-validation results
     '''
     io.title('Grid search with k-fold CV: k = %s, epoch = %s' % (k, n_epoch))
-    if model_type=='cla':
-        metrics = get_classification_metrics(df_train, label)
-    elif model_type=='reg':
-        metrics = ['r2', 'mse', 'mae', 'mape', 'mlse']
-    else:
-        io.error("Incorrect model type. Choose either 'reg' or 'cla'.")
+    #if model_type=='cla':
+    #    metrics = get_classification_metrics(df_train, label)
+    #elif model_type=='reg':
+    #    metrics = ['r2', 'mse', 'mae', 'mape', 'mlse']
+    #    if rank_n_bins and rank_label:
+    #        metrics = metrics + ['Top-Bottom']
+    #else:
+    #    io.error("Incorrect model type. Choose either 'reg' or 'cla'.")
+
     # Get all possible combination of parameters
     keys, values = zip(*param_grid.items())
     experiments = [dict(zip(keys, v)) for v in itertools.product(*values)]
@@ -395,20 +525,27 @@ def grid_search(
             df_train=df_train,
             model=model.set_params(**params),
             model_type=model_type,
-            features=features, label=label, metrics=metrics,
+            features=features, label=label, #metrics=metrics,
+            label_fm=label_fm,
             date_column=date_column,
             k=k, verbose=verbose, n_epoch=n_epoch,
             purge_length=purge_length,
             embargo_length=embargo_length,
-            subsample=subsample)
-        # Save evaluation result of all metrics, not just one that is used.
+            subsample=subsample,
+            rank_n_bins=rank_n_bins, rank_label=rank_label,
+            rank_top=rank_top, rank_bottom=rank_bottom)
+        # Save evaluation result of all metrics
         _params = _GetParamsDesc(params, param_grid)
         cv_results = cv_results.append(_params, ignore_index=True)
-        for m in metrics:
-            cv_results.at[i, m] = single_model_result['mean'][m]
-            cv_results.at[i, m+"_std"] = single_model_result['std'][m]
-            cv_results.at[i, m+"_values"] = str(
-                single_model_result['values'][m])
+        for m in single_model_result['val_mean'].keys(): # m = metric
+            cv_results.at[i, m+"_train_mean"] = single_model_result['train_mean'][m]
+            cv_results.at[i, m+"_train_std"] = single_model_result['train_std'][m]
+            cv_results.at[i, m+"_train_values"] = str(
+                single_model_result['train_values'][m])
+            cv_results.at[i, m+"_val_mean"] = single_model_result['val_mean'][m]
+            cv_results.at[i, m+"_val_std"] = single_model_result['val_std'][m]
+            cv_results.at[i, m+"_val_values"] = str(
+                single_model_result['val_values'][m])
         # Save parameters as one string
         cv_results.at[i, 'params'] = _paramsToString(params, param_grid)
     return cv_results

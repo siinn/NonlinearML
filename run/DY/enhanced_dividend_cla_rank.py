@@ -87,7 +87,7 @@ class_order = [x for x in range(n_classes-1, -1, -1)] # High return to low retur
 # Set number of bins for ranking
 rank_n_bins=10
 rank_label={x:'D'+str(x) for x in range(rank_n_bins)}
-rank_order = [x for x in range(rank_n_bins-1, -1,-1)] # High return to low return
+rank_order=[9,8,7,6,5,4,3,2,1,0] # High return to low return
 rank_top = 9
 rank_bottom = 0
 
@@ -118,7 +118,7 @@ test_begin = "2012-01-01"
 test_end = "2019-05-01"
 
 # Set cross-validation configuration
-k = 5     # Must be > 1
+k = 2     # Must be > 1
 n_epoch = 1
 subsample = 0.5
 purge_length = 3
@@ -143,10 +143,10 @@ db_vmin=-0.3
 db_vmax=0.3
 
 # Set algorithms to run
-run_lr = False
+run_lr = True
 run_xgb = False
 run_knn = False
-run_nn = True
+run_nn = False
 run_comparison = False
 save_prediction = False
 
@@ -157,8 +157,8 @@ config = {
     'feature_x':feature_x, 'feature_y':feature_y,
     'output_path':output_path, 'security_id':security_id,
     'n_classes':n_classes, 'class_label':class_label, 'class_order':class_order,
-    'rank_n_bins':rank_n_bins, 'rank_label':rank_label, 'rank_order':rank_order,
-    'rank_top':rank_top, 'rank_bottom':rank_bottom,
+    'rank_n_bins':rank_n_bins, 'rank_label':rank_label,
+    'rank_top':rank_top, 'rank_bottom':rank_bottom, 'rank_order':rank_order,
     'label_reg':label_reg, 'label_cla':label_cla, 'label_fm':label_fm,
     'date_column':date_column, 'test_begin':test_begin, 'test_end':test_end,
     'k':k, 'n_epoch':n_epoch, 'subsample':subsample,
@@ -226,7 +226,6 @@ if __name__ == "__main__":
             cv_study=True,
             run_backtest=True,
             plot_decision_boundary=True,
-            plot_residual=True,
             save_csv=True,
             return_train_ylim=(-1,20), return_test_ylim=(-1,1))
 
@@ -290,7 +289,6 @@ if __name__ == "__main__":
             cv_study=True,
             run_backtest=True,
             plot_decision_boundary=True,
-            plot_residual=True,
             save_csv=True,
             return_train_ylim=(-1,20), return_test_ylim=(-1,1))
 
@@ -317,7 +315,6 @@ if __name__ == "__main__":
             cv_study=True,
             run_backtest=True,
             plot_decision_boundary=True,
-            plot_residual=True,
             save_csv=True,
             return_train_ylim=(-1,20), return_test_ylim=(-1,1))
 
@@ -455,7 +452,6 @@ if __name__ == "__main__":
                 cv_study=True,
                 run_backtest=True,
                 plot_decision_boundary=True,
-                plot_residual=True,
                 save_csv=True,
                 return_train_ylim=(-1,20), return_test_ylim=(-1,1))
 

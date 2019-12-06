@@ -16,6 +16,7 @@ from xgboost.sklearn import XGBClassifier
 
 # Import custom libraries
 import NonlinearML.lib.cross_validation as cv
+import NonlinearML.lib.preprocessing as prep
 import NonlinearML.lib.utils as utils
 import NonlinearML.lib.stats as stats
 import NonlinearML.lib.summary as summary

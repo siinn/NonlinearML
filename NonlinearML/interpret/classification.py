@@ -20,7 +20,7 @@ def decision_boundary2D(
     config,
     df_train, df_test,
     model, model_str, param_grid, best_params={},
-    read_last=False, cv_study=None, run_backtest=True,
+    read_last=False, cv_study=None, run_backtest=True, model_evaluation=True,
     plot_decision_boundary=True, save_csv=True,
     cv_hist_n_bins=10, cv_hist_figsize=(18, 10), cv_hist_alpha=0.6,
     cv_box_figsize=(18,10), cv_box_color="#3399FF",
@@ -98,7 +98,7 @@ def decision_boundary2D(
             model=model, model_type='cla',
             param_grid=param_grid,
             n_epoch=config['n_epoch'], subsample=config['subsample'],
-            features=features, label=label,
+            features=features, label=label, label_fm=config['label_fm'],
             date_column=config['date_column'],
             k=config['k'], purge_length=config['purge_length'],
             output_path=output_path+"cross_validation/",
@@ -168,7 +168,42 @@ def decision_boundary2D(
         pred_train = pred_test = model = None
 
     #---------------------------------------------------------------------------
-    # Cumulative return
+    # Model evaluation
+    #---------------------------------------------------------------------------
+    if model_evaluation:
+        model_evaluation_train  = {}
+        model_evaluation_test  = {}
+    
+        """ NEED TO IMPLEMENT THIS"""
+        ## Evaluate by standard metrics
+        #model_evaluation_train = cv.evaluate_classifier(
+        #    df=pred_train, label_cla=config['label_cla'],
+        #    y_pred=pred_train['pred'], results=model_evaluation_train)
+    
+        #model_evaluation_test = cv.evaluate_classifier(
+        #    df=pred_test, label_cla=config['label_cla'],
+        #    y_pred=pred_test['pred'], results=model_evaluation_test)
+    
+        # Evaluate by top-bottom strategy
+        """ NEED TO IMPLEMENT THIS"""
+        #model_evaluation_train = cv.evaluate_top_bottom_strategy(
+        #    df=pred_train,
+        #    date_column=config['date_column'],
+        #    label=config['label_fm'], y_pred=pred_train['pred'],
+        #    rank_n_bins=config['rank_n_bins'], rank_label=config['rank_label'],
+        #    rank_top=config['rank_top'], rank_bottom=config['rank_bottom'],
+        #    results=model_evaluation_train)
+    
+        #model_evaluation_test = cv.evaluate_top_bottom_strategy(
+        #    df=pred_test,
+        #    date_column=config['date_column'],
+        #    label=config['label_fm'], y_pred=pred_test['pred'],
+        #    rank_n_bins=config['rank_n_bins'], rank_label=config['rank_label'],
+        #    rank_top=config['rank_top'], rank_bottom=config['rank_bottom'],
+        #    results=model_evaluation_test)
+
+    #---------------------------------------------------------------------------
+    # Backtesting
     #---------------------------------------------------------------------------
     if run_backtest:
         # Calculate cumulative return using trained model
@@ -306,6 +341,14 @@ def decision_boundary2D(
                 pred_test.to_csv(output_path+'csv/pred_test.csv')
             except IOError:
                 io.error("Cannot save predictions.")
+
+        # Save model evaluation
+        if model_evaluation:
+            pd.DataFrame([
+                model_evaluation_train, model_evaluation_test],
+                index=['Train', 'Test'])\
+            .applymap(lambda x:x[0])\
+            .to_csv(output_path+'csv/model_evaluation.csv')
 
     io.message("Successfully completed all tasks!")
 

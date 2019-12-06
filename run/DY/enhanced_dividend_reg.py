@@ -52,6 +52,13 @@ db_xlim = (0, 0.2)
 db_ylim = (-1, 1.5)
 db_res = 0.0005
 
+## Set features of interest
+#feature_x = 'DividendYield'
+#feature_y = 'EG'
+## Set limits of decision boundary
+#db_xlim = (0, 0.2)
+#db_ylim = (-0.5, 0.5)
+#db_res = 0.0005
 
 ## Set features of interest
 #feature_x = 'DY_dmed'
@@ -60,15 +67,6 @@ db_res = 0.0005
 #db_xlim = (-1.5, 4)
 #db_ylim = (-3, 4)
 #db_res = 0.01
-
-
-## Set features of interest
-#feature_x = 'DividendYield'
-#feature_y = 'EG'
-## Set limits of decision boundary
-#db_xlim = (0, 0.2)
-#db_ylim = (-0.5, 0.5)
-#db_res = 0.0005
 
 
 ## Set features of interest
@@ -82,7 +80,7 @@ db_res = 0.0005
 # Set number of bins for ranking
 rank_n_bins=10
 rank_label={x:'D'+str(x) for x in range(rank_n_bins)}
-rank_order = [x for x in range(rank_n_bins-1, -1,-1)] # High return to low return
+rank_order=[9,8,7,6,5,4,3,2,1,0] # High return to low return
 rank_top = 9
 rank_bottom = 0
 
@@ -111,9 +109,11 @@ security_id = 'SecurityID'
 # Set train and test period
 test_begin = "2012-01-01"
 test_end = "2019-05-01"
+#test_begin = "2018-01-01"
+#test_end = "2019-05-01"
 
 # Set cross-validation configuration
-k = 2   # Must be > 1
+k = 5         # Must be > 1
 n_epoch = 1
 subsample = 0.5
 purge_length = 3
@@ -122,7 +122,7 @@ purge_length = 3
 p_thres = 0.05
 
 # Set metric for training
-cv_metric = ['mlse', 'mape', 'mae', 'r2', 'mse']
+cv_metric = ['Top-Bottom', 'r2', 'mlse', 'mape', 'mae', 'mse']
 
 # Set color scheme for decision boundary plot
 cmap = matplotlib.cm.get_cmap('RdYlGn')
@@ -158,8 +158,8 @@ save_prediction = False
 config = {
     'feature_x':feature_x, 'feature_y':feature_y,
     'output_path':output_path, 'security_id':security_id,
-    'rank_n_bins':rank_n_bins, 'rank_label':rank_label, 'rank_order':rank_order,
-    'rank_top':rank_top, 'rank_bottom':rank_bottom,
+    'rank_n_bins':rank_n_bins, 'rank_label':rank_label,
+    'rank_top':rank_top, 'rank_bottom':rank_bottom, 'rank_order':rank_order,
     'label_reg':label_reg, 'label_cla':label_cla, 'label_fm':label_fm,
     'date_column':date_column, 'test_begin':test_begin, 'test_end':test_end,
     'k':k, 'n_epoch':n_epoch, 'subsample':subsample,
@@ -195,8 +195,6 @@ if __name__ == "__main__":
             groupby=config['date_column'],
             aggregate='median', wl=winsorize_lower, wu=winsorize_upper)
 
-    
-
     # Split dataset into train and test dataset
     df_train, df_test = cv.train_test_split_by_date(
         df, date_column, test_begin, test_end)
@@ -208,7 +206,7 @@ if __name__ == "__main__":
         # Set parameters to search
         param_grid_lr = {
             #"alpha": [1] + np.logspace(-4, 4, 10), # C <= 1e-5 doesn't converge
-            "alpha": [1] + np.logspace(-4, 4, 10), # C <= 1e-5 doesn't converge
+            "alpha": [1] + np.logspace(-2, 6, 10), # C <= 1e-5 doesn't converge
             "fit_intercept": [True]}
 
         # Set model
@@ -222,56 +220,38 @@ if __name__ == "__main__":
             read_last=False,
             cv_study=True,
             run_backtest=True,
+            model_evaluation=True,
             plot_decision_boundary=True,
             plot_residual=True,
-            save_csv=True,
-            return_train_ylim=(-1,20), return_test_ylim=(-1,1))
+            save_csv=True)
 
     #---------------------------------------------------------------------------
     # Xgboost
     #---------------------------------------------------------------------------
     if run_xgb:
-        ## Set parameters to search
-        #param_grid_xgb = {
-        #    'min_child_weight': [1000], #[1000, 500], 
-        #    'max_depth': [5, 10],
-        #    'eta': [0.3, 0.01, 0.1, 0.5], #[0.3],
-        #    'n_estimators': [50, 100], #[50, 100, 200],
-        #    'objective': ['multi:softmax'],
-        #    'gamma': [0], #[0, 5, 10],
-        #    'lambda': [1], #np.logspace(0, 2, 3), #[1], # L2 regularization
-        #    'n_jobs':[-1],
-        #    'subsample': [1], # [1]
-        #    'num_class': [n_classes]}
-
-        ## Set model
-        #model_xgb = XGBClassifier()
-        #model_xgb_str = 'xgb_eta'
-
         # Set parameters to search
         param_grid_xgb = {
             #'min_child_weight': [1000, 750, 500], #[1000, 500], #[1000], 
             #'min_child_weight': [1500, 1000, 500], #[1000, 500], #[1000], 
+            #'min_child_weight': [1000, 0], #[1000, 500], #[1000], 
             'min_child_weight': [1000], #[1000, 500], #[1000], 
-            #'max_depth': [3, 5, 7],
+            #'max_depth': [3, 10],
             'max_depth': [3],
-            #'eta': [0.3, 0.01], #[0.3]
+            #'eta': [0.6, 0.3, 0.11, 0.01], #[0.3]
             'eta': [0.3], #[0.3]
-            'n_estimators': [50], # [50, 100, 200],
-            #'gamma': [5, 3, 0], #[0, 5, 10],
-            'gamma': [0], #[0, 5, 10],
-            'lambda': [1], #np.logspace(0, 2, 3), #[1], # L2 regularization
+            'n_estimators': [50], #[25, 50, 100],
+            'gamma': [0], #[0, 5, 10, 20],
+            'lambda': [1],#+np.logspace(0, 2, 3), # [1] # L2 regularization
             'n_jobs':[-1],
             'objective':[
-                'reg:squarederror'],
-                #xgb_obj.log_square_error],
-            'feval':[xgb_metric.log_square_error],
-            'subsample': [1],#[1, 0.8, 0.5], # [1]
+                'reg:squarederror',
+                xgb_obj.log_square_error],
+            'subsample': [1], #[1, 0.8, 0.5, 0.30],#[1, 0.8, 0.5], # [1]
             }
 
         # Set model
         model_xgb = XGBRegressor()
-        model_xgb_str = 'xgb'
+        model_xgb_str = 'xgb_mse_mlse'
 
         # Run analysis on 2D decision boundary
         rs_xgb = regression.regression_surface2D(
@@ -280,10 +260,11 @@ if __name__ == "__main__":
             read_last=False,
             cv_study=True,
             run_backtest=True,
+            model_evaluation=True,
             plot_decision_boundary=True,
             plot_residual=True,
             save_csv=True,
-            return_train_ylim=(-1,20), return_test_ylim=(-1,1))
+            verbose=True)
 
 
 
@@ -307,10 +288,10 @@ if __name__ == "__main__":
             read_last=False,
             cv_study=True,
             run_backtest=True,
+            model_evaluation=True,
             plot_decision_boundary=True,
             plot_residual=True,
-            save_csv=True,
-            return_train_ylim=(-1,20), return_test_ylim=(-1,1))
+            save_csv=True)
 
 
 
@@ -452,10 +433,10 @@ if __name__ == "__main__":
                 read_last=False,
                 cv_study=True,
                 run_backtest=True,
+                model_evaluation=True,
                 plot_decision_boundary=True,
                 plot_residual=True,
                 save_csv=True,
-                return_train_ylim=(-1,20), return_test_ylim=(-1,1),
                 cv_hist_figsize=(40, 10)
                 )
 

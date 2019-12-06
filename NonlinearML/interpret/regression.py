@@ -20,13 +20,12 @@ def regression_surface2D(
     config,
     df_train, df_test,
     model, model_str, param_grid, best_params={},
-    read_last=False, cv_study=None, run_backtest=True,
+    read_last=False, cv_study=None, run_backtest=True, model_evaluation=True,
     plot_decision_boundary=True, plot_residual=True, save_csv=True,
     cv_hist_n_bins=10, cv_hist_figsize=(18, 10), cv_hist_alpha=0.6,
     cv_box_figsize=(18,10), cv_box_color="#3399FF",
-    return_figsize=(8,6), return_train_ylim=(-1,7), return_test_ylim=(-1,5),
-    return_diff_test_ylim=(-1,5),
-    rank=False):
+    return_figsize=(8,6), return_train_ylim=(-1,20), return_test_ylim=(-1,1),
+    return_diff_test_ylim=(-1,5), verbose=False):
     """
     Args:
         config: Global configuration passed as dictionary
@@ -47,6 +46,8 @@ def regression_surface2D(
         cv_study: Perform study on cross-validation if True
         run_backtest: Calculate cumulative return, annual return, and IR if True
         plot_decision_boundary: Plot decision boundary of the best model if True
+        plot_residual: Examine distribution of target, prediction, and residual
+            if True
         save_csv: Save all results as csv
         Others: parameters for nested functions.
 
@@ -97,11 +98,13 @@ def regression_surface2D(
             model=model, model_type='reg',
             param_grid=param_grid,
             n_epoch=config['n_epoch'], subsample=config['subsample'],
-            features=features, label=label,
+            features=features, label=label, label_fm=config['label_fm'],
             date_column=config['date_column'],
             k=config['k'], purge_length=config['purge_length'],
             output_path=output_path+"cross_validation/",
-            verbose=False)
+            rank_n_bins=config['rank_n_bins'], rank_label=config['rank_label'],
+            rank_top=config['rank_top'], rank_bottom=config['rank_bottom'],
+            verbose=verbose)
 
 
     #---------------------------------------------------------------------------
@@ -176,10 +179,48 @@ def regression_surface2D(
         pred_train=pred_train, pred_test=pred_test,
         config=config, col_pred="pred")
 
+
     #---------------------------------------------------------------------------
-    # Cumulative return
+    # Model evaluation
+    #---------------------------------------------------------------------------
+    if model_evaluation:
+        model_evaluation_train  = {}
+        model_evaluation_test  = {}
+    
+        # Evaluate by standard metrics
+        model_evaluation_train = cv.evaluate_regressor(
+            pred_train[config['label_reg']], pred_train['pred'],
+            model_evaluation_train, epsilon=1e-7)
+    
+        model_evaluation_test = cv.evaluate_regressor(
+            pred_test[config['label_reg']], pred_test['pred'],
+            model_evaluation_test, epsilon=1e-7)
+    
+        # Evaluate by top-bottom strategy
+        if 'rank_n_bins' in config:
+            model_evaluation_train = cv.evaluate_top_bottom_strategy(
+                df=pred_train,
+                date_column=config['date_column'],
+                label_fm=config['label_fm'], y_pred=pred_train['pred'],
+                rank_n_bins=config['rank_n_bins'],
+                rank_label=config['rank_label'],
+                rank_top=config['rank_top'], rank_bottom=config['rank_bottom'],
+                results=model_evaluation_train)
+        
+            model_evaluation_test = cv.evaluate_top_bottom_strategy(
+                df=pred_test,
+                date_column=config['date_column'],
+                label_fm=config['label_fm'], y_pred=pred_test['pred'],
+                rank_n_bins=config['rank_n_bins'],
+                rank_label=config['rank_label'],
+                rank_top=config['rank_top'], rank_bottom=config['rank_bottom'],
+                results=model_evaluation_test)
+    
+    #---------------------------------------------------------------------------
+    # Backtesting
     #---------------------------------------------------------------------------
     if run_backtest:
+
         # Calculate cumulative return using trained model
         df_backtest_train, df_backtest_test = backtest.perform_backtest(
                 pred_train=pred_train, pred_test=pred_test, 
@@ -279,34 +320,59 @@ def regression_surface2D(
     #---------------------------------------------------------------------------
     if plot_residual:
         # Plot distribution of residual
+        # Calculate residual
+        res_train = pred_train[config['label_reg']] - pred_train['pred']
+        res_test = pred_test[config['label_reg']] - pred_test['pred']
+        
+        # Plot distribution of prediction and target
+        plot.plot_dist_hue(
+            df= pd.concat(
+                [res_train, res_test], keys=['Train', 'Test'], axis=1)\
+                .stack()\
+                .reset_index(level=-1)\
+                .rename(
+                    {0:'Residual (%s - Prediction)' %config['label_reg']},
+                    axis=1),
+            x='Residual (%s - Prediction)' %config['label_reg'], hue="level_1",
+            hue_str={'Train':'Train (normalized)', 'Test':'Test (normalized)'},
+            hist_type='step', ylabel='Samples', norm=True,
+            n_bins=config['residual_n_bins'],
+            figsize=(8,5), filename=output_path+'residual/res_dist')
+
+
+        # Plot distribution of prediction and target
         plot.plot_dist_hue(
             df=pred_train[[config['label_reg'], 'pred']].stack()\
                 .reset_index(level=-1).rename({0:config['label_reg']}, axis=1),
             x=config['label_reg'], hue="level_1",
             hue_str={config['label_reg']:'True', 'pred':'Prediction'},
-            hist_type='step', ylabel='Samples', norm=False, n_bins=config['residual_n_bins'],
-            figsize=(8,5), filename=output_path+'residual/res_train')
+            hist_type='step', ylabel='Samples', norm=False,
+            n_bins=config['residual_n_bins'],
+            figsize=(8,5), filename=output_path+'residual/dist_train')
 
         plot.plot_dist_hue(
             df=pred_test[[config['label_reg'], 'pred']].stack()\
                 .reset_index(level=-1).rename({0:config['label_reg']}, axis=1),
             x=config['label_reg'], hue="level_1",
             hue_str={config['label_reg']:'True', 'pred':'Prediction'},
-            hist_type='step', ylabel='Samples', norm=False, n_bins=config['residual_n_bins'],
-            figsize=(8,5), filename=output_path+'residual/res_test')
+            hist_type='step', ylabel='Samples', norm=False,
+            n_bins=config['residual_n_bins'],
+            figsize=(8,5), filename=output_path+'residual/dist_test')
 
         # Plot prediction vs target
-        plot.plot_scatter(
+        plot.plot_reg(
             df=pred_train, x=config['label_reg'], y='pred',
             x_label=config['label_reg'], y_label='Prediction',
             figsize=(10, 10), filename=output_path+'residual/res_scatter_train',
-            linewidth=1, s=10)
+            fit_reg=True, scatter_kws={'linewidth':1, 's':1, 'color':'dodgerblue'},
+            line_kws={'color':'crimson'})
 
-        plot.plot_scatter(
+        plot.plot_reg(
             df=pred_test, x=config['label_reg'], y='pred',
             x_label=config['label_reg'], y_label='Prediction',
             figsize=(10, 10), filename=output_path+'residual/res_scatter_test',
-            linewidth=1, s=10, color='red')
+            fit_reg=True, scatter_kws={'linewidth':1, 's':1, 'color':'slategray'},
+            line_kws={'color':'crimson'})
 
 
 
@@ -356,12 +422,21 @@ def regression_surface2D(
                 pred_test.to_csv(output_path+'csv/pred_test.csv')
             except IOError:
                 io.error("Cannot save predictions.")
+        # Save model evaluation
+        if model_evaluation:
+            pd.DataFrame([
+                model_evaluation_train, model_evaluation_test],
+                index=['Train', 'Test'])\
+            .applymap(lambda x:x[0])\
+            .to_csv(output_path+'csv/model_evaluation.csv')
 
     io.message("Successfully completed all tasks!")
 
     return {
         'cv_results': cv_results, 'anova_results': anova_results,
         'pred_train': pred_train, 'pred_test': pred_test,
+        'model_evaluation_train': model_evaluation_train,
+        'model_evaluation_test': model_evaluation_test,
         'cum_return_train': df_backtest_train, 'cum_return_test': df_backtest_test,
         'model': model}
             
@@ -371,13 +446,12 @@ def regression_surface2D_residual(
     config,
     df_train, df_test,
     model, model_str, param_grid, best_params={},
-    read_last=False, cv_study=None, run_backtest=True,
+    read_last=False, cv_study=None, run_backtest=True, model_evaluation=True,
     plot_decision_boundary=True, plot_residual=True, save_csv=True,
     cv_hist_n_bins=10, cv_hist_figsize=(18, 10), cv_hist_alpha=0.6,
     cv_box_figsize=(18,10), cv_box_color="#3399FF",
-    return_figsize=(8,6), return_train_ylim=(-1,7), return_test_ylim=(-1,5),
-    return_diff_test_ylim=(-1,5),
-    rank=False):
+    return_figsize=(8,6), return_train_ylim=(-1,20), return_test_ylim=(-1,1),
+    return_diff_test_ylim=(-1,5), verbose=False):
     """
     Args:
         config: Global configuration passed as dictionary
@@ -398,6 +472,8 @@ def regression_surface2D_residual(
         cv_study: Perform study on cross-validation if True
         run_backtest: Calculate cumulative return, annual return, and IR if True
         plot_decision_boundary: Plot decision boundary of the best model if True
+        plot_residual: Examine distribution of target, prediction, and residual
+            if True
         save_csv: Save all results as csv
         Others: parameters for nested functions.
 
@@ -448,11 +524,13 @@ def regression_surface2D_residual(
             model=model, model_type='reg',
             param_grid=param_grid,
             n_epoch=config['n_epoch'], subsample=config['subsample'],
-            features=features, label=label,
+            features=features, label=label, label_fm=config['label_fm'],
             date_column=config['date_column'],
             k=config['k'], purge_length=config['purge_length'],
             output_path=output_path+"cross_validation/",
-            verbose=False)
+            rank_n_bins=config['rank_n_bins'], rank_label=config['rank_label'],
+            rank_top=config['rank_top'], rank_bottom=config['rank_bottom'],
+            verbose=verbose)
 
 
     #---------------------------------------------------------------------------
@@ -531,7 +609,7 @@ def regression_surface2D_residual(
         pred_train=pred_train, pred_test=pred_test,
         config=config, col_pred="pred")
 
-    # Rank predicted Edge + Residual
+    # Recover returnby summing edge and residual. Rank predicted edge + residual
     pred_train['pred_return'] = \
         pred_train[config['label_edge']] + pred_train['pred']
     pred_test['pred_return'] = \
@@ -539,9 +617,46 @@ def regression_surface2D_residual(
     pred_train, pred_test = utils.rank_prediction_monthly(
         pred_train=pred_train, pred_test=pred_test,
         config=config, col_pred="pred_return")
+        
+    #---------------------------------------------------------------------------
+    # Model evaluation
+    #---------------------------------------------------------------------------
+    if model_evaluation:
+        model_evaluation_train  = {}
+        model_evaluation_test  = {}
+
+        # Evaluate by standard metrics
+        model_evaluation_train = cv.evaluate_regressor(
+            pred_train[config['label_reg']], pred_train['pred'],
+            model_evaluation_train, epsilon=1e-7)
+
+        model_evaluation_test = cv.evaluate_regressor(
+            pred_test[config['label_reg']], pred_test['pred'],
+            model_evaluation_test, epsilon=1e-7)
+
+        # Evaluate by top-bottom strategy
+        if 'rank_n_bins' in config:
+            model_evaluation_train = cv.evaluate_top_bottom_strategy(
+                df=pred_train,
+                date_column=config['date_column'],
+                label=config['label_fm'], y_pred=pred_train['pred_return'],
+                rank_n_bins=config['rank_n_bins'],
+                rank_label=config['rank_label'],
+                rank_top=config['rank_top'], rank_bottom=config['rank_bottom'],
+                results=model_evaluation_train)
+
+            model_evaluation_test = cv.evaluate_top_bottom_strategy(
+                df=pred_test,
+                date_column=config['date_column'],
+                label=config['label_fm'], y_pred=pred_test['pred_return'],
+                rank_n_bins=config['rank_n_bins'],
+                rank_label=config['rank_label'],
+                rank_top=config['rank_top'], rank_bottom=config['rank_bottom'],
+                results=model_evaluation_test)
+    
 
     #---------------------------------------------------------------------------
-    # Cumulative return
+    # Backtesting
     #---------------------------------------------------------------------------
     if run_backtest:
         # Calculate cumulative return using trained model
@@ -644,34 +759,60 @@ def regression_surface2D_residual(
     #---------------------------------------------------------------------------
     if plot_residual:
         # Plot distribution of residual
+        # Calculate residual
+        res_train = pred_train[config['label_reg']] - pred_train['pred']
+        res_test = pred_test[config['label_reg']] - pred_test['pred']
+        
+        # Plot distribution of prediction and target
+        plot.plot_dist_hue(
+            df= pd.concat(
+                [res_train, res_test], keys=['Train', 'Test'], axis=1)\
+                .stack()\
+                .reset_index(level=-1)\
+                .rename(
+                    {0:'Residual (%s - Prediction)' %config['label_reg']},
+                    axis=1),
+            x='Residual (%s - Prediction)' %config['label_reg'], hue="level_1",
+            hue_str={'Train':'Train (normalized)', 'Test':'Test (normalized)'},
+            hist_type='step', ylabel='Samples', norm=True,
+            n_bins=config['residual_n_bins'],
+            figsize=(8,5), filename=output_path+'residual/res_dist')
+
+
+        # Plot distribution of prediction and target
         plot.plot_dist_hue(
             df=pred_train[[config['label_reg'], 'pred']].stack()\
                 .reset_index(level=-1).rename({0:config['label_reg']}, axis=1),
             x=config['label_reg'], hue="level_1",
-            hue_str={'Residual':'True', 'pred':'Prediction'},
-            hist_type='step', ylabel='Samples', norm=False, n_bins=config['residual_n_bins'],
-            figsize=(8,5), filename=output_path+'residual/res_train')
+            hue_str={config['label_reg']:'True', 'pred':'Prediction'},
+            hist_type='step', ylabel='Samples', norm=False,
+            n_bins=config['residual_n_bins'],
+            figsize=(8,5), filename=output_path+'residual/dist_train')
 
         plot.plot_dist_hue(
             df=pred_test[[config['label_reg'], 'pred']].stack()\
                 .reset_index(level=-1).rename({0:config['label_reg']}, axis=1),
             x=config['label_reg'], hue="level_1",
-            hue_str={'Residual':'True', 'pred':'Prediction'},
-            hist_type='step', ylabel='Samples', norm=False, n_bins=config['residual_n_bins'],
-            figsize=(8,5), filename=output_path+'residual/res_test')
+            hue_str={config['label_reg']:'True', 'pred':'Prediction'},
+            hist_type='step', ylabel='Samples', norm=False,
+            n_bins=config['residual_n_bins'],
+            figsize=(8,5), filename=output_path+'residual/dist_test')
 
         # Plot prediction vs target
-        plot.plot_scatter(
+        plot.plot_reg(
             df=pred_train, x=config['label_reg'], y='pred',
             x_label=config['label_reg'], y_label='Prediction',
             figsize=(10, 10), filename=output_path+'residual/res_scatter_train',
-            linewidth=1, s=10)
+            fit_reg=True, scatter_kws={'linewidth':1, 's':1, 'color':'dodgerblue'},
+            line_kws={'color':'crimson'})
 
-        plot.plot_scatter(
+        plot.plot_reg(
             df=pred_test, x=config['label_reg'], y='pred',
             x_label=config['label_reg'], y_label='Prediction',
             figsize=(10, 10), filename=output_path+'residual/res_scatter_test',
-            linewidth=1, s=10, color='red')
+            fit_reg=True, scatter_kws={'linewidth':1, 's':1, 'color':'slategray'},
+            line_kws={'color':'crimson'})
+
 
             
 
@@ -722,12 +863,21 @@ def regression_surface2D_residual(
                 pred_test.to_csv(output_path+'csv/pred_test.csv')
             except IOError:
                 io.error("Cannot save predictions.")
+        # Save model evaluation
+        if model_evaluation:
+            pd.DataFrame([
+                model_evaluation_train, model_evaluation_test],
+                index=['Train', 'Test'])\
+            .applymap(lambda x:x[0])\
+            .to_csv(output_path+'csv/model_evaluation.csv')
 
     io.message("Successfully completed all tasks!")
 
     return {
         'cv_results': cv_results, 'anova_results': anova_results,
         'pred_train': pred_train, 'pred_test': pred_test,
+        'model_evaluation_train': model_evaluation_train,
+        'model_evaluation_test': model_evaluation_test,
         'cum_return_train': df_backtest_train, 'cum_return_test': df_backtest_test,
         'model': model}
             

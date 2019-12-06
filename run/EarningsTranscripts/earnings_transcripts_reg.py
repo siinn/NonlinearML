@@ -62,7 +62,7 @@ db_vmax=0.15
 # Set number of bins for ranking
 rank_n_bins=10
 rank_label={x:'D'+str(x) for x in range(rank_n_bins)}
-rank_order = [x for x in range(rank_n_bins-1, -1,-1)] # High return to low return
+rank_order=[9,8,7,6,5,4,3,2,1,0]
 rank_top = 9
 rank_bottom = 0
 
@@ -129,8 +129,8 @@ concat_predictions = False
 config = {
     'feature_x':feature_x, 'feature_y':feature_y,
     'output_path':output_path, 
-    'rank_n_bins':rank_n_bins, 'rank_label':rank_label, 'rank_order':rank_order,
-    'rank_top':rank_top, 'rank_bottom':rank_bottom,
+    'rank_n_bins':rank_n_bins, 'rank_label':rank_label,
+    'rank_top':rank_top, 'rank_bottom':rank_bottom, 'rank_order':rank_order,
     'label_reg':label_reg, 'label_cla':label_cla, 'label_fm':label_fm,
     'date_column':date_column, 'test_begin':test_begin, 'test_end':test_end,
     'k':k, 'n_epoch':n_epoch, 'subsample':subsample,

@@ -9,7 +9,7 @@ def setConfig(path,filename):
     if not os.path.exists(path):
         os.makedirs(path)
     # Creat logger
-    logger = logging.getLogger('test')
+    logger = logging.getLogger('__name__')
     logger.setLevel(logging.INFO)
     # Create file handler which logs even INFO messages
     fh = logging.FileHandler(path+filename)
@@ -32,15 +32,15 @@ def hbar(length):
 
 def title(title, length=80):
     """ Print title with horizontal bars."""
-    logger = logging.getLogger('test')
+    logger = logging.getLogger('__name__')
     logger.info(hbar(length))
     logger.info(" " + title)
     logger.info(hbar(length))
 
 def message(message):
     """ Print message."""
-    logger = logging.getLogger('test')
-    if type(message) == list:
+    logger = logging.getLogger('__name__')
+    if isinstance(message, list):
         for line in message:
             logger.info(" " + line)
     else:
@@ -48,5 +48,5 @@ def message(message):
 
 def error(error):
     """ Print error."""
-    logger = logging.getLogger('test')
+    logger = logging.getLogger('__name__')
     logger.error(message)

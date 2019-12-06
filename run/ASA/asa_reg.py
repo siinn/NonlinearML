@@ -65,8 +65,8 @@ residual_n_bins = 100
 
 # Set number of bins for ranking
 rank_n_bins=5
-rank_order = [0, 1, 2, 3, 4] # High residual to low residual
-rank_label={x:'Q'+str(x+1) for x in rank_order}
+rank_label={0:'Q1', 1:'Q2', 2:'Q3', 3:'Q4', 4:'Q5'}
+rank_order=[0,1,2,3,4]
 rank_top = 0
 rank_bottom = 4
 
@@ -130,8 +130,8 @@ save_prediction = False
 config = {
     'feature_x':feature_x, 'feature_y':feature_y,
     'output_path':output_path, 'security_id':security_id,
-    'rank_n_bins':rank_n_bins, 'rank_label':rank_label, 'rank_order':rank_order,
-    'rank_top':rank_top, 'rank_bottom':rank_bottom,
+    'rank_n_bins':rank_n_bins, 'rank_label':rank_label,
+    'rank_top':rank_top, 'rank_bottom':rank_bottom, 'rank_order':rank_order,
     'label_reg':label_reg, 'label_fm':label_fm,
     'label_cla':label_cla, 'label_edge':label_edge,
     'date_column':date_column, 'test_begin':test_begin, 'test_end':test_end,
@@ -141,7 +141,7 @@ config = {
     'db_vmin':db_vmin, 'db_vmax':db_vmax,
     'db_figsize':db_figsize, 'db_annot_x':db_annot_x, 'db_annot_y':db_annot_y,
     'p_thres':p_thres, 'cv_metric':cv_metric, 'db_colors':db_colors,
-    'db_colors_scatter':db_colors_scatter}
+    'db_colors_scatter':db_colors_scatter, 'residual_n_bins':residual_n_bins}
 
 
 #-------------------------------------------------------------------------------

@@ -104,9 +104,9 @@ def select_best_model_by_anova(cv_results, cv_metric, param_grid, p_thres):
 
     # Extract list of metrics
     metric_names = [
-        metric[:-7] for metric in cv_results.columns if 'values' in metric]
-    metric_values = [
-        metric for metric in cv_results.columns if 'values' in metric]
+        metric[:-11] for metric in cv_results.columns if 'val_values' in metric]
+    #metric_values = [
+    #    metric for metric in cv_results.columns if 'val_values' in metric]
 
     # Perform ANOVA and post hoc test on each metrics
     f_stats = {}

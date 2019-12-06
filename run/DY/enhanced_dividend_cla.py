@@ -16,6 +16,7 @@ from xgboost.sklearn import XGBClassifier
 
 # Import custom libraries
 import NonlinearML.lib.cross_validation as cv
+import NonlinearML.lib.preprocessing as prep
 import NonlinearML.lib.utils as utils
 import NonlinearML.lib.stats as stats
 import NonlinearML.lib.summary as summary
@@ -114,8 +115,8 @@ test_begin = "2012-01-01"
 test_end = "2019-05-01"
 
 # Set cross-validation configuration
-k = 10         # Must be > 1
-n_epoch = 5
+k = 2         # Must be > 1
+n_epoch = 1
 subsample = 0.5
 purge_length = 3
 
@@ -135,6 +136,8 @@ db_figsize= (10, 8)
 db_annot_x=0.02
 db_annot_y=0.98
 db_nbins=50
+db_vmin=-0.15
+db_vmax=0.15
 
 # Set algorithms to run
 run_lr = True
@@ -158,6 +161,7 @@ config = {
     'k':k, 'n_epoch':n_epoch, 'subsample':subsample,
     'purge_length':purge_length,
     'db_xlim':db_xlim, 'db_ylim':db_ylim, 'db_res' :db_res, 'db_nbins':db_nbins,
+    'db_vmin':db_vmin, 'db_vmax':db_vmax,
     'db_figsize':db_figsize, 'db_annot_x':db_annot_x, 'db_annot_y':db_annot_y,
     'p_thres':p_thres, 'cv_metric':cv_metric, 'db_colors':db_colors}
 
@@ -218,7 +222,6 @@ if __name__ == "__main__":
             cv_study=True,
             run_backtest=True,
             plot_decision_boundary=True,
-            plot_residual=True,
             save_csv=True,
             return_train_ylim=(-1,20), return_test_ylim=(-1,5))
 
@@ -242,7 +245,7 @@ if __name__ == "__main__":
             config, df_train, df_test,
             model_lr_rank, model_lr_rank_str, param_grid_lr, best_params={},
             read_last=False, cv_study=True, run_backtest=True,
-            plot_decision_boundary=True, save_csv=True, plot_residual=True,
+            plot_decision_boundary=True, save_csv=True, 
             return_train_ylim=(-1,20), return_test_ylim=(-1,5),
             rank=True)
 
@@ -293,7 +296,6 @@ if __name__ == "__main__":
             cv_study=True,
             run_backtest=True,
             plot_decision_boundary=True,
-            plot_residual=True,
             save_csv=True,
             return_train_ylim=(-1,20), return_test_ylim=(-1,5))
 
@@ -320,7 +322,6 @@ if __name__ == "__main__":
             cv_study=True,
             run_backtest=True,
             plot_decision_boundary=True,
-            plot_residual=True,
             save_csv=True,
             return_train_ylim=(-1,20), return_test_ylim=(-1,5))
 
@@ -375,7 +376,6 @@ if __name__ == "__main__":
                 cv_study=True,
                 run_backtest=True,
                 plot_decision_boundary=True,
-                plot_residual=True,
                 save_csv=True,
                 return_train_ylim=(-1,20), return_test_ylim=(-1,5))
 
