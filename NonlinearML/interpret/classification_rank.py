@@ -66,7 +66,7 @@ def decision_boundary2D(
     output_path = config['output_path'] + model_str + '/'
 
     # Set logging configuration
-    io.setConfig(path=output_path, filename="log")
+    io.setConfig(path=output_path, filename="log.txt")
     io.title('Running two factor regression with factors:')
     io.message(' > feature x: %s' % config['feature_x'])
     io.message(' > feature y: %s' % config['feature_y'])
@@ -135,6 +135,9 @@ def decision_boundary2D(
             cv_results,
             filename=output_path+"cross_validation/cv_box",
             figsize=cv_box_figsize, color=cv_box_color)
+        plot_cv.plot_cv_line(
+            cv_results, filename=output_path+"cross_validation/cv_line",
+            marker='.', markersize=20)
 
         # Plot decision boundaries of all hyperparameter sets
         plot_db.decision_boundary_multiple_hparmas(
