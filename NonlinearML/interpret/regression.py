@@ -22,7 +22,7 @@ def regression_surface2D(
     model, model_str, param_grid, best_params={},
     read_last=False, cv_study=None, run_backtest=True, model_evaluation=True,
     plot_decision_boundary=True, plot_residual=True, save_csv=True,
-    cv_hist_n_bins=10, cv_hist_figsize=(18, 10), cv_hist_alpha=0.6,
+    cv_hist_n_bins=10, cv_hist_figsize=(18, 10), cv_hist_alpha=0.8,
     cv_box_figsize=(18,10), cv_box_color="#3399FF",
     return_figsize=(8,6), return_train_ylim=(-1,20), return_test_ylim=(-1,1),
     return_diff_test_ylim=(-1,5), verbose=False):
@@ -66,7 +66,7 @@ def regression_surface2D(
     output_path = config['output_path'] + model_str + '/'
 
     # Set logging configuration
-    io.setConfig(path=output_path, filename="log")
+    io.setConfig(path=output_path, filename="log.txt")
     io.title('Running two factor regression with factors:')
     io.message(' > feature x: %s' % config['feature_x'])
     io.message(' > feature y: %s' % config['feature_y'])
@@ -100,10 +100,12 @@ def regression_surface2D(
             n_epoch=config['n_epoch'], subsample=config['subsample'],
             features=features, label=label, label_fm=config['label_fm'],
             date_column=config['date_column'],
+            train_from_future=config['train_from_future'],
             k=config['k'], purge_length=config['purge_length'],
             output_path=output_path+"cross_validation/",
             rank_n_bins=config['rank_n_bins'], rank_label=config['rank_label'],
             rank_top=config['rank_top'], rank_bottom=config['rank_bottom'],
+            force_val_length=config['force_val_length'],
             verbose=verbose)
 
 
@@ -131,10 +133,19 @@ def regression_surface2D(
             legend_box=(1, 1), figsize=cv_hist_figsize, alpha=cv_hist_alpha,
             hist_type='stepfilled', edgecolor='black',
             filename=output_path+"cross_validation/cv_hist")
+
         plot_cv.plot_cv_box(
             cv_results,
             filename=output_path+"cross_validation/cv_box",
             figsize=cv_box_figsize, color=cv_box_color)
+
+        plot_cv.plot_cv_line(
+            cv_results, filename=output_path+"cross_validation/cv_line",
+            marker='.', markersize=20)
+
+        plot_cv.plot_cv_correlation(
+            cv_results, filename=output_path+"cross_validation/cv_corr")
+
 
         # Plot decision boundaries of all hyperparameter sets
         plot_db.decision_boundary_multiple_hparmas(
@@ -168,7 +179,10 @@ def regression_surface2D(
                 df_train=df_train, df_test=df_test, features=features,
                 date_column=config['date_column'],
                 label=label,
-                cols=[config['label_fm'], config['label_reg']])
+                cols=[config['label_fm'], config['label_reg']],
+                expand_window=config['expand_training_window']
+                )
+
     else:
         pred_train = pred_test = model = None
 
@@ -325,6 +339,9 @@ def regression_surface2D(
         res_test = pred_test[config['label_reg']] - pred_test['pred']
         
         # Plot distribution of prediction and target
+        #import pdb;pdb.set_trace()
+        #pd.concat([res_train, res_test], keys=['Train', 'Test'], axis=1).stack().reset_index(level=-1).rename({0:'Residual (%s - Prediction)' %config['label_reg']},axis=1)
+
         plot.plot_dist_hue(
             df= pd.concat(
                 [res_train, res_test], keys=['Train', 'Test'], axis=1)\
@@ -448,7 +465,7 @@ def regression_surface2D_residual(
     model, model_str, param_grid, best_params={},
     read_last=False, cv_study=None, run_backtest=True, model_evaluation=True,
     plot_decision_boundary=True, plot_residual=True, save_csv=True,
-    cv_hist_n_bins=10, cv_hist_figsize=(18, 10), cv_hist_alpha=0.6,
+    cv_hist_n_bins=10, cv_hist_figsize=(12, 8), cv_hist_alpha=0.6,
     cv_box_figsize=(18,10), cv_box_color="#3399FF",
     return_figsize=(8,6), return_train_ylim=(-1,20), return_test_ylim=(-1,1),
     return_diff_test_ylim=(-1,5), verbose=False):
@@ -492,7 +509,7 @@ def regression_surface2D_residual(
     output_path = config['output_path'] + model_str + '/'
 
     # Set logging configuration
-    io.setConfig(path=output_path, filename="log")
+    io.setConfig(path=output_path, filename="log.txt")
     io.title('Running two factor regression with factors:')
     io.message(' > feature x: %s' % config['feature_x'])
     io.message(' > feature y: %s' % config['feature_y'])
@@ -561,6 +578,10 @@ def regression_surface2D_residual(
             cv_results,
             filename=output_path+"cross_validation/cv_box",
             figsize=cv_box_figsize, color=cv_box_color)
+
+        plot_cv.plot_cv_line(
+            cv_results, filename=output_path+"cross_validation/cv_line",
+            marker='.', markersize=20)
 
         # Plot decision boundaries of all hyperparameter sets
         plot_db.decision_boundary_multiple_hparmas(
