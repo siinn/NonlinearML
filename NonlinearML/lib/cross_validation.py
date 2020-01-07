@@ -13,14 +13,19 @@ import NonlinearML.lib.utils as utils
 
 
 def train_test_split_by_date(
-    df, date_column, test_begin, test_end, date_format='%Y-%m-%d'):
+    df, date_column, test_begin, test_end, train_begin=None, train_end=None,
+    train_from_future=False, date_format='%Y-%m-%d'):
     ''' Create train and test dataset by dates. Test dataset includes test_begin
     dates.
     Args:
         df: pandas dataframe
         date_column: date column in datetime format
-        test_begin: test begin month in datetime format
-        test_end: test end month in datetime format
+        test_begin, train_end: test begin and end month in datetime format
+        train_begin, train_end: train begin and end month in datetime format
+            if None, the rest of dataset is used as training set
+        train_from_future: If True, train set can also include dates after
+            validation set. Set to False if you want to avoid having training
+            set dates come after validation set.
     Return:
         df_train: train dataset
         df_test: test dataset
@@ -34,15 +39,30 @@ def train_test_split_by_date(
     df_test = df.loc[\
         (df[date_column] >= test_begin)\
         & (df[date_column] <= test_end)]
-    df_train = df.loc[\
-        (df[date_column] < test_begin)\
-        | (df[date_column] > test_end)]
+    if train_begin and train_end:
+        if train_from_future:
+            df_train = df.loc[\
+                (df[date_column] >= train_begin)\
+                & (df[date_column] <= train_end)]
+        # When creating training set, do not include dates after test_begin
+        else:
+            df_train = df.loc[\
+                ((df[date_column] >= train_begin)\
+                & (df[date_column] <= train_end)) & (df[date_column] < test_begin)]
+    else: # If train_begin,end is not defined, use the rest as train set
+        if train_from_future:
+            df_train = df.loc[\
+                (df[date_column] < test_begin)\
+                | (df[date_column] > test_end)]
+        # When creating training set, do not include dates after test_begin
+        else: 
+            df_train = df.loc[df[date_column] < test_begin]
     return df_train, df_test
 
 
 def create_purged_fold(
     df, val_begin, val_end, date_column, purge_length,
-    embargo_length=0, subsample=1, verbose=False):
+    embargo_length=0, subsample=1, train_from_future=False, verbose=False):
     """ Create purged training set and validation set as a one instance
     of K-folds.
     Args:
@@ -59,6 +79,9 @@ def create_purged_fold(
             validation and train set will be removed. Embargo length is given
             in months.
         subsample: fraction of training samples to use.
+        train_from_future: If True, train set can also include dates after
+            validation set. Set to False if you want to avoid having training
+            set dates come after validation set.
     Return:
         df_purged_train: train and validation set for one instance of K-fold.
     """
@@ -104,7 +127,8 @@ def create_purged_fold(
 
     # Split train and validation
     df_train, df_val = train_test_split_by_date(
-        df=df, date_column=date_column, test_begin=val_begin, test_end=val_end)
+        df=df, date_column=date_column, test_begin=val_begin, test_end=val_end,
+        train_from_future=train_from_future)
 
     # Purge training set by removing overlap and embargo
     # between training and validation sets.
@@ -117,12 +141,14 @@ def create_purged_fold(
     # Return purged training set
     return df_purged_train, df_val
 
-def get_val_dates(df, k, date_column, verbose=False):
+def get_val_dates(df, k, date_column, force_val_length=False, verbose=False):
     ''' Find dates to be used to split data into K-folds.
     Args:
         df: Pandas dataframe.
         k: Number of partitions for K-folds.
         date_column: column representing time.
+        force_val_length: (boolean, int) If integer is given, validation set
+            will have the length of the given integer. ex. 1 month
         verbose: Print debugging information if True
     Return:
         val_dates = list of (val_begin, val_end) tuples
@@ -133,7 +159,10 @@ def get_val_dates(df, k, date_column, verbose=False):
     # Dictionary to hold results
     val_dates = []
     # Calculate the length of one fold
-    fold_length = (date_end - date_begin).n / k
+    if force_val_length:
+        fold_length = force_val_length
+    else:
+        fold_length = ((date_end - date_begin).n / k) + 1
 
     # Warn that K-folds will not be of equal size
     if not isinstance(fold_length, int):
@@ -157,13 +186,13 @@ def get_val_dates(df, k, date_column, verbose=False):
         # use date_end instead of val_end
         if i+1 == k:
             if verbose:
-                io.message(' > k = %s, begin = %s, end = %s, fold size (month) = %s'\
+                io.message(' > k = %s, begin = %s, end = %s, fold size (month) = %s'
                 %(i, val_begin, date_end, date_end-val_begin))
             val_dates.append(
                 (val_begin.to_timestamp(), date_end.to_timestamp()))
         else:
             if verbose:
-                io.message(' > k = %s, begin = %s, end = %s, fold size (month) = %s'\
+                io.message(' > k = %s, begin = %s, end = %s, fold size (month) = %s'
                 %(i, val_begin, val_end, val_end-val_begin))
             val_dates.append(
                 ((val_begin.to_timestamp(), val_end.to_timestamp())))
@@ -302,7 +331,7 @@ def purged_k_fold_cv(
     df_train, model, model_type, features, label, label_fm, k,
     purge_length, embargo_length, n_epoch=1, date_column='eom', subsample=1,
     rank_n_bins=None, rank_label=None, rank_top=None, rank_bottom=None,
-    verbose=False):
+    train_from_future=False, force_val_length=False, verbose=False):
     """ Perform purged k-fold cross-validation. Assumes that data is uniformly
         distributed over the time period.
             i.e. Data is splitted by dates instead of size.
@@ -329,6 +358,11 @@ def purged_k_fold_cv(
         subsample: fraction of training samples to use.
         rank_n_bins, rank_label, rank_top, rank_bottom: If not None, 
             cross-validation is also evaluated based on Top-Bottom strategy.
+        train_from_future: If True, train set can also include dates after
+            validation set. Set to False if you want to avoid having training
+            set dates come after validation set.
+        force_val_length: (boolean, int) If integer is given, validation set
+            will have the length of the given integer. ex. 1 month
         verbose: Print debugging information if True
     Return:
         results[mean]: Dictionary containing average performance across
@@ -339,11 +373,13 @@ def purged_k_fold_cv(
         results: Raw cross-validation results. May used for plotting
             distribution. """
     io.message('Performing cross-validation with purged k-fold')
-    io.message('\t> purge length = %s' % purge_length)
-    io.message('\t> embargo length = %s' % embargo_length)
+    io.message('\t> Purge length = %s' % purge_length)
+    io.message('\t> Embargo length = %s' % embargo_length)
+    io.message('\t> Train from future = %s' % train_from_future)
     # Find dates to be used to split data into k folds.
     val_dates = get_val_dates(
-        df=df_train, k=k, date_column=date_column, verbose=verbose)
+        df=df_train, k=k, date_column=date_column,
+        force_val_length=force_val_length, verbose=verbose)
     # Dictionary to hold results
     results_val = {}
     results_train = {}
@@ -354,9 +390,14 @@ def purged_k_fold_cv(
         for val_begin, val_end in val_dates:
             # Print debugging info
             if verbose==True:
-                io.message('Creating an instance of purged k-fold, epoch=%s' %(i//k))
-                io.message('\t> validation begin = %s' % val_begin.to_period('M'))
-                io.message('\t> validation end = %s' % val_end.to_period('M'))
+                io.message('Creating an instance of purged k-fold, epoch=%s'
+                    %i, newline=True)
+                io.message('\t> validation begin = %s'
+                    % val_begin.to_period('M'))
+                io.message('\t> validation end = %s'
+                    % val_end.to_period('M'))
+                io.message('\t> Include future dataset in training: %s'
+                    % train_from_future)
             # Create purged training set and validation set as
             # a one instance of k folds.
             df_k_train, df_k_val = create_purged_fold(
@@ -367,38 +408,53 @@ def purged_k_fold_cv(
                 val_end=val_end,
                 date_column=date_column,
                 subsample=subsample,
+                train_from_future=train_from_future,
                 verbose=verbose)
+
+            # Skip if there is no training set
+            if len(df_k_train)==0:
+                io.message('Skipping the following k-fold as training set is empty')
+                io.message('\t> validation begin = %s'
+                    % val_begin.to_period('M'))
+                io.message('\t> validation end = %s'
+                    % val_end.to_period('M'))
+                continue
+
             # Fit and make prediction
             model.fit(X=df_k_train[features], y=df_k_train[label])
             y_pred_val = model.predict(df_k_val[features])
             y_pred_train = model.predict(df_k_train[features])
-
             # Evaluate model
             results_train = evaluate_model(
-                model_type, df_k_train, label, label_fm, y_pred_train, results_train,
-                date_column, rank_n_bins, rank_label, rank_top, rank_bottom)
+                model_type, df_k_train, label, label_fm, y_pred_train,
+                results_train, date_column,
+                rank_n_bins, rank_label, rank_top, rank_bottom)
 
             results_val = evaluate_model(
                 model_type, df_k_val, label, label_fm, y_pred_val, results_val,
                 date_column, rank_n_bins, rank_label, rank_top, rank_bottom)
 
     # Return results averaged over k folds
-    results_val_mean = {metric:np.array(results_val[metric]).mean()
-        for metric in results_val}
-    results_val_std = {metric:np.array(results_val[metric]).std()
-        for metric in results_val}
     results_train_mean = {metric:np.array(results_train[metric]).mean()
         for metric in results_train}
     results_train_std = {metric:np.array(results_train[metric]).std()
         for metric in results_train}
+    results_val_mean = {metric:np.array(results_val[metric]).mean()
+        for metric in results_val}
+    results_val_std = {metric:np.array(results_val[metric]).std()
+        for metric in results_val}
 
     if verbose==True:
         io.message("\t>> Train performance:")
         for key in results_train_mean:
             io.message("\t\t>> mean %s = %s" % (key, results_train_mean[key]))
+        for key in results_train_std:
+            io.message("\t\t>> std %s = %s" % (key, results_train_std[key]))
+        io.message("\t>> Validation performance:")
+        for key in results_val_mean:
+            io.message("\t\t>> mean %s = %s" % (key, results_val_mean[key]))
         for key in results_val_std:
             io.message("\t\t>> std %s = %s" % (key, results_val_std[key]))
-        io.message("\t>> Validation performance:")
     return {
         'train_mean':results_train_mean,
         'train_std':results_train_std,
@@ -463,10 +519,10 @@ def _GetParamsDesc(params, param_grid):
 
 def grid_search(
     df_train, model, model_type, param_grid, features, label, label_fm,
-    k, purge_length,
-    output_path, n_epoch=1, embargo_length=0, date_column='eom', subsample=1,
+    k, purge_length, output_path, n_epoch=1, embargo_length=0,
+    date_column='eom', subsample=1, train_from_future=False,
     rank_n_bins=None, rank_label=None, rank_top=None, rank_bottom=None,
-    verbose=False):
+    force_val_length=False, verbose=False):
     ''' Perform grid search using purged cross-validation method. 
     Args:
         df_train: training set given in Pandas dataframe
@@ -491,20 +547,13 @@ def grid_search(
         subsample: fraction of training samples to use.
         rank_n_bins, rank_label, rank_top, rank_bottom: If not None, 
             cross-validation is also evaluated based on Top-Bottom strategy.
+        force_val_length: (boolean, int) If integer is given, validation set
+            will have the length of the given integer. ex. 1 month
         verbose: Print debugging information if True
     Return:
         cv_results: Dataframe summarizing cross-validation results
     '''
     io.title('Grid search with k-fold CV: k = %s, epoch = %s' % (k, n_epoch))
-    #if model_type=='cla':
-    #    metrics = get_classification_metrics(df_train, label)
-    #elif model_type=='reg':
-    #    metrics = ['r2', 'mse', 'mae', 'mape', 'mlse']
-    #    if rank_n_bins and rank_label:
-    #        metrics = metrics + ['Top-Bottom']
-    #else:
-    #    io.error("Incorrect model type. Choose either 'reg' or 'cla'.")
-
     # Get all possible combination of parameters
     keys, values = zip(*param_grid.items())
     experiments = [dict(zip(keys, v)) for v in itertools.product(*values)]
@@ -532,6 +581,7 @@ def grid_search(
             purge_length=purge_length,
             embargo_length=embargo_length,
             subsample=subsample,
+            train_from_future=train_from_future,
             rank_n_bins=rank_n_bins, rank_label=rank_label,
             rank_top=rank_top, rank_bottom=rank_bottom)
         # Save evaluation result of all metrics
