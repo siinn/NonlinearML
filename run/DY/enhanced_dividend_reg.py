@@ -107,22 +107,25 @@ date_column = "smDate"
 security_id = 'SecurityID'
 
 # Set train and test period
+train_begin = None
+train_end = None
 test_begin = "2012-01-01"
 test_end = "2019-05-01"
-#test_begin = "2018-01-01"
-#test_end = "2019-05-01"
+train_from_future = False
+expand_training_window = True
+force_val_length = False
 
 # Set cross-validation configuration
-k = 5         # Must be > 1
-n_epoch = 1
-subsample = 0.5
+k = 3     # Must be > 1
+n_epoch = 2
+subsample = 0.8
 purge_length = 3
 
 # Set p-value threshold for ANOVA test p_thres = 0.05
 p_thres = 0.05
 
 # Set metric for training
-cv_metric = ['Top-Bottom', 'r2', 'mlse', 'mape', 'mae', 'mse']
+cv_metric = ['Top-Bottom', 'mape', 'r2', 'mse', 'mae', 'mlse']
 
 # Set color scheme for decision boundary plot
 cmap = matplotlib.cm.get_cmap('RdYlGn')
@@ -163,7 +166,9 @@ config = {
     'label_reg':label_reg, 'label_cla':label_cla, 'label_fm':label_fm,
     'date_column':date_column, 'test_begin':test_begin, 'test_end':test_end,
     'k':k, 'n_epoch':n_epoch, 'subsample':subsample,
-    'purge_length':purge_length,
+    'purge_length':purge_length, 'train_from_future':train_from_future,
+    'force_val_length':force_val_length,
+    'expand_training_window': expand_training_window,
     'db_xlim':db_xlim, 'db_ylim':db_ylim, 'db_res' :db_res, 'db_nbins':db_nbins,
     'db_vmin':db_vmin, 'db_vmax':db_vmax,
     'db_figsize':db_figsize, 'db_annot_x':db_annot_x, 'db_annot_y':db_annot_y,
@@ -197,7 +202,8 @@ if __name__ == "__main__":
 
     # Split dataset into train and test dataset
     df_train, df_test = cv.train_test_split_by_date(
-        df, date_column, test_begin, test_end)
+        df, date_column, test_begin, test_end,
+        train_begin, train_end)
 
     #---------------------------------------------------------------------------
     # Logistic regression
@@ -231,27 +237,39 @@ if __name__ == "__main__":
     if run_xgb:
         # Set parameters to search
         param_grid_xgb = {
-            #'min_child_weight': [1000, 750, 500], #[1000, 500], #[1000], 
-            #'min_child_weight': [1500, 1000, 500], #[1000, 500], #[1000], 
-            #'min_child_weight': [1000, 0], #[1000, 500], #[1000], 
-            'min_child_weight': [1000], #[1000, 500], #[1000], 
-            #'max_depth': [3, 10],
+            #'min_child_weight': [1500, 1000, 500], 
+            #'max_depth': [3, 5, 7],
+            'min_child_weight': [1500], 
             'max_depth': [3],
-            #'eta': [0.6, 0.3, 0.11, 0.01], #[0.3]
+
             'eta': [0.3], #[0.3]
-            'n_estimators': [50], #[25, 50, 100],
+            #'eta': [0.3, 0.6, 0.11, 0.01], #[0.3]
+
+            'n_estimators': [50],
+            #'n_estimators': [50, 100],
+            #'n_estimators': [25, 50, 100],
+        
             'gamma': [0], #[0, 5, 10, 20],
-            'lambda': [1],#+np.logspace(0, 2, 3), # [1] # L2 regularization
+            #'gamma': [0, 5, 10], #[0, 5, 10, 20],
+            #'gamma': [0, 5, 10],
+
+            'lambda': [1],
+            #'lambda': np.logspace(0, 2, 3), 
+
+            'subsample': [1],
+            #'subsample': [0.5, 0.8, 1],
+
             'n_jobs':[-1],
             'objective':[
-                'reg:squarederror',
-                xgb_obj.log_square_error],
-            'subsample': [1], #[1, 0.8, 0.5, 0.30],#[1, 0.8, 0.5], # [1]
+                #'reg:squarederror',
+                xgb_obj.log_square_error
+                ],
             }
-
         # Set model
         model_xgb = XGBRegressor()
-        model_xgb_str = 'xgb_mse_mlse'
+        #model_xgb_str = 'xgb/best_fixed_window'
+        #model_xgb_str = 'xgb/best_expanding_window'
+        model_xgb_str = 'xgb/test'
 
         # Run analysis on 2D decision boundary
         rs_xgb = regression.regression_surface2D(
@@ -291,7 +309,8 @@ if __name__ == "__main__":
             model_evaluation=True,
             plot_decision_boundary=True,
             plot_residual=True,
-            save_csv=True)
+            save_csv=True,
+            verbose=True)
 
 
 
@@ -468,6 +487,61 @@ if __name__ == "__main__":
             df_input=df,
             output_path=output_path,
             date_column=config['date_column'])
+
+
+
+
+
+
+
+
+
+#________________________________________________
+#    # Extract list of metrics
+#    metric_train_names = [
+#        metric[:-7] for metric in cv_results.columns
+#            if 'train_values' in metric]
+#    metric_train_values = [
+#        metric for metric in cv_results.columns
+#            if 'train_values' in metric]
+#    metric_val_names = [
+#        metric[:-7] for metric in cv_results.columns
+#            if 'val_values' in metric]
+#    metric_val_values = [
+#        metric for metric in cv_results.columns
+#            if 'val_values' in metric]
+#
+#    # Loop over metrics to correct values in training set
+#    df_corr_train = pd.DataFrame()
+#    for name, values in zip(metric_train_names, metric_train_values):
+#        df_corr_train[name] = utils.expand_column(cv_results, values)\
+#            .stack().reset_index()[0]
+#
+#    # Loop over metrics to correct values in validation set
+#    df_corr_val = pd.DataFrame()
+#    for name, values in zip(metric_val_names, metric_val_values):
+#        df_corr_val[name] = utils.expand_column(cv_results, values)\
+#            .stack().reset_index()[0]
+#
+#    # Make line plot
+#    df_corr_train.corr()
+#    plot.plot_heatmap(
+#    df=df_corr_train.corr(),
+#    x_label='Metrics', y_label='Metrics', figsize=(8,6),
+#    annot_kws={'fontsize':10}, annot=True, fmt='.3f', cmap=cmap,
+#    filename=filename+"_train")
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

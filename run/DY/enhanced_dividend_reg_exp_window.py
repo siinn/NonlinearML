@@ -105,16 +105,24 @@ security_id = 'SecurityID'
 
 # Set train and test period
 test_period = [
+    ("2000-01-01", "2019-05-01"),
+    ("2005-01-01", "2019-05-01"),
     ("2010-01-01", "2019-05-01"),
-    ("2011-01-01", "2019-05-01"),
-    ("2012-01-01", "2019-05-01"),
-    ("2013-01-01", "2019-05-01"),
-    ("2014-01-01", "2019-05-01"),
     ("2015-01-01", "2019-05-01"),
-    ("2016-01-01", "2019-05-01"),
     ("2017-01-01", "2019-05-01"),
-    ("2018-01-01", "2019-05-01"),
     ]
+#test_period = [
+#    ("2010-01-01", "2019-05-01"),
+#    ("2011-01-01", "2019-05-01"),
+#    ("2012-01-01", "2019-05-01"),
+#    ("2013-01-01", "2019-05-01"),
+#    ("2014-01-01", "2019-05-01"),
+#    ("2015-01-01", "2019-05-01"),
+#    ("2016-01-01", "2019-05-01"),
+#    ("2017-01-01", "2019-05-01"),
+#    ("2018-01-01", "2019-05-01"),
+#    ]
+train_from_future = True
 
 # Set path to save output figures
 output_path_base = 'output/DY/%s_%s/std_%s/reg_rank%s/' % (feature_x, feature_y, standardize_label, rank_n_bins)
@@ -123,14 +131,14 @@ tfboard_path='tf_log/%s_%s/std_%s/reg_rank%s/' % (feature_x, feature_y, standard
 # Set cross-validation configuration
 k = 10 # Must be > 1
 n_epoch = 1
-subsample = 0.5
+subsample = 1
 purge_length = 3
 
 # Set p-value threshold for ANOVA test p_thres = 0.05
 p_thres = 0.05
 
 # Set metric for training
-cv_metric = ['mlse', 'mape', 'mae', 'r2', 'mse']
+cv_metric = ['Top-Bottom', 'mape', 'mlse', 'r2', 'mae', 'mse']
 
 # Set color scheme for decision boundary plot
 cmap = matplotlib.cm.get_cmap('RdYlGn')
@@ -167,7 +175,7 @@ config = {
     'label_reg':label_reg, 'label_cla':label_cla, 'label_fm':label_fm,
     'date_column':date_column,
     'k':k, 'n_epoch':n_epoch, 'subsample':subsample,
-    'purge_length':purge_length,
+    'purge_length':purge_length, 'train_from_future':train_from_future,
     'db_xlim':db_xlim, 'db_ylim':db_ylim, 'db_res' :db_res, 'db_nbins':db_nbins,
     'db_vmin':db_vmin, 'db_vmax':db_vmax,
     'db_figsize':db_figsize, 'db_annot_x':db_annot_x, 'db_annot_y':db_annot_y,
@@ -275,15 +283,15 @@ if __name__ == "__main__":
                 'lambda': [1], #np.logspace(0, 2, 3), #[1], # L2 regularization
                 'n_jobs':[-1],
                 'objective':[
-                    'reg:squarederror'],
-                    #xgb_obj.log_square_error],
+                    #'reg:squarederror'],
+                    xgb_obj.log_square_error],
                 #'feval':[xgb_metric.log_square_error],
                 'subsample': [1],#[1, 0.8, 0.5], # [1]
                 }
     
             # Set model
             model_xgb = XGBRegressor()
-            model_xgb_str = 'xgb'
+            model_xgb_str = 'xgb/mlse'
     
             # Run analysis on 2D decision boundary
             rs_xgb = regression.regression_surface2D(
