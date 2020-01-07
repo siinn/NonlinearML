@@ -26,7 +26,7 @@ def setConfig(path,filename):
     logger.addHandler(ch)
     logger.addHandler(fh)
 
-def hbar(length):
+def hbar(length=80):
     """ Draw horizontal bar with given length."""
     return '='*length
 
@@ -37,9 +37,11 @@ def title(title, length=80):
     logger.info(" " + title)
     logger.info(hbar(length))
 
-def message(message):
+def message(message, newline=False):
     """ Print message."""
     logger = logging.getLogger('__name__')
+    if newline:
+        logger.info("")
     if isinstance(message, list):
         for line in message:
             logger.info(" " + line)
