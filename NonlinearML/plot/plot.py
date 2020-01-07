@@ -77,6 +77,8 @@ def plot_distribution(
     if filename != "":
         io.message('Saving figure as "%s.png"' %filename)
         plt.savefig('%s.png' % filename)
+    fig.clear()
+    plt.close(fig)
     return
 
 def plot_dist_groupby_hue(
@@ -128,7 +130,8 @@ def plot_dist_groupby_hue(
     create_folder(filename)
     plt.tight_layout()
     plt.savefig('%s.png' % filename)
-    plt.cla()
+    fig.clear()
+    plt.close(fig)
     return
 
 def plot_dist_hue(
@@ -173,12 +176,15 @@ def plot_dist_hue(
     create_folder(filename)
     plt.tight_layout()
     plt.savefig('%s.png' % filename)
-    plt.cla()
+    fig.clear()
+    plt.close(fig)
+    return
 
 
 def plot_line_groupby(
     df, x, y, groupby, group_label, ylog=False, x_label="", y_label="",
     figsize=(20,6), filename="", xlim=None, ylim=None, legend_order=None,
+    legend_loc=None, legend_box=(0,-0.2),
     **kwargs):
     ''' create line plot for different group in the same axes.
     Args:
@@ -229,12 +235,14 @@ def plot_line_groupby(
     create_folder(filename)
     plt.tight_layout()
     plt.savefig('%s.png' % filename)
-    plt.cla()
+    fig.clear()
+    plt.close(fig)
+    return
 
 
 def plot_line_multiple_cols(
     df, x, list_y, legends, x_label, y_label, ylog=False, figsize=(20,6),
-    filename="", **kwargs):
+    filename="", legend_loc=None, legend_box=(0,-0.2), **kwargs):
     ''' Create line plot from multiple columns in the same axes.
     Args:
         df: Pandas dataframe
@@ -264,10 +272,14 @@ def plot_line_multiple_cols(
         ax[0].set_yscale('log')
     # Create output folder and save figure
     create_folder(filename)
-    plt.legend()
+    if legend_loc==None:
+        ax[0].legend()
+    else:
+        ax[0].legend(loc=legend_loc, bbox_to_anchor=legend_box)
     plt.tight_layout()
     plt.savefig('%s.png' % filename)
-    plt.cla()
+    fig.clear()
+    plt.close(fig)
     return
     
 def plot_heatmap(
@@ -290,6 +302,9 @@ def plot_heatmap(
     create_folder(filename)
     plt.tight_layout()
     plt.savefig('%s.png' % filename)
+    fig.clear()
+    plt.close(fig)
+    return
 
 
 def plot_scatter(
@@ -323,7 +338,8 @@ def plot_scatter(
     create_folder(filename)
     plt.tight_layout()
     plt.savefig('%s.png' % filename)
-    plt.cla()
+    fig.clear()
+    plt.close(fig)
     return
 
 def plot_reg(
@@ -357,7 +373,8 @@ def plot_reg(
     create_folder(filename)
     plt.tight_layout()
     plt.savefig('%s.png' % filename)
-    plt.cla()
+    fig.clear()
+    plt.close(fig)
     return
 
 def plot_box(
@@ -396,6 +413,8 @@ def plot_box(
         # Create output folder and save figure
         create_folder(filename)
         plt.savefig('%s.png' % filename)
+    fig.clear()
+    plt.close(fig)
     return
 
 
@@ -444,5 +463,7 @@ def plot_heatmap_group(
         # Create output folder and save figure
         create_folder(filename)
         plt.savefig('%s.png' % filename)
+    fig.clear()
+    plt.close(fig)
     return
 
