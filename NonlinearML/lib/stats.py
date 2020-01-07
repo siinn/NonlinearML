@@ -105,8 +105,6 @@ def select_best_model_by_anova(cv_results, cv_metric, param_grid, p_thres):
     # Extract list of metrics
     metric_names = [
         metric[:-11] for metric in cv_results.columns if 'val_values' in metric]
-    #metric_values = [
-    #    metric for metric in cv_results.columns if 'val_values' in metric]
 
     # Perform ANOVA and post hoc test on each metrics
     f_stats = {}
@@ -119,7 +117,7 @@ def select_best_model_by_anova(cv_results, cv_metric, param_grid, p_thres):
     io.message("Performing ANOVA test..")
     io.message(" > p-value threshold: %s" % p_thres)
     for metric in metric_names:
-        values = metric+"_values"
+        values = metric+"_val_values"
 
         # Extract values of CV results
         model_perf = utils.expand_column(cv_results, values)
@@ -130,10 +128,15 @@ def select_best_model_by_anova(cv_results, cv_metric, param_grid, p_thres):
 
         # If p-value is less than the threshold, perform post hoc test.
         if p_values[metric] < p_thres:
-            post_hoc_results[metric] = post_hoc_test(model_perf, p_thres)
+            # If post-hoc test fails for all pair, discard from post hoc results
+            if post_hoc_test(model_perf, p_thres)['reject'].sum() > 0:
+                post_hoc_results[metric] = post_hoc_test(model_perf, p_thres)
+            else:
+                io.message("\t> (%s failed post-hoc test)" % (metric))
 
     # Select metric with associated p-value < p_thres
     cv_metric = [x for x in cv_metric if x in post_hoc_results.keys()]
+
 
     # If one of the specified metrics passed ANOVA, perform post hoc test
     if len(cv_metric) > 0:
@@ -142,7 +145,7 @@ def select_best_model_by_anova(cv_results, cv_metric, param_grid, p_thres):
         io.message("\t> %s is selected as metric." %selected_metric)
 
         # Index of the model with the highest score
-        id_max = cv_results[selected_metric].idxmax()
+        id_max = cv_results[selected_metric+"_val_mean"].idxmax()
         io.message("\t> Model %s has the highest score" % id_max)
 
         # Filter result by the model with the highest score
