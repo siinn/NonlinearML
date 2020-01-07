@@ -52,7 +52,8 @@ def get_tertile_boundary(df, variables):
         results[var] = list((lower_boundary + upper_boundary) / 2)
     return results
 
-def train_test_split(df, date_column, test_begin, test_end, train_length=None, train_end=None):
+def train_test_split(
+    df, date_column, test_begin, test_end, train_length=None, train_end=None):
     ''' create train and test dataset.
     Args:
         df: pandas dataframe
@@ -66,20 +67,27 @@ def train_test_split(df, date_column, test_begin, test_end, train_length=None, t
         df_test: test dataset
     '''
     # Select test dataset
-    df_test = df.loc[(df[date_column] >= test_begin) & (df[date_column] <= test_end)]
+    df_test = df.loc[(df[date_column] >= test_begin)
+                & (df[date_column] <= test_end)]
 
     # If train_length is not defined, select the rest as train dataset
     if train_length==None:
-        df_train = df.loc[(df[time_column] < validation_begin) | (df[time_column] > validation_end)]
+        df_train = df.loc[(df[time_column] < validation_begin)
+                    | (df[time_column] > validation_end)]
     else:
-    	# If train_length is defined, only select data between train_end and (train_end - train_length)
-        train_begin = train_end - dateutil.relativedelta.relativedelta(months=train_length)
-        df_train = df.loc[(df[date_column] >= train_begin) & (df[date_column] <= train_end)]
+    	# If train_length is defined, only select data between train_end
+        #and (train_end - train_length)
+        train_begin =\
+            train_end - dateutil.relativedelta\
+                .relativedelta(months=train_length)
+        df_train = df.loc[(df[date_column] >= train_begin)
+            & (df[date_column] <= train_end)]
     return df_train, df_test
 
 
 def train_val_split_by_col(df, col, train_size=0.8):
-    ''' Split train dataset into train and validation set using unique values of the given column.
+    ''' Split train dataset into train and validation set using unique values
+    of the given column.
     Args:
         df: pandas dataframe
         col: namem of column used for splitting. ex. "SecurityID"
@@ -93,11 +101,19 @@ def train_val_split_by_col(df, col, train_size=0.8):
         train, val = sklearn_train_test_split(x, train_size=train_size)
         return train, val
     # Split unique values of column into train and validation
-    df_securityID_by_sector = df.groupby("GICSSubIndustryNumber")["SecurityID"].unique()
+    df_securityID_by_sector = df.groupby("GICSSubIndustryNumber")["SecurityID"]\
+                                .unique()
     # Apply split function and get stratified list
-    list_train = df_securityID_by_sector.apply(_split).apply(lambda x:x[0]).apply(pd.Series).stack().values
-    list_val = df_securityID_by_sector.apply(_split).apply(lambda x:x[1]).apply(pd.Series).stack().values
-    #list_train, list_val = sklearn_train_test_split(df[col].unique(), train_size=train_size) 
+    list_train = df_securityID_by_sector\
+                    .apply(_split)\
+                    .apply(lambda x:x[0])\
+                    .apply(pd.Series)\
+                    .stack().values
+    list_val = df_securityID_by_sector\
+                    .apply(_split)\
+                    .apply(lambda x:x[1])\
+                    .apply(pd.Series)\
+                    .stack().values
     # Create train and validation dataset using the sampled lists
     df_train = df.loc[df[col].isin(list_train)]
     df_val = df.loc[df[col].isin(list_val)]
@@ -106,16 +122,19 @@ def train_val_split_by_col(df, col, train_size=0.8):
 
 
 def concat_pred_label(df, prediction, columns=[], pred_name='pred'):
-    ''' Concatenate prediction, true classification label and numerical label into the same dataframe.
+    ''' Concatenate prediction, true classification label and numerical label
+    into the same dataframe.
     Args:
         df: dataframe used to in prediction
         pred: prediction made by model
-        columns: columns to copy from original dataframe. ex. ["eom", label_cla, label_reg]
+        columns: columns to copy from original dataframe.
+            ex. ["eom", label_cla, label_reg]
         pred_name: name of prediction column
     '''
     # Combine prediction with true label
-    df_result = pd.concat([df[columns].copy().reset_index().drop("index", axis=1),
-                           pd.DataFrame(prediction, columns=['pred'])], axis=1)
+    df_result = pd.concat(
+            [df[columns].copy().reset_index().drop("index", axis=1),
+                pd.DataFrame(prediction, columns=['pred'])], axis=1)
     return df_result
 
 
@@ -138,7 +157,8 @@ def discretize_variables_by_month(
         # Assign classes
         df["_".join([var, suffix])] = df.groupby([month])[var]\
             .transform(
-                lambda x: pd.qcut(x.rank(method='first'), n_classes, class_names))
+                lambda x: pd.qcut(x.rank(method='first'),
+                    n_classes, class_names))
     return df
 
 
@@ -159,29 +179,32 @@ def discretize_variables_by_month(
     
 
 
-def last_cum_return(df, time="eom"):
-    ''' Return last cumulative return and the difference between top and bottom classes as below.
-        diff = Q1 - Q3
-    Args:
-        df: dataframe containing cumulative return. output of fit_and_calculate_cum_return
-        time: column representing time
-    '''
-    # Find last month
-    last=df.sort_values(time, ascending=False)[time].iloc[0]
-    df_last=df.loc[df[time]==last]
-    # Sum return of top groups
-    #return_top = 0
-    #for top in sorted(df["pred"].unique())[:-1]:
-    #    return_top = return_top + df_last.loc[df_last["pred"] == top]["cumulative_return"].iloc[0]
-    # Calculate difference in return between top and bottom group
-    return_top = df_last.loc[df_last["pred"] == sorted(df["pred"].unique())[0]]["cumulative_return"].iloc[0]
-    return_bottom = df_last.loc[df_last["pred"] == sorted(df["pred"].unique())[-1]]["cumulative_return"].iloc[0]
-    return_diff = return_top - return_bottom
-    return return_top, return_bottom, return_diff
+#def last_cum_return(df, time="eom"):
+#    ''' Return last cumulative return and the difference between top and bottom
+#    classes as below.
+#        diff = Q1 - Q3
+#    Args:
+#        df: dataframe containing cumulative return. output of
+#        fit_and_calculate_cum_return
+#        time: column representing time
+#    '''
+#    # Find last month
+#    last=df.sort_values(time, ascending=False)[time].iloc[0]
+#    df_last=df.loc[df[time]==last]
+#    # Calculate difference in return between top and bottom group
+#    return_top = df_last.loc[
+#        df_last["pred"] == sorted(df["pred"].unique())[0]]\
+#            ["cumulative_return"].iloc[0]
+#    return_bottom = df_last.loc[
+#        df_last["pred"] == sorted(df["pred"].unique())[-1]]\
+#            ["cumulative_return"].iloc[0]
+#    return_diff = return_top - return_bottom
+#    return return_top, return_bottom, return_diff
 
 
 def predict(
-    model, df_train, df_test, features, label, date_column, cols, rank=False):
+    model, df_train, df_test, features, label, date_column, cols,
+    expand_window=False):
     ''' Train model using best params and make prediction using trained model
     on both train and test dataset. label_fm which represent continuous target
     variable is joined to the prediction.
@@ -191,25 +214,24 @@ def predict(
         features: list of features
         label: target label
         cols: Other columns to include in output dataframe
-        rank: If True, prediction is made by ranking the regression output.
+        expand_window: If True, expand training window by 1 time step and make
+            inference on the next time step. It continues until reaching the
+            end of time. ex.
+                                                     | End of dataset
+                [   train   ][test]                  | 
+                [    train   ][test]                 |
+                 ...
+                [             train           ][test]|
     Return:
         pred_train, pred_test: prediction of train and test dataset
         model: trained model
     '''
     io.message("Making prediction:\n%s" % model)
-    # Fit model
-    model.fit(df_train[features], df_train[label])
-    if rank:
-        # Make prediction and concatenate prediction and true label
-        pred_train  = concat_pred_label(
-            df=df_train,
-            prediction=model.predict(df_train[features], df_train[date_column]),
-            columns=[date_column]+features+cols)
-        pred_test  = concat_pred_label(
-            df=df_test,
-            prediction=model.predict(df_test[features], df_test[date_column]),
-            columns=[date_column]+features+cols)
-    else:
+    io.message("Expand window=%s" % expand_window)
+    # Fixed window training and prediction
+    if not expand_window:
+        # Fit model
+        model.fit(df_train[features], df_train[label])
         # Make prediction and concatenate prediction and true label
         pred_train  = concat_pred_label(
             df=df_train,
@@ -219,34 +241,38 @@ def predict(
             df=df_test,
             prediction=model.predict(df_test[features]),
             columns=[date_column]+features+cols)
+    # Expanding window training and prediction
+    else:
+        pred_test = pd.DataFrame()
+        period = sorted(df_test[date_column].unique())
 
+        # Iterate until n-1 time steps
+        for curr in range(-1, len(period)-1):
+            # Append new time period to train
+            if curr >= 0:
+                df_curr = df_test.loc[df_test[date_column] == period[curr]]
+                df_train = df_train.append(df_curr)
+            df_next = df_test.loc[df_test[date_column] == period[curr+1]]
+            # Fit model
+            model.fit(df_train[features], df_train[label])
+            # Make prediction on next time step
+            pred_test = pred_test.append(
+                concat_pred_label(
+                    df=df_next,
+                    prediction=model.predict(df_next[features]),
+                    columns=[date_column]+features+cols))
+        # Make prediction on training set
+        pred_train = concat_pred_label(
+            df=df_train,
+            prediction=model.predict(df_train[features]),
+            columns=[date_column]+features+cols)
+        # Reset index before return test prediction
+        pred_test = pred_test.reset_index().drop('index', axis=1)
     return pred_train, pred_test, model
 
-#def calculate_cum_return(pred_train, pred_test, label_fm, time="eom"):
-#    ''' Calculate cumulative return using the prediction.
-#    Args:
-#        pred_train, pred_test: prediction of train and test dataset. This is
-#            an output of utils.prediction function.
-#        label_fm: monthly return used for calculating cumulative return
-#        time: column name representing time
-#    Return:
-#        df_cum_return_train: cumulative return calculated from train dataset
-#        df_cum_return_test: cumulative return calculated from test dataset
-#        model: trained model
-#    '''
-#    # Calculate cumulative return
-#    io.title("Calculating cumulative return")
-#    df_cum_return_train = cumulative_return_from_classification(
-#        pred_train, var="pred", var_classes="pred",
-#        total_return=label_fm, time=time)
-#    df_cum_return_test = cumulative_return_from_classification(
-#        pred_test, var="pred", var_classes="pred",
-#        total_return=label_fm, time=time)
-#    return df_cum_return_train, df_cum_return_test
-
-
 def grid_search(
-    model, param_grid, df_train, df_val, features, label_cla, label_fm, label_reg=False):
+    model, param_grid, df_train, df_val, features,
+    label_cla, label_fm, label_reg=False):
     ''' Perform grid search and return the best parameter set based on
     the following metric:
         metric: val_diff - abs(train_diff - val_diff)
@@ -261,8 +287,8 @@ def grid_search(
         label_cla: name of column in dataframe that represent classification
             label
         label_fm: name of column used for calculating cumulative return
-        label_reg: If specified, model is triained on this regression label. label_cla
-            is ignored
+        label_reg: If specified, model is triained on this regression label.
+            label_cla is ignored
     Return:
         (best parameters, summary in dataframe)
     '''
@@ -279,9 +305,9 @@ def grid_search(
     count=0
     for params in experiments:
         count = count + 1
-        io.message("-----------------------------------------------------------")
+        io.hbar()
         io.message("Experiment (%s/%s)" % (count, n_experiments))
-        io.message("-----------------------------------------------------------")
+        io.hbar()
         io.message("Parameters:")
         io.message(params)
         # Make prediction using best parameters
