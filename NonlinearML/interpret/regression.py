@@ -660,7 +660,7 @@ def regression_surface2D_residual(
             model_evaluation_train = cv.evaluate_top_bottom_strategy(
                 df=pred_train,
                 date_column=config['date_column'],
-                label=config['label_fm'], y_pred=pred_train['pred_return'],
+                label_fm=config['label_fm'], y_pred=pred_train['pred_return'],
                 rank_n_bins=config['rank_n_bins'],
                 rank_label=config['rank_label'],
                 rank_top=config['rank_top'], rank_bottom=config['rank_bottom'],
@@ -669,7 +669,7 @@ def regression_surface2D_residual(
             model_evaluation_test = cv.evaluate_top_bottom_strategy(
                 df=pred_test,
                 date_column=config['date_column'],
-                label=config['label_fm'], y_pred=pred_test['pred_return'],
+                label_fm=config['label_fm'], y_pred=pred_test['pred_return'],
                 rank_n_bins=config['rank_n_bins'],
                 rank_label=config['rank_label'],
                 rank_top=config['rank_top'], rank_bottom=config['rank_bottom'],
