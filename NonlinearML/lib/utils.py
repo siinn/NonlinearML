@@ -162,45 +162,6 @@ def discretize_variables_by_month(
     return df
 
 
-#def make_prediction(model, df_train, df_test, features, label):
-#    ''' Train model with df_train and make predictions on df_test
-#    Args:
-#        df_train, df_test: train and test dataset in Pandas DataFrame
-#        features: list of features
-#        label: name of label column
-#    Return:
-#        pred_test: prediction of test dataset.
-#    '''
-#    # Fit model
-#    model.fit(X=df_train[features], y=df_train[label])
-#    # Make prediction
-#    pred_test = model.predict(df_test[features])
-#    return pred_test
-    
-
-
-#def last_cum_return(df, time="eom"):
-#    ''' Return last cumulative return and the difference between top and bottom
-#    classes as below.
-#        diff = Q1 - Q3
-#    Args:
-#        df: dataframe containing cumulative return. output of
-#        fit_and_calculate_cum_return
-#        time: column representing time
-#    '''
-#    # Find last month
-#    last=df.sort_values(time, ascending=False)[time].iloc[0]
-#    df_last=df.loc[df[time]==last]
-#    # Calculate difference in return between top and bottom group
-#    return_top = df_last.loc[
-#        df_last["pred"] == sorted(df["pred"].unique())[0]]\
-#            ["cumulative_return"].iloc[0]
-#    return_bottom = df_last.loc[
-#        df_last["pred"] == sorted(df["pred"].unique())[-1]]\
-#            ["cumulative_return"].iloc[0]
-#    return_diff = return_top - return_bottom
-#    return return_top, return_bottom, return_diff
-
 
 def predict(
     model, df_train, df_test, features, label, date_column, cols,
