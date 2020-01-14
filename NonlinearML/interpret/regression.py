@@ -132,19 +132,24 @@ def regression_surface2D(
             n_bins=cv_hist_n_bins, x_range=None, legend_loc=None,
             legend_box=(1, 1), figsize=cv_hist_figsize, alpha=cv_hist_alpha,
             hist_type='stepfilled', edgecolor='black',
-            filename=output_path+"cross_validation/cv_hist")
+            filename=output_path+"cross_validation/hist/cv_hist")
 
         plot_cv.plot_cv_box(
             cv_results,
-            filename=output_path+"cross_validation/cv_box",
+            filename=output_path+"cross_validation/box/cv_box",
             figsize=cv_box_figsize, color=cv_box_color)
 
         plot_cv.plot_cv_line(
-            cv_results, filename=output_path+"cross_validation/cv_line",
+            cv_results, filename=output_path+"cross_validation/line/cv_line",
             marker='.', markersize=20)
 
-        plot_cv.plot_cv_correlation(
-            cv_results, filename=output_path+"cross_validation/cv_corr")
+        plot_cv.plot_cv_correlation_heatmap(
+            cv_results, 
+            filename=output_path+"cross_validation/correlation/cv_corr")
+
+        plot_cv.plot_cv_correlation_scatter(
+            cv_results, 
+            filename=output_path+"cross_validation/correlation/cv_corr")
 
 
         # Plot decision boundaries of all hyperparameter sets
@@ -339,9 +344,6 @@ def regression_surface2D(
         res_test = pred_test[config['label_reg']] - pred_test['pred']
         
         # Plot distribution of prediction and target
-        #import pdb;pdb.set_trace()
-        #pd.concat([res_train, res_test], keys=['Train', 'Test'], axis=1).stack().reset_index(level=-1).rename({0:'Residual (%s - Prediction)' %config['label_reg']},axis=1)
-
         plot.plot_dist_hue(
             df= pd.concat(
                 [res_train, res_test], keys=['Train', 'Test'], axis=1)\
