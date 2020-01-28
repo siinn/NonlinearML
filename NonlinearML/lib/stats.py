@@ -68,7 +68,7 @@ def post_hoc_test(df_data, p_thres):
             columns=post_hoc.tukeyhsd(alpha=p_thres).summary().data[0])
     return df_posthoc
 
-def get_high_correlated_metric(cv_results, cv_metric):
+def get_highest_correlated_metric(cv_results, cv_metric):
     """ Select metric with the highest correlation with top-bottom metric.
     Args:
         cv_results: Output of CV method (grid_search_purged_cv)
@@ -180,7 +180,7 @@ def select_best_model_by_anova(
         # Select metric
         if metric_selection=='corr':
             io.message("Metric selection: By correlation with Top-Bottom strategy")
-            selected_metric = get_high_correlated_metric(cv_results, cv_metric)
+            selected_metric = get_highest_correlated_metric(cv_results, cv_metric)
         elif metric_selection=='p':
             io.message("Metric selection: By p-value")
             selected_metric = sorted(
