@@ -21,9 +21,11 @@ def plot_cv_dist(
     Returns:
         None
     '''
+    # Set constants
+    NUM_TAIL_CHARS = -7
     # Extract list of metrics
     metric_names = [
-        metric[:-7] for metric in cv_results.columns if 'values' in metric]
+        metric[:NUM_TAIL_CHARS] for metric in cv_results.columns if 'values' in metric]
     metric_values = [
         metric for metric in cv_results.columns if 'values' in metric]
 
@@ -65,9 +67,11 @@ def plot_cv_box(cv_results, filename, figsize=(8,5), **kwargs):
     Returns:
         None
     '''
+    # Set constants
+    NUM_TAIL_CHARS = -7
     # Extract list of metrics
     metric_names = [
-        metric[:-7] for metric in cv_results.columns if 'values' in metric]
+        metric[:NUM_TAIL_CHARS] for metric in cv_results.columns if 'values' in metric]
     metric_values = [
         metric for metric in cv_results.columns if 'values' in metric]
 
@@ -108,9 +112,11 @@ def plot_cv_line(
     Returns:
         None
     '''
+    # Set constants
+    NUM_TAIL_CHARS = -7
     # Extract list of metrics
     metric_names = [
-        metric[:-7] for metric in cv_results.columns if 'values' in metric]
+        metric[:NUM_TAIL_CHARS] for metric in cv_results.columns if 'values' in metric]
     metric_values = [
         metric for metric in cv_results.columns if 'values' in metric]
 
@@ -140,15 +146,17 @@ def plot_cv_correlation_heatmap(
     Returns:
         None
     '''
+    # Set constants
+    NUM_TAIL_CHARS = -7
     # Extract list of metrics
     metric_train_names = [
-        metric[:-7] for metric in cv_results.columns
+        metric[:NUM_TAIL_CHARS] for metric in cv_results.columns
             if 'train_values' in metric]
     metric_train_values = [
         metric for metric in cv_results.columns
             if 'train_values' in metric]
     metric_val_names = [
-        metric[:-7] for metric in cv_results.columns
+        metric[:NUM_TAIL_CHARS] for metric in cv_results.columns
             if 'val_values' in metric]
     metric_val_values = [
         metric for metric in cv_results.columns
@@ -194,15 +202,17 @@ def plot_cv_correlation_scatter(
     Returns:
         None
     '''
+    # Set constants
+    NUM_TAIL_CHARS = -7
     # Extract list of metrics
     metric_train_names = [
-        metric[:-7] for metric in cv_results.columns
+        metric[:NUM_TAIL_CHARS] for metric in cv_results.columns
             if 'train_values' in metric]
     metric_train_values = [
         metric for metric in cv_results.columns
             if 'train_values' in metric]
     metric_val_names = [
-        metric[:-7] for metric in cv_results.columns
+        metric[:NUM_TAIL_CHARS] for metric in cv_results.columns
             if 'val_values' in metric]
     metric_val_values = [
         metric for metric in cv_results.columns
