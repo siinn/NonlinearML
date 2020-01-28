@@ -43,6 +43,17 @@ Conda environment is recommended to run this package.
  pip install NonlinearML
  ```
 
+# Version history
+## 1.03
+
+## 1.02
+- Implemented additional metrics: Risk-adjusted return, combined z-score.
+- Added options for selecting CV metric
+- Added correlation plot in CV study
+
+## 1.0
+- Initial version
+
 # Contact
 Please contact siinn.che[AT]gmail.com for more information.
 
