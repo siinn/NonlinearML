@@ -130,7 +130,7 @@ def plot_cv_line(
     return
 
 def plot_cv_correlation_heatmap(
-    cv_results, filename, figsize=(8,6), mask=False, **kwargs):
+    cv_results, filename, figsize=(16,12), mask=False, **kwargs):
     ''' Plot correlation among different metrics such as r2, MSE, MAPE, etc.
     Args:
         cv_results: Cross-validation result from grid_search_purged_cv or
