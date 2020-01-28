@@ -399,7 +399,8 @@ def plot_box(
                      boxprops={"edgecolor":"black"},
                      flierprops={"markeredgecolor":"black", "marker":"."},
                      whiskerprops={"color":"black"},
-                     meanprops={"color":"blue"},
+                     showmeans=True, meanline=True,
+                     meanprops={"color":"crimson", 'linewidth':3},
                      medianprops={"color":"black"},
                      capprops ={"color":"black"},
                      **kwargs)
