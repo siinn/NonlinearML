@@ -32,7 +32,7 @@ def anova_test(df_data, verbose=False):
     if verbose:
         io.message(" >> F-statistics = %s, p-value = %s" % (f_stat, p_value))
         io.message(" >> DOF1 (K-1) = %s, DOF2 (N-K) = %s" % (dof1, dof2))
-    return round(f_stat, 6), round(p_value, 6)
+    return round(f_stat, 6), round(p_value, 12)
 
 def two_sample_ttest(df_stacked, p_thres):
     """ Perform two sample t-test."""
@@ -98,7 +98,7 @@ def get_high_correlated_metric(cv_results, cv_metric):
                       .index[0][:-4]
 
 def select_best_model_by_anova(
-    cv_results, cv_metric, param_grid, p_thres, metric_corr=True):
+    cv_results, cv_metric, param_grid, p_thres, metric_selection=None):
     """ Select best model by performing ANOVA and post-hoc test.
     
     The preferred model is selected among the models within the statistical
@@ -116,9 +116,15 @@ def select_best_model_by_anova(
             metric is selcted by the order given in the list.
         param_grid: Hyperparameter grid used to return best hyperparameters
         p_thres: p-value threshold for ANOVA. ex. 0.05
-        metric_corr: If True, metric is selected by examine the correlation
-            with Top-Bottom metric. Else, metric is selected by user 
-            preference.
+        metric_selection: Set how metric should be selected.
+            Available options: 
+                corr: metric with highest correlation with Top-bottom
+                    strategy is selected.
+                p: metric with the lowest p-value is selected
+                f: metric with the highest f-stat is selected
+                combined: user-specified metrics are standardized and
+                    averaged.
+                None: metric is selected by pre-defined user preference.
     Returns:
         f_stats: f-statistics of all models calculated using each metric
         p_values: p-values of all models calculated using each metric
@@ -169,16 +175,32 @@ def select_best_model_by_anova(
     # Select metric with associated p-value < p_thres
     cv_metric = [x for x in cv_metric if x in post_hoc_results.keys()]
 
-
     # If one of the specified metrics passed ANOVA, perform post hoc test
     if len(cv_metric) > 0:
-
         # Select metric
-        if metric_corr:
+        if metric_selection=='corr':
+            io.message("Metric selection: By correlation with Top-Bottom strategy")
             selected_metric = get_high_correlated_metric(cv_results, cv_metric)
+        elif metric_selection=='p':
+            io.message("Metric selection: By p-value")
+            selected_metric = sorted(
+                p_values.items(), key=lambda x:x[1])[0][0]
+        elif metric_selection=='f':
+            io.message("Metric selection: By f-stat")
+            selected_metric = sorted(
+                f_stats.items(), key=lambda x:x[1], reverse=True)[0][0]
+        elif metric_selection=='combined':
+            io.message("Metric selection: By combined metric")
+            if not 'combined_zscore' in post_hoc_results.keys():
+                io.message("> Combined score didn't pass ANOVA test.")
+                io.message("> Metric is selected by pre-defined user preference.")
+                selected_metric = cv_metric[0]
+            else:
+                selected_metric = 'combined_zscore'
         else:
+            io.message("Metric selection: By pre-defined user preference")
             selected_metric = cv_metric[0]
-        io.message("\t> %s is selected as metric." %selected_metric)
+        io.message("> %s is selected as metric." %selected_metric)
 
         # Index of the model with the highest score
         id_max = cv_results[selected_metric+"_val_mean"].idxmax()
