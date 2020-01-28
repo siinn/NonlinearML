@@ -321,7 +321,10 @@ def plot_scatter(
     # create figure and axes
     fig, ax = plt.subplots(1, 1, figsize=figsize, squeeze=False)
     # make scatter plot
-    ax = sns.scatterplot(data=df, x=x, y=y, **kwargs)
+    if legend:
+        ax = sns.scatterplot(data=df, x=x, y=y, legend='full', **kwargs)
+    else:
+        ax = sns.scatterplot(data=df, x=x, y=y, **kwargs)
     # customize plot
     ax.set_ylabel(y_label)
     ax.set_xlabel(x_label)
@@ -396,7 +399,8 @@ def plot_box(
                      boxprops={"edgecolor":"black"},
                      flierprops={"markeredgecolor":"black", "marker":"."},
                      whiskerprops={"color":"black"},
-                     meanprops={"color":"blue"},
+                     showmeans=True, meanline=True,
+                     meanprops={"color":"crimson", 'linewidth':3},
                      medianprops={"color":"black"},
                      capprops ={"color":"black"},
                      **kwargs)

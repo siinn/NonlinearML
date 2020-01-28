@@ -102,6 +102,7 @@ def regression_surface2D(
             date_column=config['date_column'],
             train_from_future=config['train_from_future'],
             k=config['k'], purge_length=config['purge_length'],
+            cv_metric=config['cv_metric'],
             output_path=output_path+"cross_validation/",
             rank_n_bins=config['rank_n_bins'], rank_label=config['rank_label'],
             rank_top=config['rank_top'], rank_bottom=config['rank_bottom'],
@@ -132,19 +133,24 @@ def regression_surface2D(
             n_bins=cv_hist_n_bins, x_range=None, legend_loc=None,
             legend_box=(1, 1), figsize=cv_hist_figsize, alpha=cv_hist_alpha,
             hist_type='stepfilled', edgecolor='black',
-            filename=output_path+"cross_validation/cv_hist")
+            filename=output_path+"cross_validation/hist/cv_hist")
 
         plot_cv.plot_cv_box(
             cv_results,
-            filename=output_path+"cross_validation/cv_box",
+            filename=output_path+"cross_validation/box/cv_box",
             figsize=cv_box_figsize, color=cv_box_color)
 
         plot_cv.plot_cv_line(
-            cv_results, filename=output_path+"cross_validation/cv_line",
+            cv_results, filename=output_path+"cross_validation/line/cv_line",
             marker='.', markersize=20)
 
-        plot_cv.plot_cv_correlation(
-            cv_results, filename=output_path+"cross_validation/cv_corr")
+        plot_cv.plot_cv_correlation_heatmap(
+            cv_results, 
+            filename=output_path+"cross_validation/correlation/cv_corr")
+
+        plot_cv.plot_cv_correlation_scatter(
+            cv_results, 
+            filename=output_path+"cross_validation/correlation/cv_corr")
 
 
         # Plot decision boundaries of all hyperparameter sets
@@ -339,9 +345,6 @@ def regression_surface2D(
         res_test = pred_test[config['label_reg']] - pred_test['pred']
         
         # Plot distribution of prediction and target
-        #import pdb;pdb.set_trace()
-        #pd.concat([res_train, res_test], keys=['Train', 'Test'], axis=1).stack().reset_index(level=-1).rename({0:'Residual (%s - Prediction)' %config['label_reg']},axis=1)
-
         plot.plot_dist_hue(
             df= pd.concat(
                 [res_train, res_test], keys=['Train', 'Test'], axis=1)\
@@ -543,10 +546,13 @@ def regression_surface2D_residual(
             n_epoch=config['n_epoch'], subsample=config['subsample'],
             features=features, label=label, label_fm=config['label_fm'],
             date_column=config['date_column'],
+            train_from_future=config['train_from_future'],
             k=config['k'], purge_length=config['purge_length'],
+            cv_metric=config['cv_metric'],
             output_path=output_path+"cross_validation/",
             rank_n_bins=config['rank_n_bins'], rank_label=config['rank_label'],
             rank_top=config['rank_top'], rank_bottom=config['rank_bottom'],
+            force_val_length=config['force_val_length'],
             verbose=verbose)
 
 
@@ -574,6 +580,7 @@ def regression_surface2D_residual(
             legend_box=(1, 1), figsize=cv_hist_figsize, alpha=cv_hist_alpha,
             hist_type='stepfilled', edgecolor='black',
             filename=output_path+"cross_validation/cv_hist")
+
         plot_cv.plot_cv_box(
             cv_results,
             filename=output_path+"cross_validation/cv_box",
@@ -660,7 +667,7 @@ def regression_surface2D_residual(
             model_evaluation_train = cv.evaluate_top_bottom_strategy(
                 df=pred_train,
                 date_column=config['date_column'],
-                label=config['label_fm'], y_pred=pred_train['pred_return'],
+                label_fm=config['label_fm'], y_pred=pred_train['pred_return'],
                 rank_n_bins=config['rank_n_bins'],
                 rank_label=config['rank_label'],
                 rank_top=config['rank_top'], rank_bottom=config['rank_bottom'],
@@ -669,7 +676,7 @@ def regression_surface2D_residual(
             model_evaluation_test = cv.evaluate_top_bottom_strategy(
                 df=pred_test,
                 date_column=config['date_column'],
-                label=config['label_fm'], y_pred=pred_test['pred_return'],
+                label_fm=config['label_fm'], y_pred=pred_test['pred_return'],
                 rank_n_bins=config['rank_n_bins'],
                 rank_label=config['rank_label'],
                 rank_top=config['rank_top'], rank_bottom=config['rank_bottom'],

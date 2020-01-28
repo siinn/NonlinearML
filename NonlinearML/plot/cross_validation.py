@@ -21,9 +21,11 @@ def plot_cv_dist(
     Returns:
         None
     '''
+    # Set constants
+    NUM_TAIL_CHARS = -7
     # Extract list of metrics
     metric_names = [
-        metric[:-7] for metric in cv_results.columns if 'values' in metric]
+        metric[:NUM_TAIL_CHARS] for metric in cv_results.columns if 'values' in metric]
     metric_values = [
         metric for metric in cv_results.columns if 'values' in metric]
 
@@ -65,9 +67,11 @@ def plot_cv_box(cv_results, filename, figsize=(8,5), **kwargs):
     Returns:
         None
     '''
+    # Set constants
+    NUM_TAIL_CHARS = -7
     # Extract list of metrics
     metric_names = [
-        metric[:-7] for metric in cv_results.columns if 'values' in metric]
+        metric[:NUM_TAIL_CHARS] for metric in cv_results.columns if 'values' in metric]
     metric_values = [
         metric for metric in cv_results.columns if 'values' in metric]
 
@@ -108,9 +112,11 @@ def plot_cv_line(
     Returns:
         None
     '''
+    # Set constants
+    NUM_TAIL_CHARS = -7
     # Extract list of metrics
     metric_names = [
-        metric[:-7] for metric in cv_results.columns if 'values' in metric]
+        metric[:NUM_TAIL_CHARS] for metric in cv_results.columns if 'values' in metric]
     metric_values = [
         metric for metric in cv_results.columns if 'values' in metric]
 
@@ -129,9 +135,66 @@ def plot_cv_line(
 			legend_loc=None, legend_box=(0,-0.2), **kwargs)
     return
 
-def plot_cv_correlation(
-	cv_results, filename, figsize=(8,5), mask=False, **kwargs):
+def plot_cv_correlation_heatmap(
+    cv_results, filename, figsize=(16,12), mask=False, **kwargs):
     ''' Plot correlation among different metrics such as r2, MSE, MAPE, etc.
+    Args:
+        cv_results: Cross-validation result from grid_search_purged_cv or
+            grid_search_cv function
+        mask: If True, only show a half of correlation plot.
+        others: Plotting options
+    Returns:
+        None
+    '''
+    # Set constants
+    NUM_TAIL_CHARS = -7
+    # Extract list of metrics
+    metric_train_names = [
+        metric[:NUM_TAIL_CHARS] for metric in cv_results.columns
+            if 'train_values' in metric]
+    metric_train_values = [
+        metric for metric in cv_results.columns
+            if 'train_values' in metric]
+    metric_val_names = [
+        metric[:NUM_TAIL_CHARS] for metric in cv_results.columns
+            if 'val_values' in metric]
+    metric_val_values = [
+        metric for metric in cv_results.columns
+            if 'val_values' in metric]
+
+    # Loop over metrics to correct values in train and validation set
+    df_corr_train = pd.DataFrame()
+    for name, values in zip(metric_train_names, metric_train_values):
+        df_corr_train[name] = utils.expand_column(cv_results, values)\
+            .stack().reset_index()[0]
+    df_corr_val = pd.DataFrame()
+    for name, values in zip(metric_val_names, metric_val_values):
+        df_corr_val[name] = utils.expand_column(cv_results, values)\
+            .stack().reset_index()[0]
+
+    # Create mask so that correlation plot only shows the bottom half
+    if mask==True:
+        mask = np.zeros(df_corr_train.corr().shape, dtype=bool)
+        mask[np.triu_indices(len(mask))] = True
+
+    # Make heatmap
+    plot_heatmap(
+        df=df_corr_train.corr(),
+        x_label='Metrics', y_label='Metrics', figsize=figsize,
+        annot_kws={'fontsize':10}, annot=True, fmt='.3f', vmin=-1, vmax=1,
+        filename=filename+"_train", mask=mask, cmap='RdYlBu', **kwargs)
+
+    plot_heatmap(
+        df=df_corr_val.corr(),
+        x_label='Metrics', y_label='Metrics', figsize=figsize,
+        annot_kws={'fontsize':10}, annot=True, fmt='.3f', vmin=-1, vmax=1,
+        filename=filename+"_val", mask=mask, cmap='RdYlBu', **kwargs)
+
+    return
+
+def plot_cv_correlation_scatter(
+    cv_results, filename, figsize=(8,5),  **kwargs):
+    ''' Make scatter plot among different metrics such as r2, MSE, MAPE, etc.
     Args:
         cv_results: Cross-validation result from grid_search_purged_cv or
             grid_search_cv function
@@ -139,15 +202,17 @@ def plot_cv_correlation(
     Returns:
         None
     '''
+    # Set constants
+    NUM_TAIL_CHARS = -7
     # Extract list of metrics
     metric_train_names = [
-        metric[:-7] for metric in cv_results.columns
+        metric[:NUM_TAIL_CHARS] for metric in cv_results.columns
             if 'train_values' in metric]
     metric_train_values = [
         metric for metric in cv_results.columns
             if 'train_values' in metric]
     metric_val_names = [
-        metric[:-7] for metric in cv_results.columns
+        metric[:NUM_TAIL_CHARS] for metric in cv_results.columns
             if 'val_values' in metric]
     metric_val_values = [
         metric for metric in cv_results.columns
@@ -158,31 +223,33 @@ def plot_cv_correlation(
     for name, values in zip(metric_train_names, metric_train_values):
         df_corr_train[name] = utils.expand_column(cv_results, values)\
             .stack().reset_index()[0]
+    df_corr_train['model'] = utils.expand_column(
+        cv_results, values).stack().reset_index()['level_0']
 
     # Loop over metrics to correct values in validation set
     df_corr_val = pd.DataFrame()
     for name, values in zip(metric_val_names, metric_val_values):
         df_corr_val[name] = utils.expand_column(cv_results, values)\
             .stack().reset_index()[0]
-    # Create mask so that correlation plot only shows bottom half
-    if mask==True:
-        mask = np.zeros(df_corr_train.corr().shape, dtype=bool)
-        mask[np.triu_indices(len(mask))] = True
+    df_corr_val['model'] = utils.expand_column(
+        cv_results, values).stack().reset_index()['level_0']
 
-    # Make heatmap
-    plot_heatmap(
-        df=df_corr_train.corr(),
-        x_label='Metrics', y_label='Metrics', figsize=(8,6),
-        annot_kws={'fontsize':10}, annot=True, fmt='.3f', vmin=-1, vmax=1,
-        filename=filename+"_train", mask=mask, cmap='RdYlBu', **kwargs)
-
-    plot_heatmap(
-        df=df_corr_val.corr(),
-        x_label='Metrics', y_label='Metrics', figsize=(8,6),
-        annot_kws={'fontsize':10}, annot=True, fmt='.3f', vmin=-1, vmax=1,
-        filename=filename+"_val", mask=mask, cmap='RdYlBu', **kwargs)
-
+    # Make scatter plot
+    for i in range(len(metric_val_names)):
+        for j in range(i+1, len(metric_val_names)):
+            x, y = metric_val_names[i], metric_val_names[j]
+            plot_scatter(
+                df=df_corr_val, x=x, y=y, x_label=x, y_label=y,
+                figsize=(12, 10), filename=filename+'_val_%s_%s' %(x, y),
+                legend=True, leg_loc='best', bbox_to_anchor=(1, 0.5),
+                ylim=False, xlim=False, hue='model', s=200, alpha=0.8,
+                palette='rainbow')
+            x, y = metric_train_names[i], metric_train_names[j]
+            plot_scatter(
+                df=df_corr_train, x=x, y=y, x_label=x, y_label=y,
+                figsize=(12, 10), filename=filename+'_train_%s_%s' %(x, y),
+                legend=True, leg_loc='best', bbox_to_anchor=(1, 0.5),
+                ylim=False, xlim=False, hue='model', s=200, alpha=0.8,
+                palette='rainbow')
     return
-
-
 
