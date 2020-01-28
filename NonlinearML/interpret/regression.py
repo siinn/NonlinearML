@@ -102,6 +102,7 @@ def regression_surface2D(
             date_column=config['date_column'],
             train_from_future=config['train_from_future'],
             k=config['k'], purge_length=config['purge_length'],
+            cv_metric=config['cv_metric'],
             output_path=output_path+"cross_validation/",
             rank_n_bins=config['rank_n_bins'], rank_label=config['rank_label'],
             rank_top=config['rank_top'], rank_bottom=config['rank_bottom'],
@@ -545,10 +546,13 @@ def regression_surface2D_residual(
             n_epoch=config['n_epoch'], subsample=config['subsample'],
             features=features, label=label, label_fm=config['label_fm'],
             date_column=config['date_column'],
+            train_from_future=config['train_from_future'],
             k=config['k'], purge_length=config['purge_length'],
+            cv_metric=config['cv_metric'],
             output_path=output_path+"cross_validation/",
             rank_n_bins=config['rank_n_bins'], rank_label=config['rank_label'],
             rank_top=config['rank_top'], rank_bottom=config['rank_bottom'],
+            force_val_length=config['force_val_length'],
             verbose=verbose)
 
 
@@ -576,6 +580,7 @@ def regression_surface2D_residual(
             legend_box=(1, 1), figsize=cv_hist_figsize, alpha=cv_hist_alpha,
             hist_type='stepfilled', edgecolor='black',
             filename=output_path+"cross_validation/cv_hist")
+
         plot_cv.plot_cv_box(
             cv_results,
             filename=output_path+"cross_validation/cv_box",
