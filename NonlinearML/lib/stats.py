@@ -78,6 +78,8 @@ def get_highest_correlated_metric(cv_results, cv_metric):
     """
     io.message("Calculating correlation between metrics.")
     io.message("> metrics: %s" % cv_metric)
+    # Set constants
+    NUM_TAIL_CHAR = -4
     # If Top-Bottom in cv_metrics, it passed ANOVA. Just return itself
     if 'Top-Bottom' in cv_metric:
         return 'Top-Bottom'
@@ -95,7 +97,7 @@ def get_highest_correlated_metric(cv_results, cv_metric):
     df_corr_val = df_corr_val.corr()
     return df_corr_val.drop('Top-Bottom_val')\
                       .sort_values('Top-Bottom_val', ascending=False)\
-                      .index[0][:-4]
+                      .index[0][:NUM_TAIL_CHAR]
 
 def select_best_model_by_anova(
     cv_results, cv_metric, param_grid, p_thres, metric_selection=None):
