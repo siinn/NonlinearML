@@ -1,3 +1,4 @@
+import ast
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import itertools
@@ -278,11 +279,18 @@ def evaluate_top_bottom_strategy(
         df, variables=['y_pred'], n_classes=rank_n_bins,
         class_names=rank_label, suffix="discrete",
         month=date_column)
+    # Calculate monthly average of each group
+    df_monthly = df.groupby([date_column,'y_pred_discrete'])\
+        .mean()[label_fm].reset_index()
+    # Calculate difference between top and bottom 
+    df_diff = df_monthly.loc[df_monthly['y_pred_discrete']==rank_top]\
+        .reset_index()[label_fm]\
+        - df_monthly.loc[df_monthly['y_pred_discrete']==rank_bottom]\
+        .reset_index()[label_fm]
+    results['Top-Bottom'] = results.get('Top-Bottom', []) + [df_diff.mean()]
+    results['Top-Bottom-std'] = \
+        results.get('Top-Bottom-std', []) + [df_diff.mean() / df_diff.std()]
 
-    # Calculate difference in top and bottom
-    results['Top-Bottom'] = results.get('Top-Bottom', []) + \
-        [df.groupby('y_pred_discrete').mean()[label_fm][rank_top]
-        - df.groupby('y_pred_discrete').mean()[label_fm][rank_bottom]]
     return results
 
 
@@ -517,9 +525,75 @@ def _GetParamsDesc(params, param_grid):
             output[p] = '='.join([p, str(params[p])])
     return output
 
+
+def standardize_metrics(cv_results, cv_metric):
+    """ Standardize metrics by mean and std of all models across k-folds
+    Args:
+        cv_results: Dataframe summarizing cross-validation results
+        cv_metric: List of metric to use in calculating combined metric
+    Return:
+        cv_results: Same dataframe with additional columns representing
+            standardized metrics.
+    """
+    for metric in cv_metric:
+        for partition in ['train', 'val']:
+            # Convert columns of list to multiple columns
+            df_values = utils\
+                .expand_column(cv_results, metric+"_%s_values" %partition)
+            # Standardize by mean and std calculated from all models
+            mean = df_values.stack().mean()
+            std = df_values.stack().std()
+            cv_results[metric+"_zscore_%s_mean" %partition] = mean
+            cv_results[metric+"_zscore_%s_std" %partition] = std
+            # Convert them to strings for compatibility
+            z_score = df_values.apply(lambda x:(x-mean)/std).values.tolist()
+            cv_results[metric+"_zscore_%s_values" %partition] = z_score
+            cv_results[metric+"_zscore_%s_values" %partition] = \
+                cv_results[metric+"_zscore_%s_values" %partition]\
+                    .apply(lambda x:str(x))
+    return cv_results
+
+def combined_metrics(cv_results, cv_metric):
+    """ Calculate combined metrics from standardize metrics.
+    Args:
+        cv_results: Dataframe summarizing cross-validation results
+        cv_metric: List of metric to use in calculating combined metric
+    Return:
+        cv_results: Same dataframe with additional column representing
+            combined metric.
+    """
+    # First standardize other metrics
+    standardized_metrics = standardize_metrics(cv_results, cv_metric)
+    for partition in ['train', 'val']:
+        # Store z-score of each metrics.
+        zscores = [] # ex. [z-score of r2, z-score of MSE, etc.]
+        for metric in cv_metric:
+            # Expand a single column to multiple columns
+            df_values = utils\
+                .expand_column(
+                    standardized_metrics,
+                    metric+"_zscore_%s_values" %partition)
+            # Mean and std calculated from all models
+            mean = df_values.stack().mean()
+            std = df_values.stack().std()
+            zscores.append(df_values.apply(lambda x:(x-mean)/std))
+        # Calculate equal-weighted combined metric
+        combined_metric = (sum(zscores) / len(zscores))
+        # Calculate mean and std of the combined metric
+        cv_results['combined_zscore_%s_mean' %partition] = \
+            (sum(zscores) / len(zscores)).mean(axis=1)
+        cv_results['combined_zscore_%s_std' %partition] = \
+            (sum(zscores) / len(zscores)).std(axis=1)
+        cv_results['combined_zscore_%s_values' %partition] = \
+            (sum(zscores) / len(zscores)).values.tolist()
+        cv_results['combined_zscore_%s_values' %partition] = \
+            cv_results['combined_zscore_%s_values' %partition]\
+                .apply(lambda x:str(x))
+    return cv_results
+
 def grid_search(
     df_train, model, model_type, param_grid, features, label, label_fm,
-    k, purge_length, output_path, n_epoch=1, embargo_length=0,
+    k, purge_length, output_path, cv_metric, n_epoch=1, embargo_length=0,
     date_column='eom', subsample=1, train_from_future=False,
     rank_n_bins=None, rank_label=None, rank_top=None, rank_bottom=None,
     force_val_length=False, verbose=False):
@@ -531,14 +605,14 @@ def grid_search(
             respectively.
         params_grid: Hyperparamater grid to search.
         features, label: List of features and target label
-        label_fm: Only used for top-bottom strategy evaluation. This represents
-            return you wish to use for strategy.
+        label_fm: Only used for top-bottom strategy evaluation. 
         k: k for k-fold CV.
         purge_length: Overlapping window size to be removed from training
             samples given in months.
             i.e. the overlap between train and validation dataset of size
             (purge_length) will be removed from training samples.
         output_path: Path to save results as csv
+        cv_metric: List of metric to use in calculating combined metric
         n_epoch: Number of times to repeat CV
         embargo_length: Training samples within the window of size
             (embargo_length) which follow the overlap between validation
@@ -553,7 +627,7 @@ def grid_search(
     Return:
         cv_results: Dataframe summarizing cross-validation results
     '''
-    io.title('Grid search with k-fold CV: k = %s, epoch = %s' % (k, n_epoch))
+    io.title('Grid search with k-fold CV: k = %s, epoch = %s, subsample = %s' % (k, n_epoch, subsample))
     # Get all possible combination of parameters
     keys, values = zip(*param_grid.items())
     experiments = [dict(zip(keys, v)) for v in itertools.product(*values)]
@@ -598,8 +672,9 @@ def grid_search(
                 single_model_result['val_values'][m])
         # Save parameters as one string
         cv_results.at[i, 'params'] = _paramsToString(params, param_grid)
+    # Calculate combined metric
+    cv_results = combined_metrics(cv_results, cv_metric)
     return cv_results
-
 
 
 
