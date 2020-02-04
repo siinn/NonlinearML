@@ -1,6 +1,7 @@
 # Import custom libraries
 import numpy as np
 import pandas as pd
+from sklearn.linear_model import LinearRegression
 #import logging
 
 
@@ -22,6 +23,7 @@ def regression_surface2D(
     model, model_str, param_grid, best_params={},
     read_last=False, cv_study=None, run_backtest=True, model_evaluation=True,
     plot_decision_boundary=True, plot_residual=True, save_csv=True,
+    save_col={},
     cv_hist_n_bins=10, cv_hist_figsize=(18, 10), cv_hist_alpha=0.8,
     cv_box_figsize=(18,10), cv_box_color="#3399FF",
     return_figsize=(8,6), return_train_ylim=(-1,20), return_test_ylim=(-1,1),
@@ -43,6 +45,7 @@ def regression_surface2D(
             Override best parameters found by grid search
         read_last: If True, it reads cv_results from local path. If False, it
             performs grid search
+        save_col: List of additional columns to save in prediction
         cv_study: Perform study on cross-validation if True
         run_backtest: Calculate cumulative return, annual return, and IR if True
         plot_decision_boundary: Plot decision boundary of the best model if True
@@ -185,7 +188,7 @@ def regression_surface2D(
                 df_train=df_train, df_test=df_test, features=features,
                 date_column=config['date_column'],
                 label=label,
-                cols=[config['label_fm'], config['label_reg']],
+                cols=[config['label_fm'], config['label_reg']]+save_col,
                 expand_window=config['expand_training_window']
                 )
 
@@ -344,7 +347,7 @@ def regression_surface2D(
         res_train = pred_train[config['label_reg']] - pred_train['pred']
         res_test = pred_test[config['label_reg']] - pred_test['pred']
         
-        # Plot distribution of prediction and target
+        # Plot distribution of prediction in train and test
         plot.plot_dist_hue(
             df= pd.concat(
                 [res_train, res_test], keys=['Train', 'Test'], axis=1)\
@@ -468,6 +471,7 @@ def regression_surface2D_residual(
     model, model_str, param_grid, best_params={},
     read_last=False, cv_study=None, run_backtest=True, model_evaluation=True,
     plot_decision_boundary=True, plot_residual=True, save_csv=True,
+    save_col=[],
     cv_hist_n_bins=10, cv_hist_figsize=(12, 8), cv_hist_alpha=0.6,
     cv_box_figsize=(18,10), cv_box_color="#3399FF",
     return_figsize=(8,6), return_train_ylim=(-1,20), return_test_ylim=(-1,1),
@@ -495,6 +499,7 @@ def regression_surface2D_residual(
         plot_residual: Examine distribution of target, prediction, and residual
             if True
         save_csv: Save all results as csv
+        save_col: List of additional columns to save in prediction
         Others: parameters for nested functions.
 
     Returns: Dictionary containing the following results
@@ -550,10 +555,11 @@ def regression_surface2D_residual(
             k=config['k'], purge_length=config['purge_length'],
             cv_metric=config['cv_metric'],
             output_path=output_path+"cross_validation/",
-            rank_n_bins=config['rank_n_bins'], rank_label=config['rank_label'],
-            rank_top=config['rank_top'], rank_bottom=config['rank_bottom'],
+            #rank_n_bins=config['rank_n_bins'], rank_label=config['rank_label'],
+            #rank_top=config['rank_top'], rank_bottom=config['rank_bottom'],
             force_val_length=config['force_val_length'],
             verbose=verbose)
+
 
 
     #---------------------------------------------------------------------------
@@ -567,7 +573,6 @@ def regression_surface2D_residual(
     # Override best parameters with the specified set.
     if not best_params:
         best_params = anova_results['best_params']
-
     
     #---------------------------------------------------------------------------
     # Cross-validation study
@@ -579,16 +584,25 @@ def regression_surface2D_residual(
             n_bins=cv_hist_n_bins, x_range=None, legend_loc=None,
             legend_box=(1, 1), figsize=cv_hist_figsize, alpha=cv_hist_alpha,
             hist_type='stepfilled', edgecolor='black',
-            filename=output_path+"cross_validation/cv_hist")
+            filename=output_path+"cross_validation/hist/cv_hist")
 
         plot_cv.plot_cv_box(
             cv_results,
-            filename=output_path+"cross_validation/cv_box",
+            filename=output_path+"cross_validation/box/cv_box",
             figsize=cv_box_figsize, color=cv_box_color)
 
         plot_cv.plot_cv_line(
-            cv_results, filename=output_path+"cross_validation/cv_line",
+            cv_results, filename=output_path+"cross_validation/line/cv_line",
             marker='.', markersize=20)
+
+        plot_cv.plot_cv_correlation_heatmap(
+            cv_results, 
+            filename=output_path+"cross_validation/correlation/cv_corr")
+
+        plot_cv.plot_cv_correlation_scatter(
+            cv_results, 
+            filename=output_path+"cross_validation/correlation/cv_corr")
+
 
         # Plot decision boundaries of all hyperparameter sets
         plot_db.decision_boundary_multiple_hparmas(
@@ -597,11 +611,11 @@ def regression_surface2D_residual(
             label_cla=config['label_cla'],
             db_annot_x=config['db_annot_x'],
             db_annot_y=config['db_annot_y'],
-            vmin=config['db_vmin'], vmax=config['db_vmax'],
             h=config['db_res'], figsize=config['db_figsize'],
             x_label=config['feature_x'], y_label=config['feature_y'],
             colors=config['db_colors'],
             xlim=config['db_xlim'], ylim=config['db_ylim'],
+            vmin=config['db_vmin'], vmax=config['db_vmax'],
             #ticks=sorted(list(config['rank_label'].keys())),
             colorbar=True, ticks=None,
             scatter=True, subsample=0.01,
@@ -611,6 +625,7 @@ def regression_surface2D_residual(
             df=df_train,
             features=features, 
             filename=output_path+"decision_boundary/overlay_db")
+    
     
     #---------------------------------------------------------------------------
     # Prediction
@@ -625,23 +640,45 @@ def regression_surface2D_residual(
                 cols=[
                     config['label_reg'],
                     config['label_fm'],
-                    config['label_edge']])
+                    config['label_edge']] + save_col,
+                expand_window=config['expand_training_window']
+                )
     else:
         pred_train = pred_test = model = None
 
     #---------------------------------------------------------------------------
+    # Run regression on predicted residual and unridged edge
+    #---------------------------------------------------------------------------
+    """ Run linear regression to determine weights between predicted residual
+    and adjusted edge. The weights determined from training data is applied to
+    test data.
+        y = fq return = residual (truth) + adjusted edge
+        x1 = predicted residual
+        x2 = adjusted return
+    """
+    io.title('Fitting linear regression to determine weight between:')
+    io.message(' > x1 = predicted residual: %s' % 'pred')
+    io.message(' > x2 = adjusted edge: %s' % config['label_edge'])
+    io.message(' > y = true residual + adjusted edge')
+    # Fit using training data
+    return_lm = LinearRegression(fit_intercept=False).fit(
+        X=pred_train[['pred', config['label_edge']]],
+        y=pred_train[config['label_reg']]+pred_train[config['label_edge']])
+
+    io.message('Coefficients:')
+    io.message(' > x1, %s: %s' % ('pred', return_lm.coef_[0]))
+    io.message(' > x2, %s: %s' % (config['label_edge'], return_lm.coef_[1]))
+    # Predict on training and test data
+    pred_train['pred_return'] = return_lm\
+        .predict(X=pred_train[[config['label_edge'], 'pred']])
+    pred_test['pred_return'] = return_lm\
+        .predict(X=pred_test[[config['label_edge'], 'pred']])
+
+
+    #---------------------------------------------------------------------------
     # Rank prediction by each month
     #---------------------------------------------------------------------------
-    # Rank predicted residual
-    pred_train, pred_test = utils.rank_prediction_monthly(
-        pred_train=pred_train, pred_test=pred_test,
-        config=config, col_pred="pred")
-
-    # Recover returnby summing edge and residual. Rank predicted edge + residual
-    pred_train['pred_return'] = \
-        pred_train[config['label_edge']] + pred_train['pred']
-    pred_test['pred_return'] = \
-        pred_test[config['label_edge']] + pred_test['pred']
+    # Rank predicted return
     pred_train, pred_test = utils.rank_prediction_monthly(
         pred_train=pred_train, pred_test=pred_test,
         config=config, col_pred="pred_return")
@@ -791,7 +828,7 @@ def regression_surface2D_residual(
         res_train = pred_train[config['label_reg']] - pred_train['pred']
         res_test = pred_test[config['label_reg']] - pred_test['pred']
         
-        # Plot distribution of prediction and target
+        # Plot distribution of prediction in train and test
         plot.plot_dist_hue(
             df= pd.concat(
                 [res_train, res_test], keys=['Train', 'Test'], axis=1)\
