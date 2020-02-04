@@ -672,8 +672,9 @@ def grid_search(
                 single_model_result['val_values'][m])
         # Save parameters as one string
         cv_results.at[i, 'params'] = _paramsToString(params, param_grid)
-    # Calculate combined metric
-    cv_results = combined_metrics(cv_results, cv_metric)
+    # Calculate combined metric. Only possible when there are multiple CV results.
+    if len(cv_results) > 1:
+        cv_results = combined_metrics(cv_results, cv_metric)
     return cv_results
 
 
