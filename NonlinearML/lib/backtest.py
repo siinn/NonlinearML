@@ -25,7 +25,8 @@ def calculate_return(
     """ Calculate cumulative return of each classes (ex. AG1-AG5)
     Args:
         df: Pandas dataframe
-        list_class: List of classes. Ex. [0, 1, 2]
+        list_class: List of classes. Order does not matter.
+            Ex. [0, 1, 2]
         col_class: Ex. "fqReturn_tercile" or "pred"
         month_return: monthly return used to calculate cumulative return
         time: time column
