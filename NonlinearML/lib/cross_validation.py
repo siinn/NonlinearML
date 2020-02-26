@@ -252,7 +252,7 @@ def evaluate_regressor(y_true, y_pred, results, epsilon=1e-7):
 
 def evaluate_top_bottom_strategy(
     df, date_column, label_fm, y_pred,
-    rank_n_bins, rank_label, rank_top, rank_bottom, results):
+    rank_n_bins, rank_order, rank_top, rank_bottom, results):
     """ Evaluate prediction by Top - Bottom strategy. In this evaluation,
     samples are ranked monthly, and average difference in target values
     (such as return) between top and bottom classes is calculated.
@@ -264,9 +264,9 @@ def evaluate_top_bottom_strategy(
         y_pred: Prediction from model
         rank_n_bins: Number of classes used in top-bottom strategy
             ex. 10 for decile, 5 for quintile, etc.
-        rank_label: Dictionary containing labels of each class
-            ex. {0:'D1', ..., 9:'D10'}
-        rank_top, rank_bottom: Top and bottom class. Must match with rank_label
+        rank_order: Class labels in ascending order.
+            Example. [2, 1, 0] -> class 0 has highest values
+        rank_top, rank_bottom: Top and bottom class. Must match with rank_order
             ex. rank_top = 0, rank_bottom = 9.
     Return:
         results: results including evaluation from top-bottom strategy
@@ -277,7 +277,7 @@ def evaluate_top_bottom_strategy(
     # Discretize prediction
     df = utils.discretize_variables_by_month(
         df, variables=['y_pred'], n_classes=rank_n_bins,
-        class_names=rank_label, suffix="discrete",
+        class_names=rank_order, suffix="discrete",
         month=date_column)
     # Calculate monthly average of each group
     df_monthly = df.groupby([date_column,'y_pred_discrete'])\
@@ -296,7 +296,7 @@ def evaluate_top_bottom_strategy(
 
 def evaluate_model(
     model_type, df, label, label_fm, y_pred, results, date_column,
-    rank_n_bins, rank_label, rank_top, rank_bottom):
+    rank_n_bins, rank_order, rank_top, rank_bottom):
     """ Evaluate trained model using pre-defined metrics and append it to
         results. 
             ex. {'r2':[0.01, 0.02], 'mse': [0.001, 0.003]}
@@ -313,7 +313,7 @@ def evaluate_model(
         y_pred: Prediction made by mode
         k: k for k-fold CV.
         date_column: Datetime column
-        rank_n_bins, rank_label, rank_top, rank_bottom: If not None, 
+        rank_n_bins, rank_order, rank_top, rank_bottom: If not None, 
             cross-validation is also evaluated based on Top-Bottom strategy.
     Return:
         results: Dictionary containing evaluation results
@@ -326,11 +326,11 @@ def evaluate_model(
         results = evaluate_regressor(
             df[label].values, y_pred, results)
         # Evaluate regressor using Top-Bottom strategy
-        if rank_n_bins and rank_label:
+        if rank_n_bins and rank_order:
             results = evaluate_top_bottom_strategy(
                 df=df, date_column=date_column,
                 label_fm=label_fm, y_pred=y_pred, 
-                rank_n_bins=rank_n_bins, rank_label=rank_label,
+                rank_n_bins=rank_n_bins, rank_order=rank_order,
                 rank_top=rank_top, rank_bottom=rank_bottom,
                 results=results)
     return results
@@ -338,7 +338,7 @@ def evaluate_model(
 def purged_k_fold_cv(
     df_train, model, model_type, features, label, label_fm, k,
     purge_length, embargo_length, n_epoch=1, date_column='eom', subsample=1,
-    rank_n_bins=None, rank_label=None, rank_top=None, rank_bottom=None,
+    rank_n_bins=None, rank_order=None, rank_top=None, rank_bottom=None,
     train_from_future=False, force_val_length=False, verbose=False):
     """ Perform purged k-fold cross-validation. Assumes that data is uniformly
         distributed over the time period.
@@ -364,7 +364,7 @@ def purged_k_fold_cv(
         n_epoch: Number of times to repeat cross-validation.
         date_column: Datetime column
         subsample: fraction of training samples to use.
-        rank_n_bins, rank_label, rank_top, rank_bottom: If not None, 
+        rank_n_bins, rank_order, rank_top, rank_bottom: If not None, 
             cross-validation is also evaluated based on Top-Bottom strategy.
         train_from_future: If True, train set can also include dates after
             validation set. Set to False if you want to avoid having training
@@ -436,11 +436,11 @@ def purged_k_fold_cv(
             results_train = evaluate_model(
                 model_type, df_k_train, label, label_fm, y_pred_train,
                 results_train, date_column,
-                rank_n_bins, rank_label, rank_top, rank_bottom)
+                rank_n_bins, rank_order, rank_top, rank_bottom)
 
             results_val = evaluate_model(
                 model_type, df_k_val, label, label_fm, y_pred_val, results_val,
-                date_column, rank_n_bins, rank_label, rank_top, rank_bottom)
+                date_column, rank_n_bins, rank_order, rank_top, rank_bottom)
 
     # Return results averaged over k folds
     results_train_mean = {metric:np.array(results_train[metric]).mean()
@@ -595,7 +595,7 @@ def grid_search(
     df_train, model, model_type, param_grid, features, label, label_fm,
     k, purge_length, output_path, cv_metric, n_epoch=1, embargo_length=0,
     date_column='eom', subsample=1, train_from_future=False,
-    rank_n_bins=None, rank_label=None, rank_top=None, rank_bottom=None,
+    rank_n_bins=None, rank_order=None, rank_top=None, rank_bottom=None,
     force_val_length=False, verbose=False):
     ''' Perform grid search using purged cross-validation method. 
     Args:
@@ -619,7 +619,7 @@ def grid_search(
             and train set will be removed. Embargo length is given in months.
         date_column: Datetime column
         subsample: fraction of training samples to use.
-        rank_n_bins, rank_label, rank_top, rank_bottom: If not None, 
+        rank_n_bins, rank_order, rank_top, rank_bottom: If not None, 
             cross-validation is also evaluated based on Top-Bottom strategy.
         force_val_length: (boolean, int) If integer is given, validation set
             will have the length of the given integer. ex. 1 month
@@ -656,7 +656,7 @@ def grid_search(
             embargo_length=embargo_length,
             subsample=subsample,
             train_from_future=train_from_future,
-            rank_n_bins=rank_n_bins, rank_label=rank_label,
+            rank_n_bins=rank_n_bins, rank_order=rank_order,
             rank_top=rank_top, rank_bottom=rank_bottom)
         # Save evaluation result of all metrics
         _params = _GetParamsDesc(params, param_grid)
