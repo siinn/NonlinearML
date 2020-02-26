@@ -107,7 +107,7 @@ def regression_surface2D(
             k=config['k'], purge_length=config['purge_length'],
             cv_metric=config['cv_metric'],
             output_path=output_path+"cross_validation/",
-            rank_n_bins=config['rank_n_bins'], rank_label=config['rank_label'],
+            rank_n_bins=config['rank_n_bins'], rank_order=config['rank_order'],
             rank_top=config['rank_top'], rank_bottom=config['rank_bottom'],
             force_val_length=config['force_val_length'],
             verbose=verbose)
@@ -226,7 +226,7 @@ def regression_surface2D(
                 date_column=config['date_column'],
                 label_fm=config['label_fm'], y_pred=pred_train['pred'],
                 rank_n_bins=config['rank_n_bins'],
-                rank_label=config['rank_label'],
+                rank_order=config['rank_order'],
                 rank_top=config['rank_top'], rank_bottom=config['rank_bottom'],
                 results=model_evaluation_train)
         
@@ -235,7 +235,7 @@ def regression_surface2D(
                 date_column=config['date_column'],
                 label_fm=config['label_fm'], y_pred=pred_test['pred'],
                 rank_n_bins=config['rank_n_bins'],
-                rank_label=config['rank_label'],
+                rank_order=config['rank_order'],
                 rank_top=config['rank_top'], rank_bottom=config['rank_bottom'],
                 results=model_evaluation_test)
     
@@ -248,7 +248,7 @@ def regression_surface2D(
         df_backtest_train, df_backtest_test = backtest.perform_backtest(
                 pred_train=pred_train, pred_test=pred_test, 
                 col_pred='pred_rank',
-                list_class=list(config['rank_label'].keys()),
+                list_class=config['rank_order'],
                 label_fm=config['label_fm'], time=config['date_column'])
 
         # Calculate diff. in cumulative return, annual return, and IR
@@ -555,11 +555,10 @@ def regression_surface2D_residual(
             k=config['k'], purge_length=config['purge_length'],
             cv_metric=config['cv_metric'],
             output_path=output_path+"cross_validation/",
-            #rank_n_bins=config['rank_n_bins'], rank_label=config['rank_label'],
-            #rank_top=config['rank_top'], rank_bottom=config['rank_bottom'],
+            rank_n_bins=config['rank_n_bins'], rank_order=config['rank_order'],
+            rank_top=config['rank_top'], rank_bottom=config['rank_bottom'],
             force_val_length=config['force_val_length'],
             verbose=verbose)
-
 
 
     #---------------------------------------------------------------------------
@@ -669,10 +668,14 @@ def regression_surface2D_residual(
     io.message(' > x1, %s: %s' % ('pred', return_lm.coef_[0]))
     io.message(' > x2, %s: %s' % (config['label_edge'], return_lm.coef_[1]))
     # Predict on training and test data
-    pred_train['pred_return'] = return_lm\
-        .predict(X=pred_train[[config['label_edge'], 'pred']])
-    pred_test['pred_return'] = return_lm\
-        .predict(X=pred_test[[config['label_edge'], 'pred']])
+    if True:
+        pred_train['pred_return'] = return_lm\
+            .predict(X=pred_train[[config['label_edge'], 'pred']])
+        pred_test['pred_return'] = return_lm\
+            .predict(X=pred_test[[config['label_edge'], 'pred']])
+    else: # Temporary solution for testing
+        pred_train['pred_return'] = pred_train['pred']
+        pred_test['pred_return'] = pred_test['pred']
 
 
     #---------------------------------------------------------------------------
@@ -682,7 +685,7 @@ def regression_surface2D_residual(
     pred_train, pred_test = utils.rank_prediction_monthly(
         pred_train=pred_train, pred_test=pred_test,
         config=config, col_pred="pred_return")
-        
+
     #---------------------------------------------------------------------------
     # Model evaluation
     #---------------------------------------------------------------------------
@@ -706,7 +709,7 @@ def regression_surface2D_residual(
                 date_column=config['date_column'],
                 label_fm=config['label_fm'], y_pred=pred_train['pred_return'],
                 rank_n_bins=config['rank_n_bins'],
-                rank_label=config['rank_label'],
+                rank_order=config['rank_order'],
                 rank_top=config['rank_top'], rank_bottom=config['rank_bottom'],
                 results=model_evaluation_train)
 
@@ -715,10 +718,9 @@ def regression_surface2D_residual(
                 date_column=config['date_column'],
                 label_fm=config['label_fm'], y_pred=pred_test['pred_return'],
                 rank_n_bins=config['rank_n_bins'],
-                rank_label=config['rank_label'],
+                rank_order=config['rank_order'],
                 rank_top=config['rank_top'], rank_bottom=config['rank_bottom'],
                 results=model_evaluation_test)
-    
 
     #---------------------------------------------------------------------------
     # Backtesting
@@ -728,7 +730,7 @@ def regression_surface2D_residual(
         df_backtest_train, df_backtest_test = backtest.perform_backtest(
                 pred_train=pred_train, pred_test=pred_test, 
                 col_pred='pred_return_rank',
-                list_class=list(config['rank_label'].keys()),
+                list_class=config['rank_order'],
                 label_fm=config['label_fm'], time=config['date_column'])
 
         # Calculate diff. in cumulative return, annual return, and IR
@@ -746,7 +748,7 @@ def regression_surface2D_residual(
             class_reg=config['label_fm'],
             time=config['date_column'],
             col_pred='pred_return_rank')
-        
+
 
         # Make cumulative return plot
         plot_backtest.plot_cumulative_return(
