@@ -51,7 +51,7 @@ rank_bottom = 0
 
 # Set path to save output figures
 output_path = 'output/DY/Production/%s/' % "_".join(features)
-MODEL_PATH = 'model/DY/DY_dmed_PO_dmed/v1/xgb.pickle'
+MODEL_PATH = 'model/DY/DY_dmed_PO_dmed/v2/xgb.pickle'
 
 # Set data column
 date_column = "smDate"
@@ -146,6 +146,15 @@ if __name__ == "__main__":
         scatter_legend=False, colors_scatter=db_colors_scatter,
         dist=True, nbins=db_nbins,
         filename=output_path+"decision_boundary")
+
+    # Save predictions as csv
+    df.to_csv(output_path+'pred.csv')
+
+
+
+
+
+
 
 
 
