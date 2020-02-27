@@ -45,6 +45,8 @@ Conda environment is recommended to run this package.
 
 # Version history
 ## 1.03
+- Fixed a bug on backtesting. Now replaced dictionary with list to specify top-bottom class so that it avoids potential mis-calculation of return
+- Updated single factor model
 
 ## 1.02
 - Implemented additional metrics: Risk-adjusted return, combined z-score.
