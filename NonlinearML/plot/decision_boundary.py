@@ -123,13 +123,18 @@ def decision_boundary(
             df_sub = df.sample(frac=subsample)
         elif type(subsample)==pd.DataFrame:
             df_sub = subsample
-        for i, cls in enumerate(sorted(df_sub[label_cla].unique())):
-            _df = df_sub.loc[df_sub[label_cla]==cls]
+        if label_cla:
+            for i, cls in enumerate(sorted(df_sub[label_cla].unique())):
+                _df = df_sub.loc[df_sub[label_cla]==cls]
+                ax.scatter(
+                    x=_df[features[0]], y=_df[features[1]], s=30,
+                    edgecolors='black', c=colors_scatter[i], label=cls)
+                if scatter_legend==True:
+                    ax.legend(loc='lower right')
+        else:
             ax.scatter(
-                x=_df[features[0]], y=_df[features[1]], s=30,
-                edgecolors='black', c=colors_scatter[i], label=cls)
-            if scatter_legend==True:
-                ax.legend(loc='lower right')
+                x=df_sub[features[0]], y=df_sub[features[1]], s=30,
+                edgecolors='black', c='white')
     # Customize plot
     ax.set_xlabel(x_label)
     ax.set_ylabel(y_label)

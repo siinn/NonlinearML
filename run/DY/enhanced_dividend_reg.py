@@ -6,6 +6,7 @@ import matplotlib
 import numpy as np
 import os
 import pandas as pd
+import pickle
 from sklearn.linear_model import Ridge
 from sklearn.neighbors import KNeighborsRegressor
 import tensorflow as tf
@@ -44,13 +45,13 @@ pd.options.mode.chained_assignment = None
 #INPUT_PATH = '/mnt/mainblob/nonlinearML/EnhancedDividend/data/Data_EM_extended.csv'
 INPUT_PATH = '../EnhancedDividend/data/Data_EM_extended.csv'
 
-# Set features of interest
-feature_x = 'DividendYield'
-feature_y = 'Payout_E'
-# Set limits of decision boundary
-db_xlim = (0, 0.2)
-db_ylim = (-1, 1.5)
-db_res = 0.0005
+## Set features of interest
+#feature_x = 'DividendYield'
+#feature_y = 'Payout_E'
+## Set limits of decision boundary
+#db_xlim = (0, 0.2)
+#db_ylim = (-1, 1.5)
+#db_res = 0.0005
 
 ## Set features of interest
 #feature_x = 'DividendYield'
@@ -60,13 +61,14 @@ db_res = 0.0005
 #db_ylim = (-0.5, 0.5)
 #db_res = 0.0005
 
-## Set features of interest
-#feature_x = 'DY_dmed'
-#feature_y = 'PO_dmed'
-## Set limits of decision boundary
-#db_xlim = (-1.5, 4)
-#db_ylim = (-3, 4)
-#db_res = 0.01
+# Set features of interest
+feature_x = 'DY_dmed'
+feature_y = 'PO_dmed'
+
+# Set limits of decision boundary
+db_xlim = (-1.5, 3)
+db_ylim = (-3, 3)
+db_res = 0.01
 
 
 ## Set features of interest
@@ -80,7 +82,7 @@ db_res = 0.0005
 # Set number of bins for ranking
 rank_n_bins=10
 rank_label={x:'D'+str(x) for x in range(rank_n_bins)}
-rank_order=[9,8,7,6,5,4,3,2,1,0] # High return to low return
+rank_order=[0,1,2,3,4,5,6,7,8,9] # low to high return
 rank_top = 9
 rank_bottom = 0
 
@@ -111,21 +113,28 @@ train_begin = None
 train_end = None
 test_begin = "2012-01-01"
 test_end = "2019-05-01"
-train_from_future = False
-expand_training_window = True
+
+# Set path to save model
+model_path = 'model/DY/%s_%s/v2/' % (feature_x, feature_y)
+
+# Cross validation configuration
+train_from_future = True
 force_val_length = False
 
+# Prediction configuration
+expand_training_window = False
+
 # Set cross-validation configuration
-k = 3     # Must be > 1
-n_epoch = 2
-subsample = 0.8
+k = 2    # Must be > 1
+n_epoch = 1
+subsample = 0.3
 purge_length = 3
 
 # Set p-value threshold for ANOVA test p_thres = 0.05
-p_thres = 0.05
+p_thres = 0.20
 
 # Set metric for training
-cv_metric = ['Top-Bottom', 'mape', 'r2', 'mse', 'mae', 'mlse']
+cv_metric = ['Top-Bottom-std', 'Top-Bottom', 'r2', 'mape']
 
 # Set color scheme for decision boundary plot
 cmap = matplotlib.cm.get_cmap('RdYlGn')
@@ -141,8 +150,8 @@ db_figsize= (10, 8)
 db_annot_x=0.02
 db_annot_y=0.98
 db_nbins=50
-db_vmin=-0.15
-db_vmax=0.15
+db_vmin=-0.30
+db_vmax=0.30
 
 # Set residual plot 
 residual_n_bins = 100
@@ -212,7 +221,7 @@ if __name__ == "__main__":
         # Set parameters to search
         param_grid_lr = {
             #"alpha": [1] + np.logspace(-4, 4, 10), # C <= 1e-5 doesn't converge
-            "alpha": [1] + np.logspace(-2, 6, 10), # C <= 1e-5 doesn't converge
+            "alpha": [1] + np.logspace(-2, 3, 10), # C <= 1e-5 doesn't converge
             "fit_intercept": [True]}
 
         # Set model
@@ -229,7 +238,13 @@ if __name__ == "__main__":
             model_evaluation=True,
             plot_decision_boundary=True,
             plot_residual=True,
-            save_csv=True)
+            save_csv=True,
+            save_col=[config['security_id']])
+
+        # Dump model as pickle
+        utils.create_folder(model_path+"lr.pickle")
+        with open(model_path+"lr.pickle", "wb") as f:
+            pickle.dump(rs_lr['model'], f)
 
     #---------------------------------------------------------------------------
     # Xgboost
@@ -237,39 +252,52 @@ if __name__ == "__main__":
     if run_xgb:
         # Set parameters to search
         param_grid_xgb = {
-            #'min_child_weight': [1500, 1000, 500], 
-            #'max_depth': [3, 5, 7],
+
+            #'min_child_weight': [2000, 1500, 1000, 500], 
+            #'min_child_weight': [1500, 100], 
             'min_child_weight': [1500], 
+
+            #'max_depth': [3, 4],
             'max_depth': [3],
 
             'eta': [0.3], #[0.3]
             #'eta': [0.3, 0.6, 0.11, 0.01], #[0.3]
 
-            'n_estimators': [50],
-            #'n_estimators': [50, 100],
-            #'n_estimators': [25, 50, 100],
-        
-            'gamma': [0], #[0, 5, 10, 20],
-            #'gamma': [0, 5, 10], #[0, 5, 10, 20],
-            #'gamma': [0, 5, 10],
+            #'gamma': [20, 10, 5, 0],
+            #'gamma': [10, 5, 0],
+            #'gamma': [5, 0],
+            'gamma': [5],
 
             'lambda': [1],
             #'lambda': np.logspace(0, 2, 3), 
 
+            #'n_estimators': [10, 50, 75, 100],
+            'n_estimators': [50],
+
+            'n_jobs':[-1],
+
+            'objective':[
+                #xgb_obj.log_square_error,
+                'reg:squarederror'
+                ],
+
             'subsample': [1],
             #'subsample': [0.5, 0.8, 1],
 
-            'n_jobs':[-1],
-            'objective':[
-                #'reg:squarederror',
-                xgb_obj.log_square_error
-                ],
             }
         # Set model
         model_xgb = XGBRegressor()
-        #model_xgb_str = 'xgb/best_fixed_window'
+        #model_xgb_str = 'sensitivity/lambda'
+        #model_xgb_str = 'xgb/presentation'
+        #model_xgb_str = 'xgb/test'
+        #model_xgb_str = 'xgb/k_study/k%s_s%s_e%s_top_v3' %(k, subsample, n_epoch)
         #model_xgb_str = 'xgb/best_expanding_window'
-        model_xgb_str = 'xgb/test'
+        model_xgb_str = 'xgb/single_factor_%s' % feature_x
+        #model_xgb_str = 'xgb/best_fixed_window_2020.02.03'
+        #model_xgb_str = 'xgb/best_fixed_window_k2_e100_s0.5'
+        #model_xgb_str = 'xgb/best_fixed_window_20200120_3'
+        #model_xgb_str = 'xgb/best_fixed_window_v26_k2_e5_s0.5'
+        #model_xgb_str = 'xgb/future_train_%s/k%s' % (train_from_future, k)
 
         # Run analysis on 2D decision boundary
         rs_xgb = regression.regression_surface2D(
@@ -282,7 +310,13 @@ if __name__ == "__main__":
             plot_decision_boundary=True,
             plot_residual=True,
             save_csv=True,
+            save_col=[config['security_id']],
             verbose=True)
+
+        # Dump model as pickle
+        utils.create_folder(model_path+"xgb.pickle")
+        with open(model_path+"xgb.pickle", "wb") as f:
+            pickle.dump(rs_xgb['model'], f)
 
 
 
@@ -310,8 +344,13 @@ if __name__ == "__main__":
             plot_decision_boundary=True,
             plot_residual=True,
             save_csv=True,
-            verbose=True)
+            verbose=True,
+            save_col=[config['security_id']])
 
+        # Dump model as pickle
+        utils.create_folder(model_path+"knn.pickle")
+        with open(model_path+"knn.pickle", "wb") as f:
+            pickle.dump(rs_knn['model'], f)
 
 
 
@@ -456,9 +495,14 @@ if __name__ == "__main__":
                 plot_decision_boundary=True,
                 plot_residual=True,
                 save_csv=True,
+                save_col=[config['security_id']],
                 cv_hist_figsize=(40, 10)
                 )
 
+        # Dump model as pickle
+        utils.create_folder(model_path+"nn.pickle")
+        with open(model_path+"nn.pickle", "wb") as f:
+            pickle.dump(rs_nn['model'], f)
 
 
 
@@ -487,65 +531,4 @@ if __name__ == "__main__":
             df_input=df,
             output_path=output_path,
             date_column=config['date_column'])
-
-
-
-
-
-
-
-
-
-#________________________________________________
-#    # Extract list of metrics
-#    metric_train_names = [
-#        metric[:-7] for metric in cv_results.columns
-#            if 'train_values' in metric]
-#    metric_train_values = [
-#        metric for metric in cv_results.columns
-#            if 'train_values' in metric]
-#    metric_val_names = [
-#        metric[:-7] for metric in cv_results.columns
-#            if 'val_values' in metric]
-#    metric_val_values = [
-#        metric for metric in cv_results.columns
-#            if 'val_values' in metric]
-#
-#    # Loop over metrics to correct values in training set
-#    df_corr_train = pd.DataFrame()
-#    for name, values in zip(metric_train_names, metric_train_values):
-#        df_corr_train[name] = utils.expand_column(cv_results, values)\
-#            .stack().reset_index()[0]
-#
-#    # Loop over metrics to correct values in validation set
-#    df_corr_val = pd.DataFrame()
-#    for name, values in zip(metric_val_names, metric_val_values):
-#        df_corr_val[name] = utils.expand_column(cv_results, values)\
-#            .stack().reset_index()[0]
-#
-#    # Make line plot
-#    df_corr_train.corr()
-#    plot.plot_heatmap(
-#    df=df_corr_train.corr(),
-#    x_label='Metrics', y_label='Metrics', figsize=(8,6),
-#    annot_kws={'fontsize':10}, annot=True, fmt='.3f', cmap=cmap,
-#    filename=filename+"_train")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

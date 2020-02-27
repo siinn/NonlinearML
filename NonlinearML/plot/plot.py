@@ -82,7 +82,8 @@ def plot_distribution(
     return
 
 def plot_dist_groupby_hue(
-    df, x, group_var, group_title, hue, hue_str, norm=False,
+    df, x, y_label, group_var, group_title, hue, hue_str, norm=False,
+    x_range=None,
     n_subplot_columns=1, n_bins=50, figsize=(20,16), filename="", **kwargs):
     ''' plot distribution of given variable for each group. Seperate plot will
     be generated for each group. 
@@ -90,9 +91,10 @@ def plot_dist_groupby_hue(
     Args:
         df: Pandas dataframe
         x: variable to plot
+        y_label: y-axis label
         group_var: categorical variable for group
         group_title: dictionary that maps group variable to human-recognizable
-            title (45 -> Information technology)
+            title (ex. 45 -> Information technology)
         hue: additional category. seperate distribution will be plotted for
             each hue within the same group plot.
         hue_str: dictionary to map hue value and name.
@@ -116,12 +118,12 @@ def plot_dist_groupby_hue(
         for j, hue_name in enumerate(sorted(df_group[hue].unique())):
             df_hue = df_group.loc[df_group[hue] == hue_name]
             df_hue[x].hist(
-                bins=n_bins, alpha=0.6, ax=ax[i], edgecolor="black",
+                bins=n_bins, ax=ax[i], range=x_range,
                 label=hue_str[hue_name], density=norm, **kwargs)
         # customize plot
         ax[i].set_xlabel(x)
-        ax[i].set_ylabel("n")
-        ax[i].set_title(group_title[i])
+        ax[i].set_ylabel(y_label)
+        ax[i].set_title(group_title[group_name])
         ax[i].grid(False)
         ax[i].legend()
     # customize plot
