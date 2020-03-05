@@ -34,7 +34,7 @@ def setup_axes(fig, rect, rotation, axisScale, axisLimits, doShift):
     return ax, aux_ax
 
 def decision_boundary(
-    model, df, features, colors, rank=False,
+    model, df, features, colors,
     h=0.01, x_label="", y_label="", xlim=False, ylim=False, vmin=None, vmax=None,
     title=False, title_loc='center', annot=False, vlines=[], hlines=[],
     scatter=False, subsample=0.01, scatter_legend=False,
@@ -66,7 +66,6 @@ def decision_boundary(
             in the dataframe.
         dist: Plot distribution of two features.
         n_bins: Number of bins in histogram.
-        rank: If True, prediction is made by ranking the regression output.
         others: plotting option
     Returns:
         None
@@ -173,16 +172,112 @@ def decision_boundary(
     plt.savefig('%s.png' %filename)
 
 
+def decision_boundary_1d(
+    model, df, feature, 
+    h=0.01, x_label="", y_label="", xlim=False, ylim=False,
+    title=False, title_loc='center', annot=False, 
+    scatter=False, subsample=0.01, scatter_legend=False,
+    dist=False, nbins=20,
+    figsize=(8,4), ticks=None,
+    filename="", **kwargs):
+    ''' Plot 1D decision boundary of trained model.
+    Args:
+        model: Fitted model that has .predict method
+        df: input dataframe containing the feature. Used to extract feature
+            domain (mix, max values).
+        feature: single feature of interest
+        h: step size when creating grid
+        annot: Dictionary containing the following:
+            {'x': x coordinateof annotation,
+             'y': y coordinateof annotation,
+             'text': text to display}
+            If False, do not display any annotation. 
+        scatter: Plot data as scatter plot on top of decision boundaries.
+        subsample: subsampling rate used for scatter plot.
+            ex. subsampling=0.1 means only 10% of data will be plotted.
+            Used for scatter plot.
+            If a dataframe is given, scatter plot is created using all samples
+            in the dataframe.
+        dist: Plot distribution of the feature.
+        n_bins: Number of bins in histogram.
+        others: plotting option
+    Returns:
+        None
+    '''
+    io.message("Plotting decision boundary with filename:")
+    io.message("\t" + filename)
+
+    # Get x and y domain
+    if xlim:
+        x_min, x_max = xlim
+    else:
+        x_min, x_max = (df[feature].iloc[:,0].min(),
+                        df[feature].iloc[:,0].max())
+    # Create grid of (x,y) pairs.
+    df_mesh = pd.DataFrame(np.arange(x_min, x_max, h)).rename({0:feature}, axis=1)
+    
+    # Make prediction for each point on grid
+    df_mesh['pred'] = model.predict(df_mesh)
+    
+    # Create figure
+    if not dist:
+        fig, ax = plt.subplots(1,1, figsize=figsize)
+    # Plot distribution of two features
+    elif dist:
+        # Setup subplots
+        fig = plt.subplots(figsize=figsize, sharex=True)
+        ax = plt.subplot2grid((5, 1), (0, 0), rowspan=4, colspan=1)
+        panel = plt.subplot2grid((5, 1), (4, 0), rowspan=1, colspan=1)
+        
+        # Plot feature distribution
+        sns.distplot(
+            df[feature], kde=False, bins=nbins, hist_kws={
+            "histtype": "stepfilled", "linewidth": 1.5,
+            "alpha": 1, "color": "gray", "edgecolor": "black"})
+        # Remove space between subplots
+        ax.get_xaxis().set_visible(False)
+        plt.subplots_adjust(hspace=0.1)
+    
+    # Plot prediction
+    ax.plot(df_mesh[feature], df_mesh['pred'], **kwargs)
+    
+    # Customize plot
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label)
+    if title:
+        ax.set_title(title, loc=title_loc)
+    if xlim:
+        ax.set_xlim(xlim)
+    if ylim:
+        ax.set_ylim(ylim)
+    
+    # Make annotations
+    if annot:
+        # Special treat for linear model
+        if 'Ridge' in str(type(model)):
+            for i, coef in enumerate(model.coef_):
+                annot['text'] = annot['text']+'\ncoefficient %s=%.4f' % (i, coef)
+            annot['text'] = annot['text']+'\nintercept=%.4f' % model.intercept_
+        ax.text(
+            annot['x'], annot['y'], annot['text'],
+            horizontalalignment='left', verticalalignment='top',
+            transform=ax.transAxes)
+    # Create output folder and save figure
+    create_folder(filename)
+    plt.tight_layout()
+    plt.savefig('%s.png' %filename)
 
 
-def decision_boundary_multiple_hparmas(param_grid, label, db_annot_x, db_annot_y, rank=False, **kwargs):
+
+
+
+def decision_boundary_multiple_hparmas(param_grid, label, db_annot_x, db_annot_y, **kwargs):
     ''' Plot decision boundary for each hyperparameter set. This is a wrapper
         of 'decision_boundary' function.
     Args:
         param_grid: Hyperparamater grid to search.
         label: classification label
         db_annot_x, db_annot_y: Location of annotation that displays parameters.
-        rank: If True, prediction is made by ranking the regression output.
         **kwargs:
             Arguments for 'decision_boundary'. Only difference is
             that df must be training data.
@@ -221,7 +316,6 @@ def decision_boundary_multiple_hparmas(param_grid, label, db_annot_x, db_annot_y
                 'text':get_param_string(params).strip('{}')\
                     .replace('\'','').replace(',','\n').replace('\n ', '\n'),
                 'x':db_annot_x, 'y':db_annot_y},
-            rank=rank,
             **kwargs)
     return
 
