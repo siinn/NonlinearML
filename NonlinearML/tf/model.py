@@ -31,13 +31,17 @@ class TensorflowModel:
 
     def get_tfboard(self):
         """ Return tfboard with updated log path."""
-        path = "_".join([
-            self.log_path,
-            self.get_param_string(),
-            str(datetime.now()).replace(' ', '_')]).strip('\'')
-        return tf.keras.callbacks.TensorBoard(
-            log_dir=path,
-            histogram_freq=False, update_freq='epoch')
+        if self.log_path:
+            path = "_".join([
+                self.log_path,
+                self.get_param_string(),
+                str(datetime.now()).replace(' ', '_')]).strip('\'')
+            return tf.keras.callbacks.TensorBoard(
+                log_dir=path,
+                histogram_freq=False, update_freq='epoch')
+        else:
+            return tf.keras.callbacks.TensorBoard(
+                histogram_freq=False, update_freq='epoch')
 
     def get_earlystop(self):
         """ Add early stopping and tfboard to callback"""
