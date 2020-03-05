@@ -382,6 +382,45 @@ def plot_reg(
     plt.close(fig)
     return
 
+def plot_errorbar(
+    df, x, y, error, x_label="", y_label="", figsize=(20,6), filename="",
+    legend=False, leg_loc='center left', legend_title=None, bbox_to_anchor=(1, 0.5),
+    ylim=False, xlim=False, **kwargs):
+    ''' create scatter plot with error bar from given dataframe
+    Args:
+        df: Pandas dataframe
+        x, y: column name
+        others: plotting options
+    Returns:
+        None
+    '''
+    # create figure and axes
+    fig, ax = plt.subplots(1, 1, figsize=figsize, squeeze=True)
+    # plot heatmap
+    if x=='index':
+        ax.errorbar(x=df.index, y=df[y], yerr=df[error], **kwargs)
+    else:
+        ax.errorbar(x=df[x], y=df[y], yerr=df[error], **kwargs)
+    # customize plot
+    ax.set_ylabel(y_label)
+    ax.set_xlabel(x_label)
+    if legend:
+        ax.legend(loc=leg_loc, bbox_to_anchor=bbox_to_anchor, title=legend_title)
+        #Hack to remove the first legend entry (which is the undesired title)
+        vpacker = ax.get_legend()._legend_handle_box.get_children()[0]
+        vpacker._children = vpacker.get_children()[1:]
+    if ylim:
+        ax.set_ylim(ylim)
+    if xlim:
+        ax.set_xlim(xlim)
+    # Create output folder and save figure
+    create_folder(filename)
+    plt.tight_layout()
+    plt.savefig('%s.png' % filename)
+    fig.clear()
+    plt.close(fig)
+    return
+
 def plot_box(
     df, x, y, title, x_label, y_label, ylim=None, figsize=(20,6),
     filename="", **kwargs):
