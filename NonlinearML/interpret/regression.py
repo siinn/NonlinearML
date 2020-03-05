@@ -33,7 +33,7 @@ def regression_surface2D(
         config: Global configuration passed as dictionary
         df_train, df_test: Dataframe in the following format.
             -----------------------------------------------------------------
-            Date_column, feature_x, feature_y, label_reg, label_cla, label_fm
+            Date_column, feature_1, feature_2, label_reg, label_cla, label_fm
             -----------------------------------------------------------------
             2017-01-01  0.01    0.23    -0.24   1.0 0.32
         model: ML model object with the following methods:
@@ -70,16 +70,23 @@ def regression_surface2D(
 
     # Set logging configuration
     io.setConfig(path=output_path, filename="log.txt")
-    io.title('Running two factor regression with factors:')
-    io.message(' > feature x: %s' % config['feature_x'])
-    io.message(' > feature y: %s' % config['feature_y'])
-    io.message(" > Running %s" % model_str)
+    io.title('Running multi-factor regression with factors:')
 
     # Set features of interest
-    features = [config['feature_x'], config['feature_y']]
+    if 'feature_x' in config and 'feature_y' in config:
+        features = [config['feature_x'], config['feature_y']]
+    else:
+        features = config['features']
 
     # Set prediction label
     label=config['label_reg']
+
+    # Print features and label
+    io.message("Features:")
+    for feat in features:
+        io.message(' > %s' % feat)
+    io.message("Label: %s" % label)
+    io.message("Model: %s" % model_str)
     
     #---------------------------------------------------------------------------
     # Perform hyperparameter search using cross-validation
@@ -157,26 +164,30 @@ def regression_surface2D(
 
 
         # Plot decision boundaries of all hyperparameter sets
-        plot_db.decision_boundary_multiple_hparmas(
-            param_grid=param_grid,
-            label=label,
-            label_cla=config['label_cla'],
-            db_annot_x=config['db_annot_x'],
-            db_annot_y=config['db_annot_y'],
-            h=config['db_res'], figsize=config['db_figsize'],
-            x_label=config['feature_x'], y_label=config['feature_y'],
-            colors=config['db_colors'],
-            xlim=config['db_xlim'], ylim=config['db_ylim'],
-            vmin=config['db_vmin'], vmax=config['db_vmax'],
-            #ticks=sorted(list(config['rank_label'].keys())),
-            colorbar=True, ticks=None,
-            scatter=True, subsample=0.01,
-            scatter_legend=False, colors_scatter=config['db_colors_scatter'],
-            dist=True, nbins=config['db_nbins'],
-            model=model,
-            df=df_train,
-            features=features, 
-            filename=output_path+"decision_boundary/overlay_db")
+        if plot_decision_boundary:
+            # Plot 2D decision boundary
+            if len(features)==2:
+                plot_db.decision_boundary_multiple_hparmas(
+                    param_grid=param_grid,
+                    label=label,
+                    label_cla=config['label_cla'],
+                    db_annot_x=config['db_annot_x'],
+                    db_annot_y=config['db_annot_y'],
+                    h=config['db_res'], figsize=config['db_figsize'],
+                    x_label=config['feature_x'], y_label=config['feature_y'],
+                    colors=config['db_colors'],
+                    xlim=config['db_xlim'], ylim=config['db_ylim'],
+                    vmin=config['db_vmin'], vmax=config['db_vmax'],
+                    #ticks=sorted(list(config['rank_label'].keys())),
+                    colorbar=True, ticks=None,
+                    scatter=True, subsample=0.01,
+                    scatter_legend=False,
+                    colors_scatter=config['db_colors_scatter'],
+                    dist=True, nbins=config['db_nbins'],
+                    model=model,
+                    df=df_train,
+                    features=features, 
+                    filename=output_path+"decision_boundary/overlay_db")
     
     #---------------------------------------------------------------------------
     # Prediction
@@ -301,42 +312,60 @@ def regression_surface2D(
     #---------------------------------------------------------------------------
     if plot_decision_boundary:
 
-        # Plot decision boundary of the best model with scattered plot.
-        plot_db.decision_boundary(
-            model=model, df=df_train, features=features, h=config['db_res'],
-            x_label=config['feature_x'], y_label=config['feature_y'],
-            colors=config['db_colors'],
-            xlim=config['db_xlim'], ylim=config['db_ylim'],
-            vmin=config['db_vmin'], vmax=config['db_vmax'],
-            figsize=config['db_figsize'],
-            colorbar=True, ticks=None,
-            annot={
-                'text':utils.get_param_string(best_params).strip('{}')\
-                    .replace('\'','').replace(',','\n').replace('\n ', '\n'),
-                'x':config['db_annot_x'], 'y':config['db_annot_y']},
-            scatter=True, subsample=0.01, label_cla=config['label_cla'],
-            scatter_legend=False, colors_scatter=config['db_colors_scatter'],
-            dist=True, nbins=config['db_nbins'],
-            filename=output_path+"decision_boundary/overlay_db_best_model")
+        # Plot 1D decision boundary
+        if len(features)==1:
+            plot_db.decision_boundary_1d(
+                model=model, df=df_train, feature=features[0], 
+                h=config['db_res'], x_label=features[0], y_label="Prediction",
+                xlim=config['db_xlim'], ylim=config['db_ylim'],
+                annot={
+                    'text':utils.get_param_string(best_params).strip('{}')\
+                        .replace('\'','').replace(',','\n').replace('\n ', '\n'),
+                    'x':config['db_annot_x'], 'y':config['db_annot_y']},
+                scatter=True, subsample=0.01, scatter_legend=False,
+                dist=True, nbins=config['db_nbins'],
+                figsize=config['db_figsize'], ticks=None,
+                filename=output_path+"decision_boundary/overlay_1ddb_best_model")
+
+        # Plot 2D decision boundary
+        if len(features)==2:
+            # Plot decision boundary of the best model with scattered plot.
+            plot_db.decision_boundary(
+                model=model, df=df_train, features=features, h=config['db_res'],
+                x_label=config['feature_x'], y_label=config['feature_y'],
+                colors=config['db_colors'],
+                xlim=config['db_xlim'], ylim=config['db_ylim'],
+                vmin=config['db_vmin'], vmax=config['db_vmax'],
+                figsize=config['db_figsize'],
+                colorbar=True, ticks=None,
+                annot={
+                    'text':utils.get_param_string(best_params).strip('{}')\
+                        .replace('\'','').replace(',','\n').replace('\n ', '\n'),
+                    'x':config['db_annot_x'], 'y':config['db_annot_y']},
+                scatter=True, subsample=0.01, label_cla=config['label_cla'],
+                scatter_legend=False, colors_scatter=config['db_colors_scatter'],
+                dist=True, nbins=config['db_nbins'],
+                filename=output_path+"decision_boundary/overlay_db_best_model")
 
 
-        # Plot decision boundary of the best model without scattered plot.
-        plot_db.decision_boundary(
-            model=model, df=df_train, features=features, h=config['db_res'],
-            x_label=config['feature_x'], y_label=config['feature_y'],
-            colors=config['db_colors'],
-            xlim=config['db_xlim'], ylim=config['db_ylim'],
-            vmin=config['db_vmin'], vmax=config['db_vmax'],
-            figsize=config['db_figsize'],
-            colorbar=True, ticks=None,
-            annot={
-                'text':utils.get_param_string(best_params).strip('{}')\
-                    .replace('\'','').replace(',','\n').replace('\n ', '\n'),
-                'x':config['db_annot_x'], 'y':config['db_annot_y']},
-            scatter=False, subsample=0.01, label_cla=config['label_cla'],
-            scatter_legend=False, colors_scatter=config['db_colors_scatter'],
-            dist=True, nbins=config['db_nbins'],
-            filename=output_path+"decision_boundary/db_best_model")
+            # Plot decision boundary of the best model without scattered plot.
+            plot_db.decision_boundary(
+                model=model, df=df_train, features=features, h=config['db_res'],
+                x_label=config['feature_x'], y_label=config['feature_y'],
+                colors=config['db_colors'],
+                xlim=config['db_xlim'], ylim=config['db_ylim'],
+                vmin=config['db_vmin'], vmax=config['db_vmax'],
+                figsize=config['db_figsize'],
+                colorbar=True, ticks=None,
+                annot={
+                    'text':utils.get_param_string(best_params).strip('{}')\
+                        .replace('\'','').replace(',','\n').replace('\n ', '\n'),
+                    'x':config['db_annot_x'], 'y':config['db_annot_y']},
+                scatter=False, subsample=0.01, label_cla=config['label_cla'],
+                scatter_legend=False, colors_scatter=config['db_colors_scatter'],
+                dist=True, nbins=config['db_nbins'],
+                filename=output_path+"decision_boundary/db_best_model")
+
 
     #---------------------------------------------------------------------------
     # Examine residual
@@ -481,7 +510,7 @@ def regression_surface2D_residual(
         config: Global configuration passed as dictionary
         df_train, df_test: Dataframe in the following format.
             -----------------------------------------------------------------
-            Date_column, feature_x, feature_y, label_reg, label_cla, label_fm
+            Date_column, feature_1, feature_2, label_reg, label_cla, label_fm
             -----------------------------------------------------------------
             2017-01-01  0.01    0.23    -0.24   1.0 0.32
         model: ML model object with the following methods:
@@ -518,16 +547,23 @@ def regression_surface2D_residual(
 
     # Set logging configuration
     io.setConfig(path=output_path, filename="log.txt")
-    io.title('Running two factor regression with factors:')
-    io.message(' > feature x: %s' % config['feature_x'])
-    io.message(' > feature y: %s' % config['feature_y'])
-    io.message(" > Running %s" % model_str)
+    io.title('Running multi-factor regression with factors:')
 
     # Set features of interest
-    features = [config['feature_x'], config['feature_y']]
+    if 'feature_x' in config and 'feature_y' in config:
+        features = [config['feature_x'], config['feature_y']]
+    else:
+        features = config['features']
 
     # Set prediction label
     label=config['label_reg']
+
+    # Print features and label
+    io.message("Features:")
+    for feat in features:
+        io.message(' > %s' % feat)
+    io.message("Label: %s" % label)
+    io.message("Model: %s" % model_str)
     
     #---------------------------------------------------------------------------
     # Perform hyperparameter search using cross-validation
@@ -604,26 +640,30 @@ def regression_surface2D_residual(
 
 
         # Plot decision boundaries of all hyperparameter sets
-        plot_db.decision_boundary_multiple_hparmas(
-            param_grid=param_grid,
-            label=label,
-            label_cla=config['label_cla'],
-            db_annot_x=config['db_annot_x'],
-            db_annot_y=config['db_annot_y'],
-            h=config['db_res'], figsize=config['db_figsize'],
-            x_label=config['feature_x'], y_label=config['feature_y'],
-            colors=config['db_colors'],
-            xlim=config['db_xlim'], ylim=config['db_ylim'],
-            vmin=config['db_vmin'], vmax=config['db_vmax'],
-            #ticks=sorted(list(config['rank_label'].keys())),
-            colorbar=True, ticks=None,
-            scatter=True, subsample=0.01,
-            scatter_legend=False, colors_scatter=config['db_colors_scatter'],
-            dist=True, nbins=config['db_nbins'],
-            model=model,
-            df=df_train,
-            features=features, 
-            filename=output_path+"decision_boundary/overlay_db")
+        if plot_decision_boundary:
+            # Plot 2D decision boundary
+            if len(features)==2:
+                plot_db.decision_boundary_multiple_hparmas(
+                    param_grid=param_grid,
+                    label=label,
+                    label_cla=config['label_cla'],
+                    db_annot_x=config['db_annot_x'],
+                    db_annot_y=config['db_annot_y'],
+                    h=config['db_res'], figsize=config['db_figsize'],
+                    x_label=config['feature_x'], y_label=config['feature_y'],
+                    colors=config['db_colors'],
+                    xlim=config['db_xlim'], ylim=config['db_ylim'],
+                    vmin=config['db_vmin'], vmax=config['db_vmax'],
+                    #ticks=sorted(list(config['rank_label'].keys())),
+                    colorbar=True, ticks=None,
+                    scatter=True, subsample=0.01,
+                    scatter_legend=False,
+                    colors_scatter=config['db_colors_scatter'],
+                    dist=True, nbins=config['db_nbins'],
+                    model=model,
+                    df=df_train,
+                    features=features, 
+                    filename=output_path+"decision_boundary/overlay_db")
     
     
     #---------------------------------------------------------------------------
@@ -668,7 +708,7 @@ def regression_surface2D_residual(
     io.message(' > x1, %s: %s' % ('pred', return_lm.coef_[0]))
     io.message(' > x2, %s: %s' % (config['label_edge'], return_lm.coef_[1]))
     # Predict on training and test data
-    if True:
+    if False:
         pred_train['pred_return'] = return_lm\
             .predict(X=pred_train[[config['label_edge'], 'pred']])
         pred_test['pred_return'] = return_lm\
@@ -783,42 +823,59 @@ def regression_surface2D_residual(
     #---------------------------------------------------------------------------
     if plot_decision_boundary:
 
-        # Plot decision boundary of the best model with scattered plot.
-        plot_db.decision_boundary(
-            model=model, df=df_train, features=features, h=config['db_res'],
-            x_label=config['feature_x'], y_label=config['feature_y'],
-            colors=config['db_colors'],
-            xlim=config['db_xlim'], ylim=config['db_ylim'],
-            vmin=config['db_vmin'], vmax=config['db_vmax'],
-            figsize=config['db_figsize'],
-            colorbar=True, ticks=None,
-            annot={
-                'text':utils.get_param_string(best_params).strip('{}')\
-                    .replace('\'','').replace(',','\n').replace('\n ', '\n'),
-                'x':config['db_annot_x'], 'y':config['db_annot_y']},
-            scatter=True, subsample=0.01, label_cla=config['label_cla'],
-            scatter_legend=False, colors_scatter=config['db_colors_scatter'],
-            dist=True, nbins=config['db_nbins'],
-            filename=output_path+"decision_boundary/overlay_db_best_model")
+        # Plot 1D decision boundary
+        if len(features)==1:
+            plot_db.decision_boundary_1d(
+                model=model, df=df_train, feature=features[0], 
+                h=config['db_res'], x_label=features[0], y_label="Prediction",
+                xlim=config['db_xlim'], ylim=config['db_ylim'],
+                annot={
+                    'text':utils.get_param_string(best_params).strip('{}')\
+                        .replace('\'','').replace(',','\n').replace('\n ', '\n'),
+                    'x':config['db_annot_x'], 'y':config['db_annot_y']},
+                scatter=True, subsample=0.01, scatter_legend=False,
+                dist=True, nbins=config['db_nbins'],
+                figsize=config['db_figsize'], ticks=None,
+                filename=output_path+"decision_boundary/overlay_1ddb_best_model")
+
+        # Plot 2D decision boundary
+        if len(features)==2:
+            # Plot decision boundary of the best model with scattered plot.
+            plot_db.decision_boundary(
+                model=model, df=df_train, features=features, h=config['db_res'],
+                x_label=config['feature_x'], y_label=config['feature_y'],
+                colors=config['db_colors'],
+                xlim=config['db_xlim'], ylim=config['db_ylim'],
+                vmin=config['db_vmin'], vmax=config['db_vmax'],
+                figsize=config['db_figsize'],
+                colorbar=True, ticks=None,
+                annot={
+                    'text':utils.get_param_string(best_params).strip('{}')\
+                        .replace('\'','').replace(',','\n').replace('\n ', '\n'),
+                    'x':config['db_annot_x'], 'y':config['db_annot_y']},
+                scatter=True, subsample=0.01, label_cla=config['label_cla'],
+                scatter_legend=False, colors_scatter=config['db_colors_scatter'],
+                dist=True, nbins=config['db_nbins'],
+                filename=output_path+"decision_boundary/overlay_db_best_model")
 
 
-        # Plot decision boundary of the best model without scattered plot.
-        plot_db.decision_boundary(
-            model=model, df=df_train, features=features, h=config['db_res'],
-            x_label=config['feature_x'], y_label=config['feature_y'],
-            colors=config['db_colors'],
-            xlim=config['db_xlim'], ylim=config['db_ylim'],
-            vmin=config['db_vmin'], vmax=config['db_vmax'],
-            figsize=config['db_figsize'],
-            colorbar=True, ticks=None,
-            annot={
-                'text':utils.get_param_string(best_params).strip('{}')\
-                    .replace('\'','').replace(',','\n').replace('\n ', '\n'),
-                'x':config['db_annot_x'], 'y':config['db_annot_y']},
-            scatter=False, subsample=0.01, label_cla=config['label_cla'],
-            scatter_legend=False, colors_scatter=config['db_colors_scatter'],
-            dist=True, nbins=config['db_nbins'],
-            filename=output_path+"decision_boundary/db_best_model")
+            # Plot decision boundary of the best model without scattered plot.
+            plot_db.decision_boundary(
+                model=model, df=df_train, features=features, h=config['db_res'],
+                x_label=config['feature_x'], y_label=config['feature_y'],
+                colors=config['db_colors'],
+                xlim=config['db_xlim'], ylim=config['db_ylim'],
+                vmin=config['db_vmin'], vmax=config['db_vmax'],
+                figsize=config['db_figsize'],
+                colorbar=True, ticks=None,
+                annot={
+                    'text':utils.get_param_string(best_params).strip('{}')\
+                        .replace('\'','').replace(',','\n').replace('\n ', '\n'),
+                    'x':config['db_annot_x'], 'y':config['db_annot_y']},
+                scatter=False, subsample=0.01, label_cla=config['label_cla'],
+                scatter_legend=False, colors_scatter=config['db_colors_scatter'],
+                dist=True, nbins=config['db_nbins'],
+                filename=output_path+"decision_boundary/db_best_model")
 
 
     #---------------------------------------------------------------------------
