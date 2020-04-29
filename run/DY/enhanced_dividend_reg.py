@@ -42,8 +42,16 @@ pd.options.mode.chained_assignment = None
 # Set configuration
 #-------------------------------------------------------------------------------
 # Set input and output path
-#INPUT_PATH = '/mnt/mainblob/nonlinearML/EnhancedDividend/data/Data_EM_extended.csv'
-INPUT_PATH = '../EnhancedDividend/data/Data_EM_extended.csv'
+INPUT_PATH = '/mnt/mainblob/nonlinearML/EnhancedDividend/data/raw/Data_EM_extended.r3.csv'
+
+# Set features of interest
+feature_x = 'DY_dmed'
+feature_y = 'PO_dmed'
+
+# Set limits of decision boundary
+db_xlim = (-1.5, 3)
+db_ylim = (-3, 3)
+db_res = 0.01
 
 ## Set features of interest
 #feature_x = 'DividendYield'
@@ -60,16 +68,6 @@ INPUT_PATH = '../EnhancedDividend/data/Data_EM_extended.csv'
 #db_xlim = (0, 0.2)
 #db_ylim = (-0.5, 0.5)
 #db_res = 0.0005
-
-# Set features of interest
-feature_x = 'DY_dmed'
-feature_y = 'PO_dmed'
-
-# Set limits of decision boundary
-db_xlim = (-1.5, 3)
-db_ylim = (-3, 3)
-db_res = 0.01
-
 
 ## Set features of interest
 #feature_x = 'DY_dmed'
@@ -111,11 +109,12 @@ security_id = 'SecurityID'
 # Set train and test period
 train_begin = None
 train_end = None
-test_begin = "2012-01-01"
-test_end = "2019-05-01"
+test_begin = "2019-06-01"
+test_end = "2019-12-01"
 
 # Set path to save model
-model_path = 'model/DY/%s_%s/v2/' % (feature_x, feature_y)
+model_tag = 'v1'
+model_path = 'model/DY/%s_%s/%s/' % (feature_x, feature_y, model_tag)
 
 # Cross validation configuration
 train_from_future = True
@@ -220,7 +219,6 @@ if __name__ == "__main__":
     if run_lr:
         # Set parameters to search
         param_grid_lr = {
-            #"alpha": [1] + np.logspace(-4, 4, 10), # C <= 1e-5 doesn't converge
             "alpha": [1] + np.logspace(-2, 3, 10), # C <= 1e-5 doesn't converge
             "fit_intercept": [True]}
 
@@ -287,17 +285,7 @@ if __name__ == "__main__":
             }
         # Set model
         model_xgb = XGBRegressor()
-        #model_xgb_str = 'sensitivity/lambda'
-        #model_xgb_str = 'xgb/presentation'
-        #model_xgb_str = 'xgb/test'
-        #model_xgb_str = 'xgb/k_study/k%s_s%s_e%s_top_v3' %(k, subsample, n_epoch)
-        #model_xgb_str = 'xgb/best_expanding_window'
-        model_xgb_str = 'xgb/single_factor_%s' % feature_x
-        #model_xgb_str = 'xgb/best_fixed_window_2020.02.03'
-        #model_xgb_str = 'xgb/best_fixed_window_k2_e100_s0.5'
-        #model_xgb_str = 'xgb/best_fixed_window_20200120_3'
-        #model_xgb_str = 'xgb/best_fixed_window_v26_k2_e5_s0.5'
-        #model_xgb_str = 'xgb/future_train_%s/k%s' % (train_from_future, k)
+        model_xgb_str = 'xgb/best_fixed_window'
 
         # Run analysis on 2D decision boundary
         rs_xgb = regression.regression_surface2D(
@@ -317,6 +305,7 @@ if __name__ == "__main__":
         utils.create_folder(model_path+"xgb.pickle")
         with open(model_path+"xgb.pickle", "wb") as f:
             pickle.dump(rs_xgb['model'], f)
+        rs_xgb['model'].save_model(model_path+"xgb.%s" % model_tag)
 
 
 
@@ -455,17 +444,15 @@ if __name__ == "__main__":
 
             param_grid = {
                 'learning_rate': [5e-5, 1e-4, 5e-4, 1e-3], #np.logspace(-4,-2,6),
-                #'learning_rate': [1e-4], #np.logspace(-4,-2,6),
                 'metrics': {
-                    #tfmetric.MeanLogSquaredError():'MLSE',
+                    tfmetric.MeanLogSquaredError():'MLSE',
                     tf.keras.metrics.MeanAbsolutePercentageError():'mape'},
                 'loss': {
                     tfloss.MeanLogSquaredError():'MLSE',
-                    #tf.keras.losses.Huber():'Huber',
-                    #tf.keras.losses.MeanAbsolutePercentageError():'mape'
+                    tf.keras.losses.Huber():'Huber',
+                    tf.keras.losses.MeanAbsolutePercentageError():'mape'
                     },
                 'patience': [1, 3, 10], # 3,4,5
-                #'patience': [1], # 3,4,5
                 'epochs': [1000],
                 'validation_split': [0.2],
                 'batch_size': [1024],
@@ -475,7 +462,7 @@ if __name__ == "__main__":
                     ensemble_model2:'[32-0.5-32-0.5-32-0.5-1]*100',
                     ensemble_model3:'[64-0.5-64-0.5-1]*100',
                     ensemble_model4:'[64-0.5-64-0.5-64-0.5-1]*100',
-                    #ensemble_model5:'[128-0.5-128-0.5-1]*100',
+                    ensemble_model5:'[128-0.5-128-0.5-1]*100',
                     },
                 }
 
