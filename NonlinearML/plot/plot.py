@@ -230,13 +230,23 @@ def plot_line_groupby(
         else:
             yerr_group = None
         if list_colors:
-            ax[0].errorbar(x=df_group[x], y=df_group[y], yerr=yerr_group,
-                color=list_colors[i], 
-                label=group_label[name], linewidth=1.0, **kwargs)
+            if x=='index':
+                ax[0].errorbar(x=df_group.index, y=df_group[y], yerr=yerr_group,
+                    color=list_colors[i], 
+                    label=group_label[name], linewidth=1.0, **kwargs)
+            else:
+                ax[0].errorbar(x=df_group[x], y=df_group[y], yerr=yerr_group,
+                    color=list_colors[i], 
+                    label=group_label[name], linewidth=1.0, **kwargs)
         else:
-            ax[0].errorbar(x=df_group[x], y=df_group[y], yerr=yerr_group,
-                linestype=next(line), label=group_label[name],
-                linewidth=1.0, **kwargs)
+            if x=='index':
+                ax[0].errorbar(x=df_group.index, y=df_group[y], yerr=yerr_group,
+                    linestyle=next(line), label=group_label[name],
+                    linewidth=1.0, **kwargs)
+            else:
+                ax[0].errorbar(x=df_group[x], y=df_group[y], yerr=yerr_group,
+                    linestyle=next(line), label=group_label[name],
+                    linewidth=1.0, **kwargs)
         i=i+1
     # customize plot
     if ylog:
