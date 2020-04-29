@@ -32,10 +32,9 @@ def train_test_split_by_date(
         df_test: test dataset
     '''
     # If dates are given in string, convert them into datetime
-    if isinstance(test_begin, str):
-        test_begin = datetime.strptime(test_begin, date_format)
-    if isinstance(test_end, str):
-        test_end = datetime.strptime(test_end, date_format)
+    for date in [train_begin, train_end, test_begin, test_end]:
+        if isinstance(date, str):
+            date = datetime.strptime(date, date_format)
     # Select train and test set
     df_test = df.loc[\
         (df[date_column] >= test_begin)\
