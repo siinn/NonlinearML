@@ -1,5 +1,7 @@
+import pandas as pd
 import numpy as np
 import itertools
+from matplotlib.ticker import AutoMinorLocator
 
 import NonlinearML.lib.io as io
 from NonlinearML.lib.utils import create_folder
@@ -16,6 +18,7 @@ sns = load_seaborn()
 def plot_distribution(
     df, columns, n_rows, n_columns, bins=[], ylog=[], xrange=[], ylim=[],
     title=[], x_label=[], y_label=[], figsize=(10,10), filename="",
+    histtype='step', xticks_minor=False,
     show_sigma=False, vlines=None, **kwargs):
     ''' plot distributions of given columns in a grid of n_rows x n_columns
     subplots.
@@ -47,7 +50,7 @@ def plot_distribution(
         _log = _get_default(ylog, False, i)
         # make plot
         df[col].plot(
-            bins=_bin, ax=ax[i], kind='hist', histtype='step', linewidth=2,
+            bins=_bin, ax=ax[i], kind='hist', histtype=histtype, linewidth=2,
             range=_xrange, **kwargs)
         ax[i].set_xlabel(_xlabel)
         ax[i].set_ylabel(_ylabel)
@@ -56,6 +59,10 @@ def plot_distribution(
             ax[i].set_yscale('log')
         if ylim:
             ax[i].set_ylim(ylim[i])
+        if xticks_minor:
+            ax[i].minorticks_on()
+            ax[i].tick_params(axis='x', which='both')
+            ax[i].xaxis.set_minor_locator(AutoMinorLocator())
         if show_sigma:
             # draw vertical lines showing +- 2 sigma
             ax[i].axvline(
@@ -68,6 +75,7 @@ def plot_distribution(
                 ax[i].axvline(
                     x=vlines[col], color='blue', label='observation',
                     linestyle='-')
+
     # remove extra subplots
     for x in np.arange(len(columns),len(ax),1):
         fig.delaxes(ax[x])
@@ -186,6 +194,7 @@ def plot_dist_hue(
 def plot_line_groupby(
     df, x, y, groupby, group_label, ylog=False, x_label="", y_label="",
     figsize=(20,6), filename="", xlim=None, ylim=None, legend_order=None,
+    grid=False, yerr=None, list_colors=None,
     legend_loc=None, legend_box=(0,-0.2),
     **kwargs):
     ''' create line plot for different group in the same axes.
@@ -193,9 +202,12 @@ def plot_line_groupby(
         df: Pandas dataframe
         x: column used for x
         y: column to plot
+        yerr: column representing uncertainty in y
         groupby: column representing different groups
         group_label: dictionary that maps gruop value to title.
             Example: {0:"AG1", 1:"AG2", etc.}
+        list_colors: (list of string) If specified, the list of colors
+            will be used instead of standard color cycle.
         others: plotting options
     Returns:
         None
@@ -209,15 +221,23 @@ def plot_line_groupby(
     fig, ax = plt.subplots(1, 1, figsize=figsize, squeeze=False)
     ax=ax.flatten()
     line = lines() 
+
+    # make plot
+    i=0
     for name, df_group in df.groupby(by=groupby, sort=True):
-        if x=="index":
-            df_group[y].plot(
-                kind='line', legend=True, label=group_label[name],
-                linewidth=2.0, linestyle=next(line), **kwargs)
+        if yerr:
+            yerr_group = df_group[yerr]
         else:
-            df_group.set_index(x)[y].plot(
-                kind='line', legend=True, label=group_label[name],
-                linewidth=2.0, linestyle=next(line), **kwargs)
+            yerr_group = None
+        if list_colors:
+            ax[0].errorbar(x=df_group[x], y=df_group[y], yerr=yerr_group,
+                color=list_colors[i], 
+                label=group_label[name], linewidth=1.0, **kwargs)
+        else:
+            ax[0].errorbar(x=df_group[x], y=df_group[y], yerr=yerr_group,
+                linestype=next(line), label=group_label[name],
+                linewidth=1.0, **kwargs)
+        i=i+1
     # customize plot
     if ylog:
         ax[0].set_yscale('log')
@@ -227,7 +247,11 @@ def plot_line_groupby(
         ax[0].set_xlim(xlim)
     if ylim:
         ax[0].set_ylim(ylim)
+    if grid:
+        plt.minorticks_on()
+        ax[0].grid(True, which=grid)
     # order legends
+    ax[0].legend()
     if legend_order:
         handles, labels = ax[0].get_legend_handles_labels()
         plt.legend(
@@ -283,9 +307,78 @@ def plot_line_multiple_cols(
     fig.clear()
     plt.close(fig)
     return
+
+def plot_line(
+    df, x, columns, n_rows, n_columns, ylog=[], ylim=[],
+    title=[], x_label=[], y_label=[], figsize=(10,10), filename="",
+    xticks_minor=False, legends=[], grid=None,
+    show_sigma=False, vlines=None, **kwargs):
+    ''' plot line plot of given columns in a grid of n_rows x n_columns
+    subplots.
+    Args:
+        df: Pandas dataframe
+        x: list of indices
+        columns: list of columns of of interest
+        others: plotting options
+    Returns:
+        None
+    '''
+    def _get_default(args, default, i):
+        if not args:
+            return default
+        else:
+            return args[i]
+    # create figure and axis
+    fig, ax = plt.subplots(n_rows, n_columns, figsize=figsize, squeeze=False)
+    ax = ax.flatten()
+    for i, col in enumerate(columns):
+        # set parameters if not specified
+        _title = _get_default(title, col, i)
+        _xlabel = _get_default(x_label, col, i)
+        _ylabel = _get_default(y_label, "n", i)
+        _log = _get_default(ylog, False, i)
+        # make plot
+        if x=="index":
+            #import pdb;pdb.set_trace()
+            df[col].plot(
+                ax=ax[i], kind='line', linewidth=2, label=legends[i],
+                **kwargs)
+        else:
+            df.set_index(x)[col].plot(
+                ax=ax[i], kind='line', linewidth=2, label=legends[i],
+                **kwargs)
+
+        ax[i].set_xlabel(_xlabel)
+        ax[i].set_ylabel(_ylabel)
+        ax[i].set_title(_title)
+        if _log:
+            ax[i].set_yscale('log')
+        if ylim:
+            ax[i].set_ylim(ylim[i])
+        if xticks_minor:
+            ax[i].minorticks_on()
+            ax[i].tick_params(axis='x', which='both')
+            ax[i].xaxis.set_minor_locator(AutoMinorLocator())
+        if grid:
+            ax[i].grid(True, which=grid)
+    # remove extra subplots
+    for x in np.arange(len(columns),len(ax),1):
+        fig.delaxes(ax[x])
+    plt.tight_layout()
+    # Create output folder and save figure
+    create_folder(filename)
+    if filename != "":
+        io.message('Saving figure as "%s.png"' %filename)
+        plt.savefig('%s.png' % filename)
+    fig.clear()
+    plt.close(fig)
+    return
     
 def plot_heatmap(
-    df, x_label, y_label, figsize=(20,6), filename="", cmap="Blues", **kwargs):
+    df, x_label, y_label, figsize=(20,6),
+    df_annot=None,
+    filename="", cmap="Blues",
+    invert_y=False, invert_x=False, rotate_ytick=True, **kwargs):
     ''' create heatmap from given dataframe
     Args:
         df: Pandas dataframe
@@ -300,8 +393,15 @@ def plot_heatmap(
     # customize plot
     ax.set_ylabel(y_label)
     ax.set_xlabel(x_label)
+    # Invert axis
+    if invert_y:
+        ax.invert_yaxis()
+    if invert_x:
+        ax.invert_xaxis()
     # Create output folder and save figure
     create_folder(filename)
+    if rotate_ytick:
+        plt.yticks(rotation=0)
     plt.tight_layout()
     plt.savefig('%s.png' % filename)
     fig.clear()
