@@ -211,7 +211,7 @@ if __name__ == "__main__":
     # Split dataset into train and test dataset
     df_train, df_test = cv.train_test_split_by_date(
         df, date_column, test_begin, test_end,
-        train_begin, train_end)
+        train_begin, train_end, train_from_future=train_from_future)
 
     #---------------------------------------------------------------------------
     # Logistic regression
