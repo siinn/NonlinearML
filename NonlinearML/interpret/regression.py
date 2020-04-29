@@ -206,13 +206,13 @@ def regression_surface2D(
     else:
         pred_train = pred_test = model = None
 
+
     #---------------------------------------------------------------------------
     # Rank prediction by each month
     #---------------------------------------------------------------------------
     pred_train, pred_test = utils.rank_prediction_monthly(
         pred_train=pred_train, pred_test=pred_test,
         config=config, col_pred="pred")
-
 
     #---------------------------------------------------------------------------
     # Model evaluation
