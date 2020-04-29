@@ -139,7 +139,8 @@ def concat_pred_label(df, prediction, columns=[], pred_name='pred'):
 
 
 def discretize_variables_by_month(
-    df, variables, n_classes, class_names, suffix="discrete", month="eom"):
+    df, variables, n_classes, class_names,
+    suffix="discrete", month="eom"):
     ''' Discretize variables by assigning a class within each month. 
     Args:
         df: Pandas dataframe containing variables
@@ -158,7 +159,7 @@ def discretize_variables_by_month(
         df["_".join([var, suffix])] = df.groupby([month])[var]\
             .transform(
                 lambda x: pd.qcut(x.rank(method='first'),
-                    n_classes, class_names))
+                n_classes, class_names))
     return df
 
 
