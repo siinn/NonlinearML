@@ -217,9 +217,9 @@ def regression_surface2D(
     #---------------------------------------------------------------------------
     # Model evaluation
     #---------------------------------------------------------------------------
+    model_evaluation_train  = {}
+    model_evaluation_test  = {}
     if model_evaluation:
-        model_evaluation_train  = {}
-        model_evaluation_test  = {}
     
         # Evaluate by standard metrics
         model_evaluation_train = cv.evaluate_regressor(
@@ -729,9 +729,9 @@ def regression_surface2D_residual(
     #---------------------------------------------------------------------------
     # Model evaluation
     #---------------------------------------------------------------------------
+    model_evaluation_train  = {}
+    model_evaluation_test  = {}
     if model_evaluation:
-        model_evaluation_train  = {}
-        model_evaluation_test  = {}
 
         # Evaluate by standard metrics
         model_evaluation_train = cv.evaluate_regressor(
