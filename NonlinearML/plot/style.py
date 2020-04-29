@@ -22,6 +22,7 @@ def load_matplotlib():
     # Format axis
     plt.rcParams["date.autoformatter.month"] = "%Y-%m"
     plt.rcParams["date.autoformatter.year"] = "%Y-%m"
+    # Format axis
 
     return plt
 
