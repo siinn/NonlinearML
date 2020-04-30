@@ -9,6 +9,7 @@ from NonlinearML.plot.style import load_matplotlib, lines
 from NonlinearML.plot.style import load_matplotlib, load_seaborn, lines
 plt = load_matplotlib()
 sns = load_seaborn()
+pd.plotting.register_matplotlib_converters()
 
 
 
