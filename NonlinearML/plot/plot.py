@@ -234,20 +234,20 @@ def plot_line_groupby(
             if x=='index':
                 ax[0].errorbar(x=df_group.index, y=df_group[y], yerr=yerr_group,
                     color=list_colors[i], 
-                    label=group_label[name], linewidth=1.0, **kwargs)
+                    label=group_label[name], **kwargs)
             else:
                 ax[0].errorbar(x=df_group[x], y=df_group[y], yerr=yerr_group,
                     color=list_colors[i], 
-                    label=group_label[name], linewidth=1.0, **kwargs)
+                    label=group_label[name], **kwargs)
         else:
             if x=='index':
                 ax[0].errorbar(x=df_group.index, y=df_group[y], yerr=yerr_group,
                     linestyle=next(line), label=group_label[name],
-                    linewidth=1.0, **kwargs)
+                    **kwargs)
             else:
                 ax[0].errorbar(x=df_group[x], y=df_group[y], yerr=yerr_group,
                     linestyle=next(line), label=group_label[name],
-                    linewidth=1.0, **kwargs)
+                    **kwargs)
         i=i+1
     # customize plot
     if ylog:
@@ -279,6 +279,7 @@ def plot_line_groupby(
 
 def plot_line_multiple_cols(
     df, x, list_y, legends, x_label, y_label, ylog=False, figsize=(20,6),
+    grid=False,
     filename="", legend_loc=None, legend_box=(0,-0.2), **kwargs):
     ''' Create line plot from multiple columns in the same axes.
     Args:
@@ -313,6 +314,8 @@ def plot_line_multiple_cols(
         ax[0].legend()
     else:
         ax[0].legend(loc=legend_loc, bbox_to_anchor=legend_box)
+    if grid:
+        ax[0].grid(True, which=grid)
     plt.tight_layout()
     plt.savefig('%s.png' % filename)
     fig.clear()
@@ -496,7 +499,7 @@ def plot_reg(
 def plot_errorbar(
     df, x, y, error, x_label="", y_label="", figsize=(20,6), filename="",
     legend=False, leg_loc='center left', legend_title=None, bbox_to_anchor=(1, 0.5),
-    ylim=False, xlim=False, **kwargs):
+    ylim=False, xlim=False, grid=False, **kwargs):
     ''' create scatter plot with error bar from given dataframe
     Args:
         df: Pandas dataframe
@@ -507,7 +510,7 @@ def plot_errorbar(
     '''
     # create figure and axes
     fig, ax = plt.subplots(1, 1, figsize=figsize, squeeze=True)
-    # plot heatmap
+    # plot errorbar
     if x=='index':
         ax.errorbar(x=df.index, y=df[y], yerr=df[error], **kwargs)
     else:
@@ -524,6 +527,9 @@ def plot_errorbar(
         ax.set_ylim(ylim)
     if xlim:
         ax.set_xlim(xlim)
+    if grid:
+        plt.minorticks_on()
+        ax.grid(True, which=grid)
     # Create output folder and save figure
     create_folder(filename)
     plt.tight_layout()
