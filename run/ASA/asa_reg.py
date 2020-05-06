@@ -44,9 +44,8 @@ pd.options.mode.chained_assignment = None
 INPUT_PATH = '../data/ASA/csv/ASA_G2_data.r5.p1.csv'
 
 # Set features of interest
-#feature_x = 'PM_Exp'
+feature_x = 'PM_Exp'
 feature_y = 'Diff_Exp'
-feature_x = feature_y+'_copy'
 
 # Set limits of decision boundary
 db_xlim = (-3, 3)
@@ -65,11 +64,6 @@ db_vmax=0.1
 residual_n_bins = 100
 
 # Set number of bins for ranking
-#rank_n_bins=10
-#rank_label={0:'D1', 1:'D2', 2:'D3', 3:'D4', 4:'D5',5:'D6', 6:'D7', 7:'D8', 8:'D9', 9:'D10'}
-#rank_order=[0,1,2,3,4,5,6,7,8,9]
-#rank_top = 0
-#rank_bottom = 9
 rank_n_bins=5
 rank_label={0:'Q1', 1:'Q2', 2:'Q3', 3:'Q4', 4:'Q5'}
 rank_order=[4,3,2,1,0] # Ascending order
@@ -79,8 +73,8 @@ rank_bottom = 4
 
 # Set path to save output figures
 output_path = 'output/ASA/%s_%s/reg_rank%s/' % (feature_x, feature_y, rank_n_bins)
-#output_path = 'output/test'
-tfboard_path='tf_log/ASA/%s_%s/reg_rank%s/' % (feature_x, feature_y, rank_n_bins)
+#tfboard_path='tf_log/ASA/%s_%s/reg_rank%s/' % (feature_x, feature_y, rank_n_bins)
+tfboard_path=None
 
 # Set output label classes
 label_reg = 'Residual' # continuous target label
@@ -113,8 +107,8 @@ force_val_length = False
 expand_training_window = False
 
 # Set cross-validation configuration
-k = 2     # Must be > 1
-n_epoch = 1
+k = 3     # Must be > 1
+n_epoch = 20
 subsample = 0.7
 purge_length = 3
 
@@ -122,7 +116,7 @@ purge_length = 3
 p_thres = 0.05
 
 # Set metric for training
-cv_metric = ['Top-Bottom', 'r2', 'mape', 'mse', 'mae', 'mlse']
+cv_metric = ['Top-Bottom-std', 'Top-Bottom', 'r2', 'mape', 'mse', 'mae', 'mlse']
 
 # Set color scheme for decision boundary plot
 cmap = matplotlib.cm.get_cmap('RdYlGn')
@@ -133,9 +127,9 @@ db_colors_scatter = [matplotlib.colors.rgb2hex(cmap_scatter(i))
     for i in range(cmap_scatter.N)][::-1]
 
 # Set algorithms to run
-run_lr = True
+run_lr = False
 run_xgb = False
-run_nn = False
+run_nn = True
 run_comparison = False
 save_prediction = False
 
@@ -173,12 +167,6 @@ if __name__ == "__main__":
     #---------------------------------------------------------------------------
     # Read input csv
     df = pd.read_csv(INPUT_PATH, index_col=None, parse_dates=[date_column])
-
-    #---------------------------------------------
-    # TEMPORARY TEST. SET TWO FEATURES EQUAL
-    #df[feature_x+'_copy'] = df[feature_x]
-    df[feature_x] = df[feature_y]
-    #---------------------------------------------
 
     # Discretize target
     df = utils.discretize_variables_by_month(
@@ -231,40 +219,22 @@ if __name__ == "__main__":
     if run_xgb:
         # Set parameters to search
         param_grid_xgb = {
-            #'min_child_weight': [1500, 1000, 500, 100], 
-            #'min_child_weight': [1000, 500], 
-            #'min_child_weight': [750, 500, 100, 50], 
             'min_child_weight': [100], 
-
-            #'max_depth': [3, 10],
             'max_depth': [3],
-
             'eta': [0.3], #[0.3]
-            #'eta': [0.3, 0.6, 0.11, 0.01], #[0.3]
-
-            #'n_estimators': [50],
-            #'n_estimators': [50, 100],
             'n_estimators': [25],
-        
             'gamma': [0], #[0, 5, 10, 20],
-            #'gamma': [1,0.7,0.5,0.3],
-
             'lambda': [1],
-            #'lambda': np.logspace(0, 2, 3), 
-
             'subsample': [1],
-            #'subsample': [0.5, 0.8, 1],
-
             'n_jobs':[-1],
             'objective':[
-                #xgb_obj.log_square_error,
                 'reg:squarederror'
                 ],
             }
 
         # Set model
         model_xgb = XGBRegressor()
-        model_xgb_str = 'sensitivity/xgb/test'
+        model_xgb_str = 'xgb_test'
 
 
         # Run analysis on 2D decision boundary
@@ -286,11 +256,12 @@ if __name__ == "__main__":
     # Neural net
     #---------------------------------------------------------------------------
     if run_nn:
+        N_INPUT = 2
         strategy = tf.distribute.MirroredStrategy()
         with strategy.scope():
             # Define ensemble of weak leaners
             ensemble = []
-            input_layer = tf.keras.Input(shape=(2,))
+            input_layer = tf.keras.Input(shape=(N_INPUT,))
             for i in range(500):
                 weak_learner = tf.keras.layers.Dense(units=32, activation='relu',
                     kernel_initializer=tf.initializers.GlorotUniform())(input_layer)
@@ -302,7 +273,21 @@ if __name__ == "__main__":
             ensemble_model0 = tf.keras.Model(inputs=input_layer, outputs=output_layer)
 
             ensemble = []
-            input_layer = tf.keras.Input(shape=(2,))
+            input_layer = tf.keras.Input(shape=(N_INPUT,))
+            for i in range(500):
+                weak_learner = tf.keras.layers.Dense(units=32, activation='relu',
+                    kernel_initializer=tf.initializers.GlorotUniform(),
+                    kernel_regularizer=tf.keras.regularizers.l2(l=0.01))(input_layer)
+                weak_learner = tf.keras.layers.Dense(units=32, activation='relu',
+                    kernel_initializer=tf.initializers.GlorotUniform(),
+                    kernel_regularizer=tf.keras.regularizers.l2(l=0.01))(weak_learner)
+                ensemble.append(tf.keras.layers.Dense(units=1,
+                    kernel_initializer=tf.initializers.GlorotUniform())(weak_learner))
+            output_layer = tf.keras.layers.Average()(ensemble)
+            ensemble_model0_reg = tf.keras.Model(inputs=input_layer, outputs=output_layer)
+
+            ensemble = []
+            input_layer = tf.keras.Input(shape=(N_INPUT,))
             for i in range(500):
                 weak_learner = tf.keras.layers.Dense(units=32, activation='relu',
                     kernel_initializer=tf.initializers.GlorotUniform())(input_layer)
@@ -316,7 +301,23 @@ if __name__ == "__main__":
             ensemble_model1 = tf.keras.Model(inputs=input_layer, outputs=output_layer)
 
             ensemble = []
-            input_layer = tf.keras.Input(shape=(2,))
+            input_layer = tf.keras.Input(shape=(N_INPUT,))
+            for i in range(500):
+                weak_learner = tf.keras.layers.Dense(units=32, activation='relu',
+                    kernel_initializer=tf.initializers.GlorotUniform(),
+                    kernel_regularizer=tf.keras.regularizers.l2(l=0.01))(input_layer)
+                weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
+                weak_learner = tf.keras.layers.Dense(units=32, activation='relu',
+                    kernel_initializer=tf.initializers.GlorotUniform(),
+                    kernel_regularizer=tf.keras.regularizers.l2(l=0.01))(weak_learner)
+                weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
+                ensemble.append(tf.keras.layers.Dense(units=1,
+                    kernel_initializer=tf.initializers.GlorotUniform())(weak_learner))
+            output_layer = tf.keras.layers.Average()(ensemble)
+            ensemble_model1_reg = tf.keras.Model(inputs=input_layer, outputs=output_layer)
+
+            ensemble = []
+            input_layer = tf.keras.Input(shape=(N_INPUT,))
             for i in range(500):
                 weak_learner = tf.keras.layers.Dense(units=32, activation='relu',
                     kernel_initializer=tf.initializers.GlorotUniform())(input_layer)
@@ -333,7 +334,27 @@ if __name__ == "__main__":
             ensemble_model2 = tf.keras.Model(inputs=input_layer, outputs=output_layer)
 
             ensemble = []
-            input_layer = tf.keras.Input(shape=(2,))
+            input_layer = tf.keras.Input(shape=(N_INPUT,))
+            for i in range(500):
+                weak_learner = tf.keras.layers.Dense(units=32, activation='relu',
+                    kernel_initializer=tf.initializers.GlorotUniform(),
+                    kernel_regularizer=tf.keras.regularizers.l2(l=0.01))(input_layer)
+                weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
+                weak_learner = tf.keras.layers.Dense(units=32, activation='relu',
+                    kernel_initializer=tf.initializers.GlorotUniform(),
+                    kernel_regularizer=tf.keras.regularizers.l2(l=0.01))(weak_learner)
+                weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
+                weak_learner = tf.keras.layers.Dense(units=32, activation='relu',
+                    kernel_initializer=tf.initializers.GlorotUniform(),
+                    kernel_regularizer=tf.keras.regularizers.l2(l=0.01))(weak_learner)
+                weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
+                ensemble.append(tf.keras.layers.Dense(units=1,
+                    kernel_initializer=tf.initializers.GlorotUniform())(weak_learner))
+            output_layer = tf.keras.layers.Average()(ensemble)
+            ensemble_model2_reg = tf.keras.Model(inputs=input_layer, outputs=output_layer)
+
+            ensemble = []
+            input_layer = tf.keras.Input(shape=(N_INPUT,))
             for i in range(500):
                 weak_learner = tf.keras.layers.Dense(units=64, activation='relu',
                     kernel_initializer=tf.initializers.GlorotUniform())(input_layer)
@@ -347,7 +368,7 @@ if __name__ == "__main__":
             ensemble_model3 = tf.keras.Model(inputs=input_layer, outputs=output_layer)
 
             ensemble = []
-            input_layer = tf.keras.Input(shape=(2,))
+            input_layer = tf.keras.Input(shape=(N_INPUT,))
             for i in range(500):
                 weak_learner = tf.keras.layers.Dense(units=64, activation='relu',
                     kernel_initializer=tf.initializers.GlorotUniform())(input_layer)
@@ -364,7 +385,7 @@ if __name__ == "__main__":
             ensemble_model4 = tf.keras.Model(inputs=input_layer, outputs=output_layer)
 
             ensemble = []
-            input_layer = tf.keras.Input(shape=(2,))
+            input_layer = tf.keras.Input(shape=(N_INPUT,))
             for i in range(500):
                 weak_learner = tf.keras.layers.Dense(units=128, activation='relu',
                     kernel_initializer=tf.initializers.GlorotUniform())(input_layer)
@@ -381,7 +402,8 @@ if __name__ == "__main__":
 
             param_grid_nn = {
                 #'learning_rate': [1e-4, 5e-4, 1e-3], #np.logspace(-4,-2,6),
-                'learning_rate': [1e-4], #np.logspace(-4,-2,6),
+                #'learning_rate': [1e-3, 5e-4, 1e-4, 5e-5], #np.logspace(-4,-2,6),
+                'learning_rate': [1e-3], #np.logspace(-4,-2,6),
                 #'patience': [1, 3, 10], # 3,4,5
                 'patience': [1], # 3,4,5
                 'metrics': {
@@ -389,18 +411,22 @@ if __name__ == "__main__":
                     #tf.keras.metrics.MeanAbsolutePercentageError():'mape',
                     },
                 'loss': {
-                    #tfloss.MeanLogSquaredError():'MLSE',
+                    tf.keras.losses.MeanSquaredError():'MSE',
                     #tf.keras.losses.Huber():'Huber',
-                    ##tf.keras.losses.MeanAbsolutePercentageError():'mape',
-                    tf.keras.losses.MeanSquaredError():'MSE'
+                    #tfloss.MeanLogSquaredError():'MLSE',
+                    #tf.keras.losses.MeanAbsoluteError():'MAE',
+                    #tf.keras.losses.MeanAbsolutePercentageError():'mape',
                     },
                 'epochs': [1000],
                 'validation_split': [0.2],
                 'batch_size': [1024],
                 'model': {
-                    ensemble_model0:'[32-32-1]*100',
+                    #ensemble_model0:'[32-32-1]*100',
+                    ensemble_model0_reg:'[32-32-1]*500(L2)',
                     #ensemble_model1:'[32-0.5-32-0.5-1]*100',
+                    #ensemble_model1_reg:'[32-0.5-32-0.5-1]*100(L2)',
                     #ensemble_model2:'[32-0.5-32-0.5-32-0.5-1]*100',
+                    #ensemble_model2_reg:'[32-0.5-32-0.5-32-0.5-1]*500(L2)',
                     #ensemble_model3:'[64-0.5-64-0.5-1]*100',
                     #ensemble_model4:'[64-0.5-64-0.5-64-0.5-1]*100',
                     #ensemble_model5:'[128-0.5-128-0.5-1]*100',
@@ -410,7 +436,7 @@ if __name__ == "__main__":
             # Build model and evaluate
             model_nn = tfmodel.TensorflowModel(
                 model=None, params={}, log_path=tfboard_path, model_type='reg')
-            model_nn_str = 'nn_single_feature'
+            model_nn_str = 'nn.2020.04.16.1.reg'
 
             # Run analysis on 2D decision boundary
             rs_nn = regression.regression_surface2D_residual(
