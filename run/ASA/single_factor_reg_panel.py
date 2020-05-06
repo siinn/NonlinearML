@@ -26,14 +26,15 @@ INPUT_PATH = '../data/ASA/csv/ASA_G2_data.r5.p1.csv'
 
 # Set feature of interest
 #feature = 'PM_Exp'
-#feature = 'Diff_Exp'
+feature = 'Diff_Exp'
 #feature = 'Edge_Adj'
-feature = 'Total_Edge'
+#feature = 'Total_Edge'
 
 # Label
 month_return = "fmRet"
 quater_return = "fqRelRet"
-target = 'Residual'
+#target = 'Residual'
+target = 'fmRet'
 #target = 'fqRelRet'
 
 # Set train and test period
@@ -43,7 +44,7 @@ test_begin = "2011-01-01"
 test_end = "2018-01-01"
 
 # Set output path
-output_path = 'output/ASA/single_factor/reg/%s/' % feature
+output_path = 'output/ASA/single_factor/reg_panel/%s/' % feature
 
 # Set number of classes
 n_classes = 5
@@ -85,21 +86,30 @@ if __name__ == "__main__":
     io.title("Running panel regression on each month:")
     month_index, res = [], []
 
+    # Set constant
+    add_constant = True
+
     for month in sorted([month for month in df[date_column].unique()]):
         mask = df[date_column]==month
         # Fit linear regression on each month
-        lm = sm.OLS(
-            endog=df.loc[mask][target].values,
-            exog=df.loc[mask][feature].values.reshape(-1,1))
+        y = df.loc[mask][target].values
+        x = df.loc[mask][feature].values.reshape(-1,1)
+        if add_constant:
+            x = sm.tools.add_constant(x)
+        lm = sm.OLS(y,x)
         results = lm.fit()
         # Append results
         month_index.append(month)
         # MacKinnon and White’s (1985) heteroskedasticity robust standard errors
         conf = 2 # Error bars will represent 2 sigma
-        res.append([results.params[0], conf*results.HC3_se[0]])
+        if add_constant:
+            res.append([results.params[1], conf*results.HC3_se[0]])
+        else:
+            res.append([results.params[0], conf*results.HC3_se[0]])
 
     df_panel = pd.DataFrame(data=res, index=pd.DatetimeIndex(month_index))\
         .rename({0:"Coeff",1:"StdErr"}, axis=1)
+
 
     #---------------------------------------------------------------------------
     # Make plots
@@ -141,5 +151,10 @@ if __name__ == "__main__":
         df_panel_test['Coeff'].mean(),
         df_panel_test['StdErr'].std()))
 
+    #---------------------------------------------------------------------------
+    # Save results as csv
+    #---------------------------------------------------------------------------
+    df_panel_train.to_csv(output_path+"df_panel_train.csv")
+    df_panel_test.to_csv(output_path+"df_panel_test.csv")
 
     io.message("Successfully completed all tasks!")
