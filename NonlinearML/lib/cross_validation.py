@@ -202,7 +202,7 @@ def get_val_dates(df, k, date_column, force_val_length=False, verbose=False):
 
 
 
-def evaluate_classifier(df, label_cla, y_pred, results):
+def evaluate_classifier(y_true, y_pred, results):
     """ Evaluate classification model by calculating metrics.
     Args:
         df: Pandas dataframe containing prediction
@@ -213,9 +213,9 @@ def evaluate_classifier(df, label_cla, y_pred, results):
         results: updated results
     """
     # Get list of classes
-    classes = sorted([str(x) for x in df[label_cla].unique()])
-    report = classification_report(
-        df[label_cla], y_pred, output_dict=True)
+    classes = sorted([str(x) for x in y_true.unique()])
+    report = classification_report(y_true, y_pred, output_dict=True)
+
     # Append results
     for cls in classes:
         results['%s_f1-score' %cls] =\
@@ -294,8 +294,8 @@ def evaluate_top_bottom_strategy(
 
 
 def evaluate_model(
-    model_type, df, label, label_fm, y_pred, results, date_column,
-    rank_n_bins, rank_order, rank_top, rank_bottom):
+    model_type, df, label, y_pred, results, date_column, label_fm=False, 
+    rank_n_bins=False, rank_order=False, rank_top=False, rank_bottom=False):
     """ Evaluate trained model using pre-defined metrics and append it to
         results. 
             ex. {'r2':[0.01, 0.02], 'mse': [0.001, 0.003]}
@@ -320,7 +320,7 @@ def evaluate_model(
     # Evaluate model
     if model_type=='cla':
         results = evaluate_classifier(
-            df, label, y_pred, results)
+            df[label], y_pred, results)
     if model_type=='reg':
         results = evaluate_regressor(
             df[label].values, y_pred, results)
@@ -335,8 +335,9 @@ def evaluate_model(
     return results
 
 def purged_k_fold_cv(
-    df_train, model, model_type, features, label, label_fm, k,
+    df_train, model, model_type, features, label, k,
     purge_length, embargo_length, n_epoch=1, date_column='eom', subsample=1,
+    label_fm=False,
     rank_n_bins=None, rank_order=None, rank_top=None, rank_bottom=None,
     train_from_future=False, force_val_length=False, verbose=False):
     """ Perform purged k-fold cross-validation. Assumes that data is uniformly
@@ -431,15 +432,17 @@ def purged_k_fold_cv(
             model.fit(X=df_k_train[features], y=df_k_train[label])
             y_pred_val = model.predict(df_k_val[features])
             y_pred_train = model.predict(df_k_train[features])
+
             # Evaluate model
             results_train = evaluate_model(
-                model_type, df_k_train, label, label_fm, y_pred_train,
-                results_train, date_column,
+                model_type, df_k_train, label, y_pred_train,
+                results_train, date_column, label_fm,
                 rank_n_bins, rank_order, rank_top, rank_bottom)
 
             results_val = evaluate_model(
-                model_type, df_k_val, label, label_fm, y_pred_val, results_val,
-                date_column, rank_n_bins, rank_order, rank_top, rank_bottom)
+                model_type, df_k_val, label, y_pred_val, results_val,
+                date_column, label_fm,
+                rank_n_bins, rank_order, rank_top, rank_bottom)
 
     # Return results averaged over k folds
     results_train_mean = {metric:np.array(results_train[metric]).mean()
@@ -591,9 +594,9 @@ def combined_metrics(cv_results, cv_metric):
     return cv_results
 
 def grid_search(
-    df_train, model, model_type, param_grid, features, label, label_fm,
+    df_train, model, model_type, param_grid, features, label,
     k, purge_length, output_path, cv_metric, n_epoch=1, embargo_length=0,
-    date_column='eom', subsample=1, train_from_future=False,
+    label_fm=False, date_column='eom', subsample=1, train_from_future=False,
     rank_n_bins=None, rank_order=None, rank_top=None, rank_bottom=None,
     force_val_length=False, verbose=False):
     ''' Perform grid search using purged cross-validation method. 
