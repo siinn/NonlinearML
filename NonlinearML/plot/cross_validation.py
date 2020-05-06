@@ -88,13 +88,14 @@ def plot_cv_box(cv_results, filename, figsize=(8,5), **kwargs):
         df_values = df_values.transpose().stack().reset_index()
         df_values.rename({'level_1':"model", 0:name}, axis=1, inplace=True)
 
-        # Make box plot
-        plot_box(
-            df=df_values,
-            x='model', y=name, title="Model performance by %s" %name,
-            x_label="Model", y_label=name,
-            ylim=None, figsize=figsize,
-            filename=filename+"_"+name, **kwargs)
+        if len(df_values)>0:
+            # Make box plot
+            plot_box(
+                df=df_values,
+                x='model', y=name, title="Model performance by %s" %name,
+                x_label="Model", y_label=name,
+                ylim=None, figsize=figsize,
+                filename=filename+"_"+name, **kwargs)
     return
 
 
