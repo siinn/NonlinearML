@@ -33,14 +33,16 @@ feature = 'Diff_Exp'
 # Label
 month_return = "fmRet"
 quater_return = "fqRelRet"
-target = 'Residual'
-#target = 'fqRelRet'
+#target = 'Residual'
+target = 'fqRelRet'
 
 # Set train and test period
-train_begin = None
-train_end = None
+#train_begin = None
+#train_end = None
+train_begin = "1996-01-01"
+train_end = "2010-12-31"
 test_begin = "2011-01-01"
-test_end = "2018-01-01"
+test_end = "2017-11-01"
 
 # Set output path
 output_path = 'output/ASA/single_factor/reg/%s/' % feature
@@ -49,7 +51,7 @@ output_path = 'output/ASA/single_factor/reg/%s/' % feature
 n_classes = 5
 
 # Set top and bottom class for calculating return
-inverse_relation = True
+inverse_relation = False
 
 # Set time column
 date_column = 'smDate'
@@ -171,6 +173,26 @@ if __name__ == "__main__":
         .sort_values(date_column, ascending=False).iloc[0]
     for index, value in zip(test_out.index, test_out.values):
         io.message("\t%s:\t\t%s" %(index, value))
+
+
+    #-----------------------------------------------------------------------
+    # Scatter plot
+    #-----------------------------------------------------------------------
+    # Plot prediction vs target
+    plot.plot_reg(
+	df=df_train, x=feature, y=target,
+	x_label=feature, y_label=target,
+	figsize=(10, 10), filename=output_path+'scatter/scatter_train',
+	fit_reg=True, scatter_kws={'linewidth':1, 's':1, 'color':'dodgerblue'},
+	line_kws={'color':'crimson'})
+
+
+    plot.plot_reg(
+	df=df_test, x=feature, y=target,
+	x_label=feature, y_label=target,
+	figsize=(10, 10), filename=output_path+'scatter/scatter_test',
+	fit_reg=True, scatter_kws={'linewidth':1, 's':1, 'color':'dodgerblue'},
+	line_kws={'color':'crimson'})
 
     #-----------------------------------------------------------------------
     # Save output
