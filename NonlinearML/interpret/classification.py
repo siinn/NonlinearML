@@ -101,6 +101,7 @@ def decision_boundary2D(
             features=features, label=label, label_fm=config['label_fm'],
             date_column=config['date_column'],
             k=config['k'], purge_length=config['purge_length'],
+            cv_metric=config['cv_metric'],
             output_path=output_path+"cross_validation/",
             verbose=False)
 
@@ -148,8 +149,9 @@ def decision_boundary2D(
             colors=config['db_colors'],
             xlim=config['db_xlim'], ylim=config['db_ylim'],
             colorbar=False, ticks=None,
-            scatter=True, subsample=0.01,
+            scatter=True, subsample=0.999,
             scatter_legend=False,
+            colors_scatter=config['db_colors_scatter'],
             dist=True, nbins=config['db_nbins'],
             model=model,
             df=df_train,
@@ -161,12 +163,15 @@ def decision_boundary2D(
     #---------------------------------------------------------------------------
     # Make prediction using best parameters
     if run_backtest or plot_decision_boundary:
+        add_column= [config['label_cla']]
+        if config['label_fm']:
+            add_column = add_column + [config['label_fm']]
         pred_train, pred_test, model = utils.predict(
                 model=model.set_params(**best_params),
                 df_train=df_train, df_test=df_test, features=features,
                 date_column=config['date_column'],
-                label=label, rank=rank,
-                cols=[config['label_fm']])
+                label=label,
+                cols=add_column)
     else:
         pred_train = pred_test = model = None
 
@@ -176,35 +181,18 @@ def decision_boundary2D(
     if model_evaluation:
         model_evaluation_train  = {}
         model_evaluation_test  = {}
-    
-        """ NEED TO IMPLEMENT THIS"""
-        ## Evaluate by standard metrics
-        #model_evaluation_train = cv.evaluate_classifier(
-        #    df=pred_train, label_cla=config['label_cla'],
-        #    y_pred=pred_train['pred'], results=model_evaluation_train)
-    
-        #model_evaluation_test = cv.evaluate_classifier(
-        #    df=pred_test, label_cla=config['label_cla'],
-        #    y_pred=pred_test['pred'], results=model_evaluation_test)
-    
-        # Evaluate by top-bottom strategy
-        """ NEED TO IMPLEMENT THIS"""
-        #model_evaluation_train = cv.evaluate_top_bottom_strategy(
-        #    df=pred_train,
-        #    date_column=config['date_column'],
-        #    label=config['label_fm'], y_pred=pred_train['pred'],
-        #    rank_n_bins=config['rank_n_bins'], rank_label=config['rank_label'],
-        #    rank_top=config['rank_top'], rank_bottom=config['rank_bottom'],
-        #    results=model_evaluation_train)
-    
-        #model_evaluation_test = cv.evaluate_top_bottom_strategy(
-        #    df=pred_test,
-        #    date_column=config['date_column'],
-        #    label=config['label_fm'], y_pred=pred_test['pred'],
-        #    rank_n_bins=config['rank_n_bins'], rank_label=config['rank_label'],
-        #    rank_top=config['rank_top'], rank_bottom=config['rank_bottom'],
-        #    results=model_evaluation_test)
 
+        # Evaluate by standard metrics
+        model_evaluation_train = cv.evaluate_classifier(
+            pred_train[config['label_cla']],
+            pred_train['pred'],
+            model_evaluation_train)
+    
+        model_evaluation_test = cv.evaluate_classifier(
+            pred_test[config['label_cla']],
+            pred_test['pred'],
+            model_evaluation_test)
+    
     #---------------------------------------------------------------------------
     # Backtesting
     #---------------------------------------------------------------------------
@@ -266,16 +254,16 @@ def decision_boundary2D(
             colors=config['db_colors'],
             xlim=config['db_xlim'], ylim=config['db_ylim'], figsize=config['db_figsize'],
             vmin=config['db_vmin'], vmax=config['db_vmax'],
-            colorbar=False, ticks=None,
+            colorbar=True, ticks=None,
             annot={
                 'text':utils.get_param_string(best_params).strip('{}')\
                     .replace('\'','').replace(',','\n').replace('\n ', '\n'),
                 'x':config['db_annot_x'], 'y':config['db_annot_y']},
-            scatter=True, subsample=0.01, label_cla=config['label_cla'],
-            scatter_legend=False,
+            scatter=True, subsample=0.999, label_cla=config['label_cla'],
+            scatter_legend=True, colors_scatter=config['db_colors_scatter'],
             dist=True, nbins=config['db_nbins'],
             filename=output_path+"decision_boundary/overlay_db_best_model",
-            rank=rank)
+            )
 
 
         # Plot decision boundary of the best model.
@@ -290,11 +278,11 @@ def decision_boundary2D(
                 'text':utils.get_param_string(best_params).strip('{}')\
                     .replace('\'','').replace(',','\n').replace('\n ', '\n'),
                 'x':config['db_annot_x'], 'y':config['db_annot_y']},
-            scatter=False, subsample=0.01, label_cla=config['label_cla'],
-            scatter_legend=False,
+            scatter=False, subsample=0.999, label_cla=config['label_cla'],
+            scatter_legend=False, colors_scatter=config['db_colors_scatter'],
             dist=True, nbins=config['db_nbins'],
             filename=output_path+"decision_boundary/db_best_model",
-            rank=rank)
+            )
 
 
 
