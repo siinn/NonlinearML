@@ -44,8 +44,6 @@ pd.options.mode.chained_assignment = None
 INPUT_PATH = '../data/ASA/csv/ASA_G2_data.r5.p1.csv'
 
 # Set features of interest
-#feature_x = 'PM_Exp'
-#feature_y = 'Diff_Exp'
 features = ['PM_Exp']
 #features = ['Diff_Exp']
 
@@ -298,89 +296,10 @@ if __name__ == "__main__":
                     kernel_initializer=tf.initializers.GlorotUniform())(weak_learner))
             output_layer = tf.keras.layers.Average()(ensemble)
             ensemble_model0 = tf.keras.Model(inputs=input_layer, outputs=output_layer)
-
-            ensemble = []
-            input_layer = tf.keras.Input(shape=(N_INPUT,))
-            for i in range(500):
-                weak_learner = tf.keras.layers.Dense(units=32, activation='relu',
-                    kernel_initializer=tf.initializers.GlorotUniform())(input_layer)
-                weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
-                weak_learner = tf.keras.layers.Dense(units=32, activation='relu',
-                    kernel_initializer=tf.initializers.GlorotUniform())(weak_learner)
-                weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
-                ensemble.append(tf.keras.layers.Dense(units=1,
-                    kernel_initializer=tf.initializers.GlorotUniform())(weak_learner))
-            output_layer = tf.keras.layers.Average()(ensemble)
-            ensemble_model1 = tf.keras.Model(inputs=input_layer, outputs=output_layer)
-
-            ensemble = []
-            input_layer = tf.keras.Input(shape=(N_INPUT,))
-            for i in range(500):
-                weak_learner = tf.keras.layers.Dense(units=32, activation='relu',
-                    kernel_initializer=tf.initializers.GlorotUniform())(input_layer)
-                weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
-                weak_learner = tf.keras.layers.Dense(units=32, activation='relu',
-                    kernel_initializer=tf.initializers.GlorotUniform())(weak_learner)
-                weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
-                weak_learner = tf.keras.layers.Dense(units=32, activation='relu',
-                    kernel_initializer=tf.initializers.GlorotUniform())(weak_learner)
-                weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
-                ensemble.append(tf.keras.layers.Dense(units=1,
-                    kernel_initializer=tf.initializers.GlorotUniform())(weak_learner))
-            output_layer = tf.keras.layers.Average()(ensemble)
-            ensemble_model2 = tf.keras.Model(inputs=input_layer, outputs=output_layer)
-
-            ensemble = []
-            input_layer = tf.keras.Input(shape=(N_INPUT,))
-            for i in range(500):
-                weak_learner = tf.keras.layers.Dense(units=64, activation='relu',
-                    kernel_initializer=tf.initializers.GlorotUniform())(input_layer)
-                weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
-                weak_learner = tf.keras.layers.Dense(units=64, activation='relu',
-                    kernel_initializer=tf.initializers.GlorotUniform())(weak_learner)
-                weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
-                ensemble.append(tf.keras.layers.Dense(units=1,
-                    kernel_initializer=tf.initializers.GlorotUniform())(weak_learner))
-            output_layer = tf.keras.layers.Average()(ensemble)
-            ensemble_model3 = tf.keras.Model(inputs=input_layer, outputs=output_layer)
-
-            ensemble = []
-            input_layer = tf.keras.Input(shape=(N_INPUT,))
-            for i in range(500):
-                weak_learner = tf.keras.layers.Dense(units=64, activation='relu',
-                    kernel_initializer=tf.initializers.GlorotUniform())(input_layer)
-                weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
-                weak_learner = tf.keras.layers.Dense(units=64, activation='relu',
-                    kernel_initializer=tf.initializers.GlorotUniform())(weak_learner)
-                weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
-                weak_learner = tf.keras.layers.Dense(units=64, activation='relu',
-                    kernel_initializer=tf.initializers.GlorotUniform())(weak_learner)
-                weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
-                ensemble.append(tf.keras.layers.Dense(units=1,
-                    kernel_initializer=tf.initializers.GlorotUniform())(weak_learner))
-            output_layer = tf.keras.layers.Average()(ensemble)
-            ensemble_model4 = tf.keras.Model(inputs=input_layer, outputs=output_layer)
-
-            ensemble = []
-            input_layer = tf.keras.Input(shape=(N_INPUT,))
-            for i in range(500):
-                weak_learner = tf.keras.layers.Dense(units=128, activation='relu',
-                    kernel_initializer=tf.initializers.GlorotUniform())(input_layer)
-                weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
-                weak_learner = tf.keras.layers.Dense(units=128, activation='relu',
-                    kernel_initializer=tf.initializers.GlorotUniform())(weak_learner)
-                weak_learner = tf.keras.layers.Dropout(0.5)(weak_learner)
-                ensemble.append(tf.keras.layers.Dense(units=1,
-                    kernel_initializer=tf.initializers.GlorotUniform())(weak_learner))
-            output_layer = tf.keras.layers.Average()(ensemble)
-            ensemble_model5 = tf.keras.Model(inputs=input_layer, outputs=output_layer)
-
             #-------------------------------------------------------------------
 
             param_grid_nn = {
-                #'learning_rate': [1e-4, 5e-4, 1e-3], #np.logspace(-4,-2,6),
-                'learning_rate': [1e-3, 5e-4, 1e-4, 5e-5], #np.logspace(-4,-2,6),
-                #'patience': [1, 3, 10], # 3,4,5
+                'learning_rate': [1e-3, 5e-4, 1e-4], #np.logspace(-4,-2,6),
                 'patience': [1], # 3,4,5
                 'metrics': {
                     tfmetric.MeanLogSquaredError():'MLSE',
@@ -398,18 +317,13 @@ if __name__ == "__main__":
                 'batch_size': [1024],
                 'model': {
                     ensemble_model0:'[32-32-1]*500',
-                    #ensemble_model1:'[32-0.5-32-0.5-1]*500',
-                    ensemble_model2:'[32-0.5-32-0.5-32-0.5-1]*500',
-                    ensemble_model3:'[64-0.5-64-0.5-1]*100',
-                    #ensemble_model4:'[64-0.5-64-0.5-64-0.5-1]*100',
-                    #ensemble_model5:'[128-0.5-128-0.5-1]*100',
                     },
                 }
 
             # Build model and evaluate
             model_nn = tfmodel.TensorflowModel(
                 model=None, params={}, log_path=tfboard_path, model_type='reg')
-            model_nn_str = 'nn.2020.03.04.2'
+            model_nn_str = 'nn'
 
             # Run analysis on 2D decision boundary
             rs_nn = regression.regression_surface2D_residual(
