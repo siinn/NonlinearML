@@ -1,4 +1,4 @@
-# # Import xgboost
+# Import xgboost
 """ You need xgboost 0.90 version. Please specify version when you install the
 library.
     pip install xgboost==0.90

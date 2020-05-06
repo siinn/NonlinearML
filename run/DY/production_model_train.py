@@ -63,7 +63,7 @@ standardize_label = True
 winsorize_lower = 0.01
 winsorize_upper = 0.99
 
-# Set data column
+# Set date column
 date_column = "smDate"
 
 # Set security ID column
