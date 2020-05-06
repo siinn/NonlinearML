@@ -365,7 +365,7 @@ if __name__ == "__main__":
 
             # Build model and evaluate
             model = tfmodel.TensorflowModel(
-                model=None, params={}, log_path=tfboard_path)
+                model=None, params={}, log_path=tfboard_path, model_type='cla')
             model_str = 'nn'
 
             # Run analysis on 2D decision boundary
