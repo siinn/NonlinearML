@@ -44,6 +44,9 @@ Conda environment is recommended to run this package.
  ```
 
 # Version history
+## 1.04
+- Final version by Siinn Che
+
 ## 1.03
 - Fixed a bug on backtesting. Now replaced dictionary with list to specify top-bottom class so that it avoids potential mis-calculation of return
 - Updated single factor model
