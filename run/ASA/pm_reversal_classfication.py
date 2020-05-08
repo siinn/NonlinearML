@@ -130,9 +130,9 @@ N_CLASS=2
 db_colors_scatter = ['white', 'crimson']
 
 # Set algorithms to run
-run_lr = False
+run_lr = True
 run_xgb = False
-run_nn = True
+run_nn = False
 save_prediction = False
 
 #-------------------------------------------------------------------------------

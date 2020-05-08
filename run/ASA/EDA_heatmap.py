@@ -33,9 +33,6 @@ test_end = "2018-01-01"
 # Set
 time = 'smDate'
 
-# return label
-#month_return = "fqRelRet"
-
 # colors map
 cmap = matplotlib.cm.get_cmap('RdYlGn', 100)
 colors = [matplotlib.colors.rgb2hex(cmap(i)) for i in range(cmap.N)]
@@ -64,23 +61,25 @@ if __name__ == "__main__":
     df_all = pd.read_csv(input_path, parse_dates=[time])
 
     # Calculate relative forward month return
-    FM_REL_RETURN = 'fmRelRet'
-    #FQ_REL_RETURN = 'fqRelRet_Rel'
+    FM_REL_RETURN = 'fmRet'
     FQ_REL_RETURN = 'fqRelRet'
-    df_all[FM_REL_RETURN] = df_all.groupby('smDate')\
-            .apply(
-                lambda x:x['fmRet']- x['fmRet']\
-                        .mean()).reset_index()['fmRet']
+
+    # If True, FM return is standardized each month
+    if False:
+        df_all[FM_REL_RETURN] = df_all.groupby('smDate')\
+                .apply(
+                    lambda x:x['fmRet']- x['fmRet']\
+                            .mean()).reset_index()['fmRet']
 
     # Split dataset into train and test dataset
     df_train, df_test = cv.train_test_split_by_date(
         df_all, time, test_begin, test_end)
 
     # Split training set into two period
-	second_half_begin = "2001-01-01"
-	second_half_end = "2018-01-01"
-	df_train1, df_train2 = cv.train_test_split_by_date(
-		df_train, time, second_half_begin, second_half_end)
+    second_half_begin = "2001-01-01"
+    second_half_end = "2018-01-01"
+    df_train1, df_train2 = cv.train_test_split_by_date(
+        df_train, time, second_half_begin, second_half_end)
 
 
 
@@ -88,7 +87,7 @@ if __name__ == "__main__":
     # Loop over different number of bins
     #---------------------------------------------------------------------------
     #for n_classes in [3, 5, 10]:
-    for n_classes in [3]:
+    for n_classes in [5]:
 
         #-----------------------------------------------------------------------
         # Heaetmap of average return
@@ -103,13 +102,11 @@ if __name__ == "__main__":
 
         # Set min and max of color bar
         vrange = {
-                'fmRelRet'         :(-0.01, 0.01),
                 FM_REL_RETURN   :(-0.01, 0.01),
+                FQ_REL_RETURN   :(-0.01, 0.01),
                 'Total_Edge'    :(-0.01, 0.01),
                 'Edge_Adj'      :(-0.01, 0.01),
                 'Residual'      :(-0.01, 0.01),
-                'fqRelRet'      :(-0.01, 0.01),
-                FQ_REL_RETURN   :(-0.01, 0.01),
                 }
 
         # Name of discretized features
@@ -146,10 +143,8 @@ if __name__ == "__main__":
             df_std_median = {}
             df_median = {}
 
-            #for z in ['fmRelRet', FM_REL_RETURN, 'fqRelRet', FQ_REL_RETURN,
-            #        'Total_Edge', 'Edge_Adj', 'Residual']:
-            #for z in ['fmRelRet', 'fqRelRet']:
-            for z in ['fqRelRet']:
+            for z in [FM_REL_RETURN, FQ_REL_RETURN,
+                    'Total_Edge', 'Edge_Adj', 'Residual']:
                 #---------------------------------------------------------------
                 # Heatmap of average
                 #---------------------------------------------------------------

@@ -32,7 +32,7 @@ plot_path = 'output/ASA/EDA/dist/'
 
 # Select algorithm to run    
 impute_data             = True
-run_eda                 = False
+run_eda                 = True
 calculate_residual      = False
 save_output             = False
 

@@ -108,7 +108,7 @@ expand_training_window = False
 
 # Set cross-validation configuration
 k = 3     # Must be > 1
-n_epoch = 20
+n_epoch = 5
 subsample = 0.7
 purge_length = 3
 
@@ -127,9 +127,9 @@ db_colors_scatter = [matplotlib.colors.rgb2hex(cmap_scatter(i))
     for i in range(cmap_scatter.N)][::-1]
 
 # Set algorithms to run
-run_lr = False
+run_lr = True
 run_xgb = False
-run_nn = True
+run_nn = False
 run_comparison = False
 save_prediction = False
 

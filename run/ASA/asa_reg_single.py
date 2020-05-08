@@ -133,9 +133,9 @@ db_colors_scatter = [matplotlib.colors.rgb2hex(cmap_scatter(i))
     for i in range(cmap_scatter.N)][::-1]
 
 # Set algorithms to run
-run_lr = False
+run_lr = True
 run_xgb = False
-run_nn = True
+run_nn = False
 run_comparison = False
 save_prediction = False
 
